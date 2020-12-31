@@ -1,9 +1,1 @@
-orderbackend
-=====
-
-An OTP application
-
-Build
------
-
-    $ rebar3 compile
+Erlang Order backend rewrite
