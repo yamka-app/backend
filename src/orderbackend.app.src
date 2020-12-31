@@ -1,0 +1,16 @@
+{application, orderbackend,
+ [{description, "Erlang Order backend rewrite"},
+  {vsn, "0.0.1"},
+  {registered, []},
+  {mod, {orderbackend_app, []}},
+  {applications,
+   [kernel,
+    stdlib,
+    cqerl
+   ]},
+  {env,[]},
+  {modules, []},
+
+  {licenses, ["MPL 2.0"]},
+  {links, []}
+ ]}.
