@@ -3,24 +3,27 @@
 -license("MPL-2.0").
 -description("Accepts TLS clients").
 
--export([normal_listener/4]).
+-export([normal_listener/3]).
 
 -define(NormalPort, 1746).
 
-normal_listener_loop(Socket, CasLogin, CasPass) ->
+normal_listener_loop(Socket, Cassandra) ->
     % accept the client and spawn the client loop
     { ok, TransportSocket } = ssl:transport_accept(Socket),
-    spawn(normal_client, client_init, [TransportSocket, CasLogin, CasPass]),
+    spawn(normal_client, client_init, [TransportSocket, Cassandra]),
 
-    normal_listener_loop(Socket, CasLogin, CasPass).
+    normal_listener_loop(Socket, Cassandra).
 
-normal_listener(CasLogin, CasPass, CertPath, KeyPath) ->
+normal_listener(Cassandra, CertPath, KeyPath) ->
     % listen for new clients
     { ok, ListenSocket } = ssl:listen(?NormalPort, [
-        { certfile, CertPath },
-        { keyfile,  KeyPath }
+        { certfile,   CertPath },
+        { cacertfile, CertPath },
+        { keyfile,    KeyPath },
+        { verify,     verify_none },
+        { reuseaddr,  true}
        ]),
 
     logging:log("Normal server listening on port ~w", [?NormalPort]),
 
-    normal_listener_loop(ListenSocket, CasLogin, CasPass).
+    normal_listener_loop(ListenSocket, Cassandra).

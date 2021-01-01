@@ -3,20 +3,18 @@
 -license("MPL-2.0").
 -description("\"Normal protocol\" client thread").
 
--export([client_init/3]).
+-export([client_init/2]).
 
 client_loop(Socket, Cassandra) ->
+    
     client_loop(Socket, Cassandra).
 
 % client init function
-client_init(TransportSocket, CasLogin, CasPass) ->
+client_init(TransportSocket, Cassandra) ->
     % finish the handshake
     { ok, Socket } = ssl:handshake(TransportSocket),
-    { ok, { ClientIP, _} } = ssl:peername(Socket),
+    { ok, { ClientIP, _ } } = ssl:peername(Socket),
     logging:log("~w connected to the normal server", [ClientIP]),
-
-    % connect to the Cassandra cluster
-    { ok, Cassandra } = cqerl:get_client({}, [{auth, {cqerl_auth_plain_handler, [{CasLogin, CasPass}]}}]),
 
     % run the client loop
     client_loop(Socket, Cassandra).
