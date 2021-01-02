@@ -21,7 +21,9 @@ normal_listener(Cassandra, CertPath, KeyPath) ->
         { cacertfile, CertPath },
         { keyfile,    KeyPath },
         { verify,     verify_none },
-        { reuseaddr,  true}
+        { reuseaddr,  true },
+        { versions,   ['tlsv1.2', 'tlsv1.3'] },
+        { active,     false }
        ]),
 
     logging:log("Normal server listening on port ~w", [?NormalPort]),

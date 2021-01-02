@@ -30,7 +30,7 @@ start(_StartType, _StartArgs) ->
        ]),
 
     receive
-        die -> ok
+        _ -> ok
     end.
 
 stop(_State) ->
