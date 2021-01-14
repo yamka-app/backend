@@ -2,8 +2,11 @@
 -author("Order").
 -license("MPL-2.0").
 
--export([decode/1]).
+-export([decode/2]).
 
-decode(Payload) ->
-    4 = byte_size(Payload),
-    { ok, #{ protocol => datatypes:dec_num(binary:part(Payload, 0, 4)) } }.
+decode(Payload, Proto) ->
+    5 = byte_size(Payload),
+    #{
+        protocol      => datatypes:dec_num(binary:part(Payload, 0, 4)),
+        supports_comp => datatypes:dec_bool(binary:part(Payload, 4, 1))
+    }.

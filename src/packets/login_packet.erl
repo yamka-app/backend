@@ -2,10 +2,10 @@
 -author("Order").
 -license("MPL-2.0").
 
--export([decode/1]).
+-export([decode/2]).
 
-decode(Payload) ->
-    Login    = datatypes:dec_str(Payload),
-    LoginLen = datatypes:len_str(Payload),
-    Password = datatypes:dec_str(binary:part(Payload, LoginLen, byte_size(Payload) - LoginLen)),
-    #{ login => Login, password => Password }.
+decode(Payload, ProtocolVersion) when ProtocolVersion >= 5 ->
+    Email    = datatypes:dec_str(Payload),
+    EmailLen = datatypes:len_str(Payload),
+    Password = datatypes:dec_str(binary:part(Payload, EmailLen, byte_size(Payload) - EmailLen)),
+    #{ email => Email, password => Password }.

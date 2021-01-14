@@ -1,4 +1,4 @@
--record(packet, { type, seq, reply, fields }).
+-record(packet, { type=unknown, seq=0, reply=0, fields=#{} }).
 
 -define(PACKET_TYPE_MAP, #{
     1  => login,
@@ -15,8 +15,8 @@
 }).
 
 -define(STATUS_CODE_MAP, #{
-    outdated                      => 1,
-    invlid_connection_state       => 2,
+    unsupported_proto             => 1,
+    invalid_connection_state      => 2,
     login_error                   => 3,
     mfa_required                  => 4,
     login_success                 => 5,
