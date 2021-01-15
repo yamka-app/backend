@@ -1,4 +1,4 @@
--record(packet, { type=unknown, seq=0, reply=0, fields=#{} }).
+-record(packet, { type=unknown, seq=0, reply=0, captcha="", fields=#{} }).
 
 -define(PACKET_TYPE_MAP, #{
     1  => login,
