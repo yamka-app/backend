@@ -13,100 +13,95 @@
 -export([client_init/2]).
 
 %% handles client packets
-handle_packet(Packet, ScopeRef) when Packet#packet.type == identification ->
-    { _, awaiting_identification } = { { ScopeRef, status_packet:make_invalid_state(awaiting_identification, Packet) }, get(state) },
-    Fields = Packet#packet.fields,
-    Protocol = maps:get(protocol, Fields),
+handle_packet(#packet{type=identification, seq=Seq,
+                      fields=#{supports_comp:=SupportsComp,
+                               protocol     := Protocol}}, ScopeRef) ->
+    { _, awaiting_identification } = { { ScopeRef, status_packet:make_invalid_state(awaiting_identification, Seq) }, get(state) },
     if
         (Protocol > ?MAX_PROTO) or (Protocol < ?MIN_PROTO) ->
-            status_packet:make(unsupported_proto, "Unsupported protocol version", Packet);
+            status_packet:make(unsupported_proto, "Unsupported protocol version", Seq);
         true -> 
             put(protocol, Protocol),
-            put(supports_comp, maps:get(supports_comp, Fields)),
+            put(supports_comp, SupportsComp),
             put(state, awaiting_login),
             none
     end;
 
-handle_packet(Packet, ScopeRef) when Packet#packet.type == login ->
+handle_packet(#packet{type=login, seq=Seq,
+                      fields=#{email   :=Email,
+                               password:=SentPass}}, ScopeRef) ->
     % ensure proper connection state
-    { _, awaiting_login } = { { ScopeRef, status_packet:make_invalid_state(awaiting_login, Packet) }, get(state) },
-    Fields = Packet#packet.fields,
+    { _, awaiting_login } = { { ScopeRef, status_packet:make_invalid_state(awaiting_login, Seq) }, get(state) },
     % rate limiting
-    { _, 1 } = { { ScopeRef, status_packet:make_rate_limiting(Packet) }, ratelimit:hit(login) },
+    { _, 1 } = { { ScopeRef, status_packet:make_rate_limiting(Seq) }, ratelimit:hit(login) },
     % get the user and ensure they're the only one with this email (could be none)
     { ok, User } = cqerl:run_query(get(cassandra), #cql_query{
         statement = "SELECT salt, password, mfa_secret, id FROM users WHERE email=?",
-        values    = [{ email, maps:get(email, Fields) }]
+        values    = [{ email, Email }]
     }),
-    { _, 1 } = { { ScopeRef, status_packet:make(login_error, "Invalid E-Mail", Packet) }, cqerl:size(User) },
+    { _, 1 } = { { ScopeRef, status_packet:make(login_error, "Invalid E-Mail", Seq) }, cqerl:size(User) },
     Row = cqerl:head(User),
     % check the password the user sent us
-    SentPass  = maps:get(password, Fields),
     Salt      = proplists:get_value(salt, Row),
     Password  = proplists:get_value(password, Row),
     MfaSecret = proplists:get_value(mfa_secret, Row),
-    { _, Password } = { { ScopeRef, status_packet:make(login_error, "Invalid password", Packet) }, utils:hash_password(SentPass, Salt) },
+    { _, Password } = { { ScopeRef, status_packet:make(login_error, "Invalid password", Seq) }, utils:hash_password(SentPass, Salt) },
     % set the state depending on whether the client has 2FA enabled or not
     case MfaSecret of
         null ->
             put(state, normal),
-            #packet{ type = status, reply = Packet#packet.seq, fields = #{
-                code => login_success,
-                msg => "Logged in successfully" } };
+            status_packet:make(login_success, "Logged in successfully", Seq);
 
         Token ->
             put(state, awaiting_totp),
             put(mfa_secret, Token),
-            #packet{ type = status, reply = Packet#packet.seq, fields = #{
-                code => mfa_required,
-                msg => "A time-based one-time 6-digit password is required to login" } }
+            status_packet:make(mfa_required, "2FA is enabled on this account", Seq)
     end;
 
-handle_packet(Packet, ScopeRef) when Packet#packet.type == signup ->
+handle_packet(#packet{type=signup, seq=Seq,
+                      fields=#{email   :=EMail,
+                               password:=SentPass,
+                               name    :=Name}}, ScopeRef) ->
     % ensure proper connection state
-    { _, awaiting_login } = { { ScopeRef, status_packet:make_invalid_state(awaiting_login, Packet) }, get(state) },
-    Fields = Packet#packet.fields,
+    { _, awaiting_login } = { { ScopeRef, status_packet:make_invalid_state(awaiting_login, Seq) }, get(state) },
     % check if the E-Mail is valid
-    EMail    = maps:get(email, Fields),
     EMailLen = length(EMail),
-    { _, match, [{ 0, EMailLen }] } = { { ScopeRef, status_packet:make(signup_error, "Invalid E-Mail", Packet) }, re:run(EMail, ?EMAIL_REGEX) },
+    { _, match, [{ 0, EMailLen }] } = { { ScopeRef, status_packet:make(signup_error, "Invalid E-Mail", Seq) }, re:run(EMail, ?EMAIL_REGEX) },
     % check password length (should be at least 6)
-    PassLen = length(maps:get(password, Fields)),
-    if PassLen < 6 -> status_packet:make(signup_error, "Use a longer password", Packet); true -> ok end,
+    PassLen = length(SentPass),
+    if PassLen < 6 -> status_packet:make(signup_error, "Use a longer password", Seq); true -> ok end,
     % check if someone is using this E-Mail address already
     { ok, User } = cqerl:run_query(get(cassandra), #cql_query{
         statement = "SELECT email FROM users WHERE email=?",
         values    = [{ email, EMail }]
     }),
-    { _, 0 } = { { ScopeRef, status_packet:make(signup_error, "E-Mail is already in use", Packet) }, cqerl:size(User) },
+    { _, 0 } = { { ScopeRef, status_packet:make(signup_error, "E-Mail is already in use", Seq) }, cqerl:size(User) },
     % generate random data
     Id       = utils:gen_snowflake(),
     Tag      = rand:uniform(99999),
     Salt     = crypto:strong_rand_bytes(32),
-    Password = utils:hash_password(maps:get(password, Fields), Salt),
+    Password = utils:hash_password(SentPass, Salt),
     % create the user
     { ok, User } = cqerl:run_query(get(cassandra), #cql_query{
         statement = "INSERT INTO users (id, name, tag, email, salt, password, status, status_text,"
                       "pfp_blob, badges, bot_owner) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
         values    = [
             { id, Id },
-            { name,  maps:get(name, Fields) },
+            { name, Name },
             { tag, Tag },
-            { email, maps:get(email, Fields) },
+            { email, EMail },
             { salt, Salt },
             { password, Password },
             { status, 1 },
             { status_text, "" },
-            { pfp_blob, 0 },
+            % generate a random avatar
+            { pfp_blob, file_storage:register_file(utils:gen_ava()) },
             { badges, [] },
             { bot_owner, 0 }
         ]
     });
 
-handle_packet(Packet, ScopeRef) ->
-    #packet{ type = status, reply = Packet#packet.seq, fields = #{
-        code => unknown_packet,
-        msg => "Unknown packet code" } }.
+handle_packet(Packet, ScopeRef) -> status_packet:make(unknown_packet, "Unknown packet type").
 
 %% the client loop
 %% reads the client's packets and responds to them

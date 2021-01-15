@@ -29,4 +29,5 @@ register_file(Path, Name) ->
             { pixel_size, "" },
             { length, FileInfo#file_info.size }
         ]
-    }).
+    }),
+    Id.
