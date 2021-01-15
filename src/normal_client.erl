@@ -59,7 +59,7 @@ handle_packet(Packet, ScopeRef) when Packet#packet.type == login ->
             put(mfa_secret, Token),
             #packet{ type = status, reply = Packet#packet.seq, fields = #{
                 code => mfa_required,
-                msg => "A time-based one-time 6-digid password is required to login" } }
+                msg => "A time-based one-time 6-digit password is required to login" } }
     end;
 
 handle_packet(Packet, ScopeRef) when Packet#packet.type == signup ->
@@ -80,9 +80,28 @@ handle_packet(Packet, ScopeRef) when Packet#packet.type == signup ->
     }),
     { _, 0 } = { { ScopeRef, status_packet:make(signup_error, "E-Mail is already in use", Packet) }, cqerl:size(User) },
     % generate random data
+    Id       = utils:gen_snowflake(),
     Tag      = rand:uniform(99999),
     Salt     = crypto:strong_rand_bytes(32),
-    Password = utils:hash_password(maps:get(password, Fields), Salt);
+    Password = utils:hash_password(maps:get(password, Fields), Salt),
+    % create the user
+    { ok, User } = cqerl:run_query(get(cassandra), #cql_query{
+        statement = "INSERT INTO users (id, name, tag, email, salt, password, status, status_text,"
+                      "pfp_blob, badges, bot_owner) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        values    = [
+            { id, Id },
+            { name,  maps:get(name, Fields) },
+            { tag, Tag },
+            { email, maps:get(email, Fields) },
+            { salt, Salt },
+            { password, Password },
+            { status, 1 },
+            { status_text, "" },
+            { pfp_blob, 0 },
+            { badges, [] },
+            { bot_owner, 0 }
+        ]
+    });
 
 handle_packet(Packet, ScopeRef) ->
     #packet{ type = status, reply = Packet#packet.seq, fields = #{
