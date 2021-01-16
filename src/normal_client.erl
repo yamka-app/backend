@@ -112,9 +112,9 @@ client_loop() ->
     DecodingStatus = receive
         { 'DOWN', _, process, ReaderPid, Reason } when Reason /= normal
             -> { error, Reason };
-        { packet, P }              -> { ok, P };
-        { decoding_error, S, Err } -> { error, decoding, S, Err }
-        after ?TIMEOUT             -> exit(ReaderPid, normal), { error, timeout }
+        { packet, P }                 -> { ok, P };
+        { decoding_error, S, T, Err } -> { error, decoding, S, T, Err }
+        after ?TIMEOUT                -> exit(ReaderPid, normal), { error, timeout }
     end,
 
     % weed out errors
