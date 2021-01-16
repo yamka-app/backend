@@ -30,7 +30,7 @@ make(Name, { HitsPerWindow, WindowSize }) ->
 %% calculates the window ID
 win_id(Size) ->
     { MeS, S, _MiS } = now(),
-    ((MeS * 1000000) + S) rem Size.
+    ((MeS * 1000000) + S) div Size.
 
 %% resets a limiter
 reset(Name) ->
@@ -48,18 +48,17 @@ hit(Name, 1) ->
     % check it against the current window
     NewHits = if
         Win == Limiter#limiter.cur_win -> Limiter#limiter.hits_in_win + 1;
-        true -> 0
+        true -> 1
     end,
     % write the new hit count and window ID
-    Limiter#limiter{ cur_win = Win, hits_in_win = NewHits },
-    ets:insert(Tab, { Name, Limiter }),
+    UpdLimiter = Limiter#limiter{ cur_win = Win, hits_in_win = NewHits },
+    ets:insert(Tab, { Name, UpdLimiter }),
     % check the number of hits
     if
         NewHits > Limiter#limiter.hits_per_win -> 0;
         true -> 1
     end;
 
-hit(Name, N) when N > 1 ->
-    hit(Name, 1) + hit(Name, N - 1).
+hit(Name, N) when N > 1 -> hit(Name, 1) + hit(Name, N - 1).
 
 hit(Name) -> hit(Name, 1).

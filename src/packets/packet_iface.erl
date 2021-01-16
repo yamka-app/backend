@@ -13,8 +13,8 @@ decode(Data, ProtocolVersion) ->
     TypeCode = datatypes:dec_num(binary:part(Data, 0, 1)),
     Seq      = datatypes:dec_num(binary:part(Data, 1, 4)),
     Reply    = datatypes:dec_num(binary:part(Data, 5, 4)),
-    Captcha  = datatypes:dec_str(binary:part(Data, 9, 9, byte_size(Data) - 9)),
-    CapLen   = datatypes:len_str(binary:part(Data, 9, 9, byte_size(Data) - 9)),
+    Captcha  = datatypes:dec_str(binary:part(Data, 9, byte_size(Data) - 9)),
+    CapLen   = datatypes:len_str(binary:part(Data, 9, byte_size(Data) - 9)),
     Payload  = binary:part(Data, 9 + CapLen, byte_size(Data) - 9 - CapLen),
 
     Type = try maps:get(TypeCode, ?PACKET_TYPE_MAP) of
