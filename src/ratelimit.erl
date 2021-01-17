@@ -29,8 +29,8 @@ make(Name, { HitsPerWindow, WindowSize }) ->
 
 %% calculates the window ID
 win_id(Size) ->
-    { MeS, S, _MiS } = now(),
-    ((MeS * 1000000) + S) div Size.
+    { MeS, S, MiS } = now(),
+    ((MeS * 1000000000) + (S * 1000) + (MiS div 1000)) div Size.
 
 %% resets a limiter
 reset(Name) ->
