@@ -31,6 +31,7 @@ decode(Data, ProtocolVersion) ->
             ping           -> fun ping_packet:decode/2;
             identification -> fun identification_packet:decode/2;
             signup         -> fun signup_packet:decode/2;
+            access_token   -> fun access_token_packet:decode/2;
             _              -> fun(_,_) -> #{ } end
         end
     of
@@ -49,7 +50,8 @@ encode(Packet, ProtocolVersion) ->
     Payload = case Packet#packet.type of
         status          -> fun status_packet:encode/2;
         client_identity -> fun client_identity_packet:encode/2;
-        pong            -> fun pong_packet:encode/2
+        pong            -> fun pong_packet:encode/2;
+        access_token    -> fun access_token_packet:encode/2
     end(Fields, ProtocolVersion),
     
     Type     = datatypes:enc_num(maps:get(Packet#packet.type, ?REVERSE_PACKET_TYPE_MAP), 1),
@@ -83,8 +85,7 @@ reader(Socket, Protocol, Pid) ->
 %% writes a packet coomplete with compression logic
 writer(Socket, Packet, Seq, Proto, SupportsCompression, Pid) ->
     %% encode data
-    Packet#packet{ seq = Seq },
-    Data = encode(Packet, Proto),
+    Data = encode(Packet#packet{ seq = Seq }, Proto),
 
     %% compress it if necessary
     Compressed = (byte_size(Data) >= ?COMPRESSION_THRESHOLD) and SupportsCompression,

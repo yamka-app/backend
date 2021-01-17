@@ -3,14 +3,22 @@
 -license("MPL-2.0").
 -description("Different utilities").
 
--export([hash_password/2, gen_snowflake/0, gen_avatar/0]).
+-export([swap_map/1, hash_token/1, hash_password/2, gen_snowflake/0, gen_avatar/0]).
+
+%% swaps map keys and values
+swap_map(M) -> maps:from_list([{V,K} || {K,V} <- maps:to_list(M)]).
+
+%% hashes a token the way it's stored in the database
+hash_token(T, 0) -> crypto:hash(sha512, T);
+hash_token(T, R) when R > 0 ->
+    H = hash_token(T, R - 1),
+    crypto:hash(sha512, <<T/binary, H/binary>>).
+hash_token(T) -> hash_token(T, 64).
 
 %% hashes a password the way it's stored in the database
-hash_password(Pass, Salt, 0) -> crypto:hash(sha512, <<Pass/binary, Salt/binary>>);
-hash_password(Pass, Salt, R) when R > 0 ->
-    H = hash_password(Pass, Salt, R - 1),
-    crypto:hash(sha512, <<Pass/binary, Salt/binary, H/binary>>).
-hash_password(Pass, Salt) -> hash_password(unicode:characters_to_binary(Pass), Salt, 64).
+hash_password(Pass, Salt) ->
+    B = unicode:characters_to_binary(Pass),
+    hash_token(<<B/binary, Salt/binary>>, 64).
 
 %% generates an ID (Snowflake)
 gen_snowflake() ->

@@ -29,7 +29,8 @@ handle_packet(#packet{type=identification, seq=Seq,
 
 handle_packet(#packet{type=login, seq=Seq,
                       fields=#{email   :=Email,
-                               password:=SentPass}}, ScopeRef) ->
+                               password:=SentPass,
+                               perms   :=Permissions}}, ScopeRef) ->
     % ensure proper connection state
     { _, awaiting_login } = { { ScopeRef, status_packet:make_invalid_state(awaiting_login, Seq) }, get(state) },
     % rate limiting
@@ -47,15 +48,11 @@ handle_packet(#packet{type=login, seq=Seq,
     MfaSecret = proplists:get_value(mfa_secret, Row),
     Id        = proplists:get_value(id, Row),
     { _, Password } = { { ScopeRef, status_packet:make(login_error, "Invalid password", Seq) }, utils:hash_password(SentPass, Salt) },
-    % set the state depending on whether the client has 2FA enabled or not
+    % generate the token depending on whether the client has 2FA enabled or not
     case MfaSecret of
-        null ->
-            put(state, normal),
-            client_identity_packet:make(Id, Seq);
-
-        Token ->
-            put(state, awaiting_totp),
-            put(mfa_secret, Token),
+        null -> access_token_packet:make(auth:create_token(Permissions, Id), Seq);
+        Secret ->
+            put(mfa_secret, Secret),
             status_packet:make(mfa_required, "2FA is enabled on this account", Seq)
     end;
 
@@ -71,41 +68,23 @@ handle_packet(#packet{type=signup, seq=Seq,
     % check password length (should be at least 6)
     PassLen = length(SentPass),
     if PassLen < 6 -> status_packet:make(signup_error, "Use a longer password", Seq); true -> ok end,
-    % check if someone is using this E-Mail address already
-    { ok, User } = cqerl:run_query(get(cassandra), #cql_query{
-        statement = "SELECT email FROM users WHERE email=?",
-        values    = [{ email, EMail }]
-    }),
-    { _, 0 } = { { ScopeRef, status_packet:make(signup_error, "E-Mail is already in use", Seq) }, cqerl:size(User) },
-    % generate random data
-    Id       = utils:gen_snowflake(),
-    Tag      = rand:uniform(99999),
-    Salt     = crypto:strong_rand_bytes(32),
-    Password = utils:hash_password(SentPass, Salt),
+    % check if someone is using this E-Mail address already,
+    { _, false } = { { ScopeRef, status_packet:make(signup_error, "E-Mail is already in use", Seq) }, user:email_in_use(EMail) },
     % create the user
-    { ok, _ } = cqerl:run_query(get(cassandra), #cql_query{
-        statement = "INSERT INTO users (id, name, tag, email, salt, password, status, status_text,"
-                      "pfp_blob, badges, bot_owner) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-        values    = [
-            { id, Id },
-            { name, Name },
-            { tag, Tag },
-            { email, EMail },
-            { salt, Salt },
-            { password, Password },
-            { status, 1 },
-            { status_text, "" },
-            % generate a random avatar
-            { pfp_blob, file_storage:register_file(utils:gen_avatar(), "user_avatar.png") },
-            { badges, [] },
-            { bot_owner, 0 }
-        ]
-    }),
-    % send the client their user ID
+    Id = user:create(Name, EMail, SentPass),
+    % make a token
+    access_token_packet:make(auth:create_token(?ALL_PERMISSIONS_EXCEPT_BOT, Id), Seq);
+
+handle_packet(#packet{type=access_token, seq=Seq,
+                      fields=#{token := Token}}, ScopeRef) ->
+    { _, { Id, Perms } } = { { ScopeRef, status_packet:make(invalid_access_token, "Invalid token") }, auth:get_token(Token) },
+    put(state, normal),
+    put(id, Id),
+    put(perms, Perms),
     client_identity_packet:make(Id, Seq);
 
 handle_packet(#packet{type=ping, seq=Seq,
-                      fields=#{echo := Echo}}, ScopeRef) ->
+                      fields=#{echo := Echo}}, _ScopeRef) ->
     #packet{ type = pong, reply = Seq, fields = #{ echo => Echo }};
 
 handle_packet(_Packet, _ScopeRef) -> status_packet:make(unknown_packet, "Unknown packet type").
