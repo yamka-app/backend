@@ -148,10 +148,11 @@ client_loop() ->
         close -> ssl:close(get(socket)), stop;
         none  -> continue;
         ReplyPacket ->
-            logging:log("<-- ~p", [ReplyPacket]),
-            ReplySeq = put(seq, get(seq) + 1),
+            ReplySeq = put(seq, get(seq) + 1) + 1,
+            SeqPacket = ReplyPacket#packet{ seq = ReplySeq },
+            logging:log("<-- ~p", [SeqPacket]),
             { WriterPid, _ } = spawn_monitor(packet_iface, writer, [
-                get(socket), ReplyPacket, ReplySeq,
+                get(socket), SeqPacket,
                 get(protocol), get(supports_comp), self()
             ]),
             receive

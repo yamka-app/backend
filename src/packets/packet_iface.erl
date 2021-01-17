@@ -6,7 +6,7 @@
 -include("packet.hrl").
 -define(COMPRESSION_THRESHOLD, 128). % used when sending only
 
--export([reader/3, writer/6]).
+-export([reader/3, writer/5]).
 
 %% decodes a packet
 decode(Data, ProtocolVersion) ->
@@ -83,9 +83,9 @@ reader(Socket, Protocol, Pid) ->
     end.
 
 %% writes a packet coomplete with compression logic
-writer(Socket, Packet, Seq, Proto, SupportsCompression, Pid) ->
+writer(Socket, Packet, Proto, SupportsCompression, Pid) ->
     %% encode data
-    Data = encode(Packet#packet{ seq = Seq }, Proto),
+    Data = encode(Packet, Proto),
 
     %% compress it if necessary
     Compressed = (byte_size(Data) >= ?COMPRESSION_THRESHOLD) and SupportsCompression,
@@ -99,4 +99,4 @@ writer(Socket, Packet, Seq, Proto, SupportsCompression, Pid) ->
     CLBin = datatypes:enc_num(byte_size(CData), 4),
     ssl:send(Socket, <<CBin/binary, CLBin/binary, CData/binary>>),
     
-    Pid ! { sent, Seq }.
+    Pid ! { sent, Packet#packet.seq }.
