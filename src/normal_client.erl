@@ -33,7 +33,7 @@ handle_packet(#packet{type=login, seq=Seq,
     % ensure proper connection state
     { _, awaiting_login } = { { ScopeRef, status_packet:make_invalid_state(awaiting_login, Seq) }, get(state) },
     % rate limiting
-    { _, 1 } = { { ScopeRef, status_packet:make_rate_limiting(Seq) }, ratelimit:hit(login) },
+    { _, 1 } = { { ScopeRef, status_packet:make(rate_limiting, "Please try again in a minute", Seq) }, ratelimit:hit(login) },
     % get the user and ensure they're the only one with this email (could be none)
     { ok, User } = cqerl:run_query(get(cassandra), #cql_query{
         statement = "SELECT salt, password, mfa_secret, id FROM users WHERE email=?",
@@ -45,12 +45,13 @@ handle_packet(#packet{type=login, seq=Seq,
     Salt      = proplists:get_value(salt, Row),
     Password  = proplists:get_value(password, Row),
     MfaSecret = proplists:get_value(mfa_secret, Row),
+    Id        = proplists:get_value(id, Row),
     { _, Password } = { { ScopeRef, status_packet:make(login_error, "Invalid password", Seq) }, utils:hash_password(SentPass, Salt) },
     % set the state depending on whether the client has 2FA enabled or not
     case MfaSecret of
         null ->
             put(state, normal),
-            status_packet:make(login_success, "Logged in successfully", Seq);
+            client_identity_packet:make(Id, Seq);
 
         Token ->
             put(state, awaiting_totp),
@@ -66,7 +67,7 @@ handle_packet(#packet{type=signup, seq=Seq,
     { _, awaiting_login } = { { ScopeRef, status_packet:make_invalid_state(awaiting_login, Seq) }, get(state) },
     % check if the E-Mail is valid
     EMailLen = length(EMail),
-    { _, match, [{ 0, EMailLen }] } = { { ScopeRef, status_packet:make(signup_error, "Invalid E-Mail", Seq) }, re:run(EMail, ?EMAIL_REGEX) },
+    { _, { match, [{ 0, EMailLen }] } } = { { ScopeRef, status_packet:make(signup_error, "Invalid E-Mail", Seq) }, re:run(EMail, ?EMAIL_REGEX) },
     % check password length (should be at least 6)
     PassLen = length(SentPass),
     if PassLen < 6 -> status_packet:make(signup_error, "Use a longer password", Seq); true -> ok end,
@@ -82,7 +83,7 @@ handle_packet(#packet{type=signup, seq=Seq,
     Salt     = crypto:strong_rand_bytes(32),
     Password = utils:hash_password(SentPass, Salt),
     % create the user
-    { ok, User } = cqerl:run_query(get(cassandra), #cql_query{
+    { ok, _ } = cqerl:run_query(get(cassandra), #cql_query{
         statement = "INSERT INTO users (id, name, tag, email, salt, password, status, status_text,"
                       "pfp_blob, badges, bot_owner) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
         values    = [
@@ -95,13 +96,19 @@ handle_packet(#packet{type=signup, seq=Seq,
             { status, 1 },
             { status_text, "" },
             % generate a random avatar
-            { pfp_blob, file_storage:register_file(utils:gen_ava()) },
+            { pfp_blob, file_storage:register_file(utils:gen_avatar(), "user_avatar.png") },
             { badges, [] },
             { bot_owner, 0 }
         ]
-    });
+    }),
+    % send the client their user ID
+    client_identity_packet:make(Id, Seq);
 
-handle_packet(Packet, ScopeRef) -> status_packet:make(unknown_packet, "Unknown packet type").
+handle_packet(#packet{type=ping, seq=Seq,
+                      fields=#{echo := Echo}}, ScopeRef) ->
+    #packet{ type = pong, reply = Seq, fields = #{ echo => Echo }};
+
+handle_packet(_Packet, _ScopeRef) -> status_packet:make(unknown_packet, "Unknown packet type").
 
 %% the client loop
 %% reads the client's packets and responds to them
@@ -146,6 +153,7 @@ client_loop() ->
                         { _, 1 } = { { ScopeRef, close }, ratelimit:hit(close) },
                         % ignore the packet if the client sends us too many of them, but not as many to close the connection
                         { _, 1 } = { { ScopeRef, status_packet:make_rate_limiting(Packet) }, ratelimit:hit(packet) },
+                        logging:log("~p", [Packet]),
                         handle_packet(Packet, ScopeRef)
                     of
                         V -> V

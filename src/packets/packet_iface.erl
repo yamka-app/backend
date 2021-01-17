@@ -27,15 +27,18 @@ decode(Data, ProtocolVersion) ->
     %% evaluate to { ok, #packet } in case it succeeded,
     %% evaluate to { error, Seq } in case it failed
     try case Type of
-        login          -> login_packet:decode(Payload, ProtocolVersion);
-        identification -> identification_packet:decode(Payload, ProtocolVersion);
-        _ -> #{ } end
+            login          -> fun login_packet:decode/2;
+            ping           -> fun ping_packet:decode/2;
+            identification -> fun identification_packet:decode/2;
+            signup         -> fun signup_packet:decode/2;
+            _              -> fun(_,_) -> #{ } end
+        end
     of
         F -> { ok, #packet{ type    = Type,
                             seq     = Seq,
                             reply   = Reply,
                             captcha = Captcha,
-                            fields  = F } }
+                            fields  = F(Payload, ProtocolVersion) } }
     catch
         E:D:T -> { error, Seq, Type, { E, D, T } }
     end.
@@ -44,8 +47,10 @@ decode(Data, ProtocolVersion) ->
 encode(Packet, ProtocolVersion) ->
     Fields = Packet#packet.fields,
     Payload = case Packet#packet.type of
-        status -> status_packet:encode(Fields, ProtocolVersion)
-    end,
+        status          -> fun status_packet:encode/2;
+        client_identity -> fun client_identity_packet:encode/2;
+        pong            -> fun pong_packet:encode/2
+    end(Fields, ProtocolVersion),
     
     Type     = datatypes:enc_num(maps:get(Packet#packet.type, ?REVERSE_PACKET_TYPE_MAP), 1),
     SeqBin   = datatypes:enc_num(Packet#packet.seq, 4),
@@ -65,11 +70,7 @@ reader(Socket, Protocol, Pid) ->
     { ok, CDataList } = ssl:recv(Socket, CompressedLen),
     CData = list_to_binary(CDataList),
     Data = if
-        Compressed ->
-            Z = zlib:open(),
-            ok = zlib:inflateInit(Z, default),
-            D = zlib:inflate(Z, CData),
-            zlib:inflateEnd(Z), D;
+        Compressed -> zlib:gunzip(CData);
         true -> CData
     end,
 
@@ -88,11 +89,7 @@ writer(Socket, Packet, Seq, Proto, SupportsCompression, Pid) ->
     %% compress it if necessary
     Compressed = (byte_size(Data) >= ?COMPRESSION_THRESHOLD) and SupportsCompression,
     CData = if
-        Compressed ->
-            Z = zlib:open(),
-            ok = zlib:deflateInit(Z, best_compression),
-            D = iolist_to_binary(zlib:deflate(Z, Data, finish)),
-            zlib:deflateEnd(Z), D;
+        Compressed -> zlib:gzip(Data);
         true -> Data
     end,
 

@@ -4,6 +4,7 @@
     1  => login,
     2  => ping,
     3  => pong,
+    5  => signup,
     18 => identification
 }).
 
@@ -19,7 +20,6 @@
     invalid_connection_state      => 2,
     login_error                   => 3,
     mfa_required                  => 4,
-    login_success                 => 5,
     signup_error                  => 6,
     rate_limiting                 => 7,
     invalid_id                    => 8,

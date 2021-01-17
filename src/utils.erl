@@ -17,7 +17,7 @@ gen_snowflake() ->
     { MeS, S, _MiS } = now(),
     Epoch = ((MeS * 1000000) + S),
     Random = crypto:strong_rand_bytes(2),
-    <<Epoch:48/unsigned-integer, Random/binary>>.
+    <<Snowflake:64/unsigned-integer>> = <<Epoch:48/unsigned-integer, Random/binary>>, Snowflake.
 
 %% gen_avatar helper: expands a line into superpixels horizontally
 expand_line_h(L, SS) -> lists:flatten([[X || _ <- lists:seq(1, SS)] || X <- L]).
