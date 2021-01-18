@@ -2,7 +2,7 @@
 
 ## Configuration
 Do the following things before running:
-- Install Erlang/OTP 21.0
+- Install Erlang/OTP 22
 - Set up a Cassandra cluster (it's going to function as the main DB)
 - Create a Cassandra keyspace using the commands in `db_structure.sql`
 - Set up a GlusterFS cluster (it's going to function as the user file storage). Mount it to `/data/brick1/gv0` and create the `file_storage` dir.
