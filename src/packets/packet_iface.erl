@@ -63,10 +63,10 @@ encode(Packet, ProtocolVersion) ->
 %% reads a packet complete with decompression logic
 reader(Socket, Protocol, Pid) ->
     % read the compression header
-    { ok, CHdrList } = ssl:recv(Socket, 5),
+    { ok, CHdrList } = ssl:recv(Socket, 4),
     CHdr = list_to_binary(CHdrList),
     Compressed    = datatypes:dec_bool(binary:part(CHdr, 0, 1)),
-    CompressedLen = datatypes:dec_num (binary:part(CHdr, 1, 4)),
+    CompressedLen = datatypes:dec_num (binary:part(CHdr, 1, 3)),
 
     % read the (possibly compressed) data header and payload
     { ok, CDataList } = ssl:recv(Socket, CompressedLen),
@@ -96,7 +96,7 @@ writer(Socket, Packet, Proto, SupportsCompression, Pid) ->
 
     %% add the compression header
     CBin = datatypes:enc_bool(Compressed),
-    CLBin = datatypes:enc_num(byte_size(CData), 4),
+    CLBin = datatypes:enc_num(byte_size(CData), 3),
     ssl:send(Socket, <<CBin/binary, CLBin/binary, CData/binary>>),
     
     Pid ! { sent, Packet#packet.seq }.
