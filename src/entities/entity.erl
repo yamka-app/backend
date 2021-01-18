@@ -57,7 +57,6 @@ encode_field(num_list, V, { Size })      -> datatypes:enc_num_list(V, Size).
 encode_field({ { Id, Type, Args }, Value }) ->
     Repr = encode_field(Type, Value, Args),
     IdBin = datatypes:enc_num(Id, 1),
-    logging:log("~p ~p", [IdBin, Repr]),
     <<IdBin/binary, Repr/binary>>.
 
 encode(#entity{ type=Type, fields=Fields }) ->
