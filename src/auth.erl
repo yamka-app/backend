@@ -6,7 +6,8 @@
 -include("packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
--export([create_token/2, get_token/1, token_get_worker/3]).
+-export([create_token/2, get_token/1, token_get_worker/3,
+         has_permission/1]).
 
 %% creates a token
 -spec create_token(Permissions::[any()], UserId::number()) -> binary().
@@ -43,12 +44,13 @@ token_get_worker(Token, Cassandra, Pid) ->
     Pid ! { ok, { Id, Perms } }.
 
 %% gets token permissions and owner ID
--spec get_token(Token::unicode:charlist()) -> { list(atom()), integer() } | error.
+-spec get_token(Token::unicode:charlist()) -> { integer(), list(atom()) } | error.
 get_token(Token) ->
     { Pid, _ } = spawn_monitor(?MODULE, token_get_worker, [Token, get(cassandra), self()]),
     receive
         { 'DOWN', _, process, Pid, Reason } when Reason /= normal -> error;
-        { ok, R } -> R
+        { ok, { Id, Perms } } -> { Id, [maps:get(C, ?TOKEN_PERMISSION_MAP) || C <- Perms] }
     end.
 
-%% checks whether the client has 
+%% checks whether the client has a permission
+has_permission(Perm) -> lists:member(Perm, get(perms)).

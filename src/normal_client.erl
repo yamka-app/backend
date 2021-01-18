@@ -87,6 +87,13 @@ handle_packet(#packet{type=access_token, seq=Seq,
     put(perms, Perms),
     client_identity_packet:make(Id, Seq);
 
+handle_packet(#packet{type=entity_get, seq=Seq,
+                      fields=#{entities := Entities}}, ScopeRef) ->
+    % ensure proper connection state
+    { _, normal } = { { ScopeRef, status_packet:make_invalid_state(normal, Seq) }, get(state) },
+    % handle each request
+    entities_packet:make([entity:handle_get_request(R) || R <- Entities], Seq);
+
 handle_packet(#packet{type=ping, seq=Seq,
                       fields=#{echo := Echo}}, _ScopeRef) ->
     #packet{ type = pong, reply = Seq, fields = #{ echo => Echo }};
@@ -148,21 +155,11 @@ client_loop() ->
 
     % send the response packet
     DoNext = case ReplyWith of
-        stop  -> stop;
-        close -> ssl:close(get(socket)), stop;
-        none  -> continue;
-        ReplyPacket ->
-            ReplySeq = put(seq, get(seq) + 1) + 1,
-            SeqPacket = ReplyPacket#packet{ seq = ReplySeq },
-            logging:log("<-- ~p", [SeqPacket]),
-            { WriterPid, _ } = spawn_monitor(packet_iface, writer, [
-                get(socket), SeqPacket,
-                get(protocol), get(supports_comp), self()
-            ]),
-            receive
-                { 'DOWN', _, process, WriterPid, _ } -> stop;
-                { sent, ReplySeq }                   -> continue
-            end
+        stop        -> stop;
+        none        -> continue;
+        close       -> ssl:close(get(socket)), stop;
+        [H|RT]      -> lists:foreach(fun send_packet/1, [H|RT]);
+        ReplyPacket -> send_packet(ReplyPacket)
     end,
 
     % what to do next?
@@ -213,4 +210,18 @@ client_init(TransportSocket, Cassandra) ->
             end,
             ssl:close(get(socket)),
             exit(crash)
+    end.
+
+%% sends a packet
+send_packet(P) ->
+    ReplySeq = put(seq, get(seq) + 1) + 1,
+    SeqPacket = P#packet{ seq = ReplySeq },
+    logging:log("<-- ~p", [SeqPacket]),
+    { WriterPid, _ } = spawn_monitor(packet_iface, writer, [
+        get(socket), SeqPacket,
+        get(protocol), get(supports_comp), self()
+    ]),
+    receive
+        { 'DOWN', _, process, WriterPid, _ } -> stop;
+        { sent, ReplySeq }                   -> continue
     end.

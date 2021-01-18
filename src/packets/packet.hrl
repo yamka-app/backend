@@ -1,4 +1,4 @@
--record(packet, { type=unknown, seq=0, reply=0, captcha="", fields=#{} }).
+-record(packet, { type=unknown, seq=0, reply=0, captcha="", fields=#{ } }).
 
 -define(REVERSE_PACKET_TYPE_MAP, utils:swap_map(?PACKET_TYPE_MAP)).
 -define(PACKET_TYPE_MAP, #{
@@ -7,6 +7,8 @@
     3  => pong,
     4  => status,
     5  => signup,
+    6  => entity_get,
+    7  => entities,
     12 => access_token,
     18 => identification,
     19 => client_identity

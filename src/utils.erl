@@ -3,10 +3,18 @@
 -license("MPL-2.0").
 -description("Different utilities").
 
--export([swap_map/1, hash_token/1, hash_password/2, gen_snowflake/0, gen_avatar/0]).
+-export([swap_map/1, map_keys/1, intersect_lists/1,
+         hash_token/1, hash_password/2,
+         gen_snowflake/0, gen_avatar/0]).
 
 %% swaps map keys and values
 swap_map(M) -> maps:from_list([{V,K} || {K,V} <- maps:to_list(M)]).
+
+%% returns a list of map keys
+map_keys(M) -> [K || {K,_} <- maps:to_list(M)].
+
+%% intersects lists
+intersect_lists(LL) -> sets:to_list(sets:intersection([sets:from_list(L) || L <- LL])).
 
 %% hashes a token the way it's stored in the database
 hash_token(T, 0) -> crypto:hash(sha512, T);

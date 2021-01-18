@@ -32,6 +32,7 @@ decode(Data, ProtocolVersion) ->
             identification -> fun identification_packet:decode/2;
             signup         -> fun signup_packet:decode/2;
             access_token   -> fun access_token_packet:decode/2;
+            entity_get     -> fun entity_get_packet:decode/2;
             _              -> fun(_,_) -> #{ } end
         end
     of
@@ -51,7 +52,8 @@ encode(Packet, ProtocolVersion) ->
         status          -> fun status_packet:encode/2;
         client_identity -> fun client_identity_packet:encode/2;
         pong            -> fun pong_packet:encode/2;
-        access_token    -> fun access_token_packet:encode/2
+        access_token    -> fun access_token_packet:encode/2;
+        entities        -> fun entities_packet:encode/2
     end(Fields, ProtocolVersion),
     
     Type     = datatypes:enc_num(maps:get(Packet#packet.type, ?REVERSE_PACKET_TYPE_MAP), 1),
