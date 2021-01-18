@@ -60,7 +60,7 @@ dec_list(Bin, Decoder, Lengther, CountLength) ->
    Rest = binary:part(Bin, CountLength, byte_size(Bin) - CountLength),
    dec_items(Rest, Decoder, Lengther, Cnt).
 
-len_items(_, _, 0) -> [];
+len_items(_, _, 0) -> 0;
 len_items(Bin, Lengther, Cnt) when Cnt > 0 ->
    Len = Lengther(Bin),
    Len + len_items(binary:part(Bin, Len, byte_size(Bin) - Len), Lengther, Cnt - 1).

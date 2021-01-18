@@ -1,2 +1,5 @@
 #!/usr/bin/env sh
-sh -c "$(cat credentials.sh) && rebar3 shell"
+if rebar3 dialyzer
+then
+    sh -c "$(cat credentials.sh) && rebar3 shell"
+fi

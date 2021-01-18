@@ -8,9 +8,9 @@
 -define(CASSANDRA_IP,   "127.0.0.1").
 -define(CASSANDRA_PORT, 9042).
 
--export([start/2, stop/1]).
+-export([start/2, stop/1, app_worker/0]).
 
-start(_StartType, _StartArgs) ->
+app_worker() ->
     logging:log("Order backend v. ~p", [?VERSION]),
 
     % connect to the Cassandra cluster
@@ -30,8 +30,11 @@ start(_StartType, _StartArgs) ->
        ]),
 
     receive
-        _ -> ok
+        die -> ok
     end.
+
+start(_StartType, _StartArgs) ->
+    { ok, spawn(?MODULE, app_worker, []) }.
 
 stop(_State) ->
     ok.

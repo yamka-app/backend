@@ -8,7 +8,8 @@
 
 -export([create_token/2, get_token/1, token_get_worker/3]).
 
--spec create_token(Permissions::list(atom()), UserId::integer()) -> unicode:charlist().
+%% creates a token
+-spec create_token(Permissions::[any()], UserId::number()) -> binary().
 create_token(Permissions, UserId) ->
     % generate the token and hash it
     TokenBytes = crypto:strong_rand_bytes(48), % 48 bytes fit nicely in 64 base64 chars
@@ -25,6 +26,7 @@ create_token(Permissions, UserId) ->
     }),
     TokenStr.
 
+%% the process that's trying to get the token
 token_get_worker(Token, Cassandra, Pid) ->
     % hash the token
     TokenBytes = base64:decode(Token),
@@ -40,6 +42,7 @@ token_get_worker(Token, Cassandra, Pid) ->
     [{ id, Id }, { permissions, Perms }] = cqerl:head(Rows),
     Pid ! { ok, { Id, Perms } }.
 
+%% gets token permissions and owner ID
 -spec get_token(Token::unicode:charlist()) -> { list(atom()), integer() } | error.
 get_token(Token) ->
     { Pid, _ } = spawn_monitor(?MODULE, token_get_worker, [Token, get(cassandra), self()]),
@@ -47,3 +50,5 @@ get_token(Token) ->
         { 'DOWN', _, process, Pid, Reason } when Reason /= normal -> error;
         { ok, R } -> R
     end.
+
+%% checks whether the client has 

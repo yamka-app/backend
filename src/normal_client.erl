@@ -77,7 +77,11 @@ handle_packet(#packet{type=signup, seq=Seq,
 
 handle_packet(#packet{type=access_token, seq=Seq,
                       fields=#{token := Token}}, ScopeRef) ->
+    % ensure proper connection state
+    { _, awaiting_login } = { { ScopeRef, status_packet:make_invalid_state(awaiting_login, Seq) }, get(state) },
+    % get the token
     { _, { Id, Perms } } = { { ScopeRef, status_packet:make(invalid_access_token, "Invalid token") }, auth:get_token(Token) },
+    % save state
     put(state, normal),
     put(id, Id),
     put(perms, Perms),
@@ -87,7 +91,7 @@ handle_packet(#packet{type=ping, seq=Seq,
                       fields=#{echo := Echo}}, _ScopeRef) ->
     #packet{ type = pong, reply = Seq, fields = #{ echo => Echo }};
 
-handle_packet(_Packet, _ScopeRef) -> status_packet:make(unknown_packet, "Unknown packet type").
+handle_packet(_, _) -> status_packet:make(unknown_packet, "Unknown packet type").
 
 %% the client loop
 %% reads the client's packets and responds to them
