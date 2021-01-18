@@ -7,12 +7,10 @@
          err/2, warn/2, log/2]).
 
 generic(Level, Msg, Args) ->
-    D = date(),
-    T = time(),
+    { Y, Mo, D } = date(),
+    { H, M, _S } = time(),
     io:fwrite("[~w/~w/~w ~w:~w][~c] ", [
-        element(1, D), element(2, D), element(3, D),
-        element(1, T), element(2, T),
-        Level
+        Y, Mo, D, H, M, Level
        ]),
     io:fwrite(Msg, Args),
     io:fwrite("~n").
