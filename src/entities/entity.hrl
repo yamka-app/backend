@@ -9,7 +9,8 @@
     2 => channel,
     3 => group,
     4 => message,
-    5 => role
+    5 => role,
+    6 => file
 }).
 
 -define(ENTITY_STRUCTURE, #{

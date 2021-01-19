@@ -5,7 +5,7 @@
 -include("entity.hrl").
 
 -export([handle_get_request/1]).
--export([encode_field/3, encode_field/1, encode/1]).
+-export([encode_field/1, encode/1, len_decode/1]).
 
 %% handles a get request
 handle_get_request(#entity_get_rq{ type=user, id=Id, pagination=none, context=none }) ->
@@ -68,3 +68,30 @@ encode(#entity{ type=Type, fields=Fields }) ->
 
     BinaryRepr     = datatypes:enc_list(FieldValues, fun encode_field/1, 1),
     <<TypeBin/binary, BinaryRepr/binary>>.
+
+%% finds a field descriptor by its ID in a reversed entity structure map
+find_desc(RevS, Id) ->
+    Desc = lists:nth(1, [D || { I, _, _ } = D <- utils:map_keys(RevS), I == Id]),
+    Name = maps:get(Desc, RevS),
+    { Name, Desc }.
+
+%% decodes entities
+len_decode_field(number,   V, { Size })      -> { datatypes:dec_num(V, Size), Size };
+len_decode_field(string,   V, {})            -> { datatypes:dec_str(V), datatypes:len_str(V) };
+len_decode_field(atom,     V, { Size, Map }) -> { datatypes:dec_num(maps:get(V, Map), Size), Size};
+len_decode_field(bool,     V, {})            -> { datatypes:dec_bool(V), 1 };
+len_decode_field(num_list, V, { Size })      -> R=datatypes:dec_num_list(V, Size), { R, 2+(length(R)*Size) }.
+len_decode_field(RevStructure, Bin) ->
+    <<Id:8/unsigned-integer, Repr/binary>> = Bin,
+    % find the descriptor
+    { Name, { Id, Type, Args } } = find_desc(RevStructure, Id),
+    { Name, len_decode_field(Type, Repr, Args) }.
+
+len_decode(Bin) ->
+    <<TypeNum:8/unsigned-integer, FieldsBin/binary>> = Bin,
+    Type = maps:get(TypeNum, ?ENTITY_TYPE_MAP),
+    RevStructure = utils:swap_map(maps:get(Type, ?ENTITY_STRUCTURE)),
+    { FieldProplist, Len } = datatypes:len_dec_list(FieldsBin, fun(B) -> len_decode_field(RevStructure, B) end, 1),
+    Fields = maps:from_list(FieldProplist),
+
+    { #entity{ type=Type, fields=Fields }, Len }.

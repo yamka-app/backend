@@ -3,10 +3,11 @@
 -license("MPL-2.0").
 -description("Basic binary data conversion").
 
--export([enc_num/2,  dec_num/1,
+-export([enc_num/2,  dec_num/1, dec_num/2,
          enc_bool/1, dec_bool/1,
          enc_str/1,  dec_str/1,  len_str/1,
-         enc_list/3, dec_list/4, len_list/3,
+         enc_list/3,
+         dec_list/3, dec_list/4, len_dec_list/3, len_list/3,
          enc_num_list/2, dec_num_list/2]).
 
 bconcat(A, B) -> <<A/binary, B/binary>>.
@@ -16,6 +17,7 @@ bpad(B, L)    -> bpad(r, B, L - byte_size(B)).
 
 enc_num(X, L) -> bpad(binary:encode_unsigned(X, big), L).
 dec_num(X)    -> binary:decode_unsigned(X, big).
+dec_num(X, S) -> dec_num(binary:part(X, 0, S)).
 
 enc_bool(true)  -> enc_num(1, 1);
 enc_bool(false) -> enc_num(0, 1).
@@ -40,6 +42,7 @@ len_str(X) ->
 %%%  - decoder: decodes a value from its binary form
 %%%  - lengther: assuming a value starts at the start of the supplied binary,
 %%%              determines how long it is
+%%%  - lengthing decoder: decodes and determines the length of the supplied binary
 enc_items([], _) -> <<>>;
 enc_items([H|T], Encoder) ->
    Item = Encoder(H),
@@ -50,24 +53,26 @@ enc_list(List, Encoder, CountLength) ->
    Items = enc_items(List, Encoder),
    <<Len/binary, Items/binary>>.
 
-dec_items(_, _, _, 0) -> [];
-dec_items(Bin, Decoder, Lengther, Cnt) when Cnt > 0 ->
-   Len = Lengther(Bin),
-   Val = Decoder(binary:part(Bin, 0, Len)),
-   [Val] ++ dec_items(binary:part(Bin, Len, byte_size(Bin) - Len), Decoder, Lengther, Cnt - 1).
-dec_list(Bin, Decoder, Lengther, CountLength) ->
+len_dec_items(_, _, 0) -> { [], 0 };
+len_dec_items(Bin, LengthingDecoder, Cnt) when Cnt > 0 ->
+   { Len, Val } = LengthingDecoder(Bin),
+   { Tail, OtherLen } = len_dec_items(binary:part(Bin, Len, byte_size(Bin) - Len), LengthingDecoder, Cnt - 1),
+   { [Val | Tail], OtherLen + Len }.
+len_dec_list(Bin, LengthingDecoder, CountLength) ->
    Cnt = dec_num(binary:part(Bin, 0, CountLength)),
    Rest = binary:part(Bin, CountLength, byte_size(Bin) - CountLength),
-   dec_items(Rest, Decoder, Lengther, Cnt).
+   len_dec_items(Rest, LengthingDecoder, Cnt).
 
-len_items(_, _, 0) -> 0;
-len_items(Bin, Lengther, Cnt) when Cnt > 0 ->
-   Len = Lengther(Bin),
-   Len + len_items(binary:part(Bin, Len, byte_size(Bin) - Len), Lengther, Cnt - 1).
+dec_list(Bin, LengthingDecoder, CountLength) ->
+   { Val, _ } = len_dec_list(Bin, LengthingDecoder, CountLength),
+   Val.
+dec_list(Bin, Decoder, Lengther, CountLength) ->
+   { Val, _ } = len_dec_list(Bin, fun(B)->{Decoder(B), Lengther(B)} end, CountLength),
+   Val.
+
 len_list(Bin, Lengther, CountLength) ->
-   Cnt = dec_num(binary:part(Bin, 0, CountLength)),
-   Rest = binary:part(Bin, CountLength, byte_size(Bin) - CountLength),
-   len_items(Rest, Lengther, Cnt).
+   { _, Len } = len_dec_list(Bin, fun(B)->{fun(_)->none end, Lengther(B)} end, CountLength),
+   Len.
 
 enc_num_list(List, Bytes) -> enc_list(List, fun(X)->enc_num(X, Bytes) end, 2).
-dec_num_list(List, Bytes) -> dec_list(List, fun(X)->dec_num(X) end, fun(_)->Bytes end, 2).
+dec_num_list(List, Bytes) -> dec_list(List, fun(X)->{ dec_num(X), Bytes } end, 2).
