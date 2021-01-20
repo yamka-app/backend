@@ -18,4 +18,4 @@ decode(Payload, ProtocolVersion) when ProtocolVersion >= 5 ->
     PermsNum = datatypes:dec_num_list(PermsBin, 1),
     Perms = [maps:get(C, ?TOKEN_PERMISSION_MAP) || C <- PermsNum],
 
-    #{ email => Email, password => Password, perms => Perms }.
+    #{email => Email, password => Password, perms => Perms}.

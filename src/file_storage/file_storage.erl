@@ -6,7 +6,7 @@
 -define(STORAGE_PATH, "/data/brick1/gv0/file_storage/").
 -include_lib("cqerl/include/cqerl.hrl").
 % http://erlang.org/doc/man/file.html#type-file_info
--record(file_info, { size, type, access, atime, mtime, ctime, mode, links, major_device, minor_device, inode, uid, gid }).
+-record(file_info, {size, type, access, atime, mtime, ctime, mode, links, major_device, minor_device, inode, uid, gid}).
 
 -export([register_file/2]).
 
@@ -16,21 +16,21 @@ path_in_storage(Id) -> string:concat(?STORAGE_PATH, integer_to_list(Id)).
 %% moves a file into the storage path and registers it in the DB
 register_file(Path, Name) ->
     % read file info
-    { ok, #file_info{ size=FileSize } } = file:read_file_info(Path),
+    {ok, #file_info{size=FileSize}} = file:read_file_info(Path),
     % generate an ID
     Id = utils:gen_snowflake(),
     % move it into the storage under the ID
-    { ok, FileSize } = file:copy(Path, path_in_storage(Id)),
+    {ok, FileSize} = file:copy(Path, path_in_storage(Id)),
     file:delete(Path),
     % store it in the DB
-    { ok, _ } = cqerl:run_query(get(cassandra), #cql_query{
+    {ok, _} = cqerl:run_query(get(cassandra), #cql_query{
         statement = "INSERT INTO blob_store (id, name, preview, pixel_size, length) VALUES (?, ?, ?, ?, ?)",
         values    = [
-            { id,         Id },
-            { name,       Name },
-            { preview,    "" },
-            { pixel_size, "" },
-            { length, FileSize }
+            {id,         Id},
+            {name,       Name},
+            {preview,    ""},
+            {pixel_size, ""},
+            {length, FileSize}
         ]
-    }),
+   }),
     Id.

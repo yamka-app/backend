@@ -24,8 +24,8 @@ decode(Data, ProtocolVersion) ->
     end,
 
     %% try to parse the packet payload
-    %% evaluate to { ok, #packet } in case it succeeded,
-    %% evaluate to { error, Seq } in case it failed
+    %% evaluate to {ok, #packet} in case it succeeded,
+    %% evaluate to {error, Seq} in case it failed
     try case Type of
             login          -> fun login_packet:decode/2;
             ping           -> fun ping_packet:decode/2;
@@ -33,16 +33,17 @@ decode(Data, ProtocolVersion) ->
             signup         -> fun signup_packet:decode/2;
             access_token   -> fun access_token_packet:decode/2;
             entity_get     -> fun entity_get_packet:decode/2;
-            _              -> fun(_,_) -> #{ } end
+            entities       -> fun entities_packet:decode/2;
+            _              -> fun(_,_) -> #{} end
         end
     of
-        F -> { ok, #packet{ type    = Type,
+        F -> {ok, #packet{type    = Type,
                             seq     = Seq,
                             reply   = Reply,
                             captcha = Captcha,
-                            fields  = F(Payload, ProtocolVersion) } }
+                            fields  = F(Payload, ProtocolVersion)}}
     catch
-        E:D:T -> { error, Seq, Type, { E, D, T } }
+        E:D:T -> {error, Seq, Type, {E, D, T}}
     end.
 
 %% encodes a packet
@@ -65,13 +66,13 @@ encode(Packet, ProtocolVersion) ->
 %% reads a packet complete with decompression logic
 reader(Socket, Protocol, Pid) ->
     % read the compression header
-    { ok, CHdrList } = ssl:recv(Socket, 4),
+    {ok, CHdrList} = ssl:recv(Socket, 4),
     CHdr = list_to_binary(CHdrList),
     Compressed    = datatypes:dec_bool(binary:part(CHdr, 0, 1)),
     CompressedLen = datatypes:dec_num (binary:part(CHdr, 1, 3)),
 
     % read the (possibly compressed) data header and payload
-    { ok, CDataList } = ssl:recv(Socket, CompressedLen),
+    {ok, CDataList} = ssl:recv(Socket, CompressedLen),
     CData = list_to_binary(CDataList),
     Data = if
         Compressed -> zlib:gunzip(CData);
@@ -80,8 +81,8 @@ reader(Socket, Protocol, Pid) ->
 
     % decode data and send it
     Pid ! case decode(Data, Protocol) of
-        { ok, P }          -> { packet, P };
-        { error, S, T, E } -> { decoding_error, S, T, E }
+        {ok, P}          -> {packet, P};
+        {error, S, T, E} -> {decoding_error, S, T, E}
     end.
 
 %% writes a packet coomplete with compression logic
@@ -101,4 +102,4 @@ writer(Socket, Packet, Proto, SupportsCompression, Pid) ->
     CLBin = datatypes:enc_num(byte_size(CData), 3),
     ssl:send(Socket, <<CBin/binary, CLBin/binary, CData/binary>>),
     
-    Pid ! { sent, Packet#packet.seq }.
+    Pid ! {sent, Packet#packet.seq}.

@@ -1,4 +1,4 @@
--record(packet, { type=unknown, seq=0, reply=0, captcha="", fields=#{ } }).
+-record(packet, {type=unknown, seq=0, reply=0, captcha="", fields=#{}}).
 
 -define(REVERSE_PACKET_TYPE_MAP, utils:swap_map(?PACKET_TYPE_MAP)).
 -define(PACKET_TYPE_MAP, #{

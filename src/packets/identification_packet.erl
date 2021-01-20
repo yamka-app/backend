@@ -9,4 +9,4 @@ decode(Payload, Proto) ->
     #{
         protocol      => datatypes:dec_num(binary:part(Payload, 0, 4)),
         supports_comp => datatypes:dec_bool(binary:part(Payload, 4, 1))
-    }.
+   }.

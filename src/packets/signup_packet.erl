@@ -15,4 +15,4 @@ decode(Payload, ProtocolVersion) when ProtocolVersion >= 5 ->
     PassBin  = binary:part(Payload, EmailLen+NameLen, byte_size(Payload)-EmailLen-NameLen),
     Pass     = datatypes:dec_str(PassBin),
     NameLen  = datatypes:len_str(NameBin),
-    #{ email => Email, name => Name, password => Pass }.
+    #{email => Email, name => Name, password => Pass}.

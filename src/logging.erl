@@ -7,8 +7,8 @@
          err/2, warn/2, log/2]).
 
 generic(Level, Msg, Args) ->
-    { Y, Mo, D } = date(),
-    { H, M, _S } = time(),
+    {Y, Mo, D} = date(),
+    {H, M, _S} = time(),
     io:fwrite("[~w/~w/~w ~w:~w][~c] ", [
         Y, Mo, D, H, M, Level
        ]),

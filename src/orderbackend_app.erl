@@ -14,10 +14,10 @@ app_worker() ->
     logging:log("Order backend v. ~p", [?VERSION]),
 
     % connect to the Cassandra cluster
-    { User, Password } = { os:getenv("CAS_LOGIN"), os:getenv("CAS_PASS") },
-    { ok, Cassandra } = cqerl:get_client({ ?CASSANDRA_IP, ?CASSANDRA_PORT }, [
-        { auth, { cqerl_auth_plain_handler, [{ User, Password }] } },
-        { keyspace, "orderdb" }
+    {User, Password} = {os:getenv("CAS_LOGIN"), os:getenv("CAS_PASS")},
+    {ok, Cassandra} = cqerl:get_client({?CASSANDRA_IP, ?CASSANDRA_PORT}, [
+        {auth, {cqerl_auth_plain_handler, [{User, Password}]}},
+        {keyspace, "orderdb"}
        ]),
     logging:log("Connected to the Cassandra node at ~p:~w", [?CASSANDRA_IP, ?CASSANDRA_PORT]),
 
@@ -34,7 +34,7 @@ app_worker() ->
     end.
 
 start(_StartType, _StartArgs) ->
-    { ok, spawn(?MODULE, app_worker, []) }.
+    {ok, spawn(?MODULE, app_worker, [])}.
 
 stop(_State) ->
     ok.

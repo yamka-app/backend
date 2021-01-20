@@ -12,10 +12,10 @@ encode(F, P) ->
     <<Code/binary, Msg/binary>>.
 
 make(C, M) ->
-    #packet{ type = status, fields = #{ code => C, msg => M } }.
+    #packet{type = status, fields = #{code => C, msg => M}}.
 
 make(C, M, R) when is_integer(R) ->
-    #packet{ type = status, reply = R, fields = #{ code => C, msg => M } };
+    #packet{type = status, reply = R, fields = #{code => C, msg => M}};
 make(C, M, R) when is_record(R, packet) ->
     make(C, M, R#packet.seq).
 

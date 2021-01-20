@@ -30,7 +30,7 @@ hash_password(Pass, Salt) ->
 
 %% generates an ID (Snowflake)
 gen_snowflake() ->
-    { MeS, S, _MiS } = now(),
+    {MeS, S, _MiS} = now(),
     Epoch = ((MeS * 1000000) + S),
     Random = crypto:strong_rand_bytes(2),
     <<Snowflake:64/unsigned-integer>> = <<Epoch:48/unsigned-integer, Random/binary>>, Snowflake.
@@ -41,7 +41,7 @@ expand_line_h(L, SS) -> lists:flatten([[X || _ <- lists:seq(1, SS)] || X <- L]).
 mirror_line_h(L) -> lists:append(L, tl(lists:reverse(L))).
 %% generates an avatar
 gen_avatar() ->
-    { Width, Height } = { 140, 140 }, Width = Height,
+    {Width, Height} = {140, 140}, Width = Height,
     SpixelSz = Width div 7,
 
     Palette = [
@@ -54,13 +54,13 @@ gen_avatar() ->
         [<<244,  62, 131, 255>>, <<213,  54, 115, 255>>]
     ],
     % create the file
-    { MS, S, MiS } = now(),
+    {MS, S, MiS} = now(),
     RandomFilename = lists:flatten(io_lib:format("/tmp/~p.~p.~p", [MS, S, MiS])),
-    { ok, File } = file:open(RandomFilename, [write]),
+    {ok, File} = file:open(RandomFilename, [write]),
     % create the image
-    Png = png:create(#{ size    => { Width, Height },
-                        mode    => { rgba, 8 },
-                        file    => File }),
+    Png = png:create(#{size    => {Width, Height},
+                        mode    => {rgba, 8},
+                        file    => File}),
     
     % make the image
     Pair = lists:nth(rand:uniform(7), Palette),
@@ -81,7 +81,7 @@ gen_avatar() ->
         Colors = [if P == 0 -> <<0,0,0,0>>; true -> lists:nth(P, Pair) end || P <- UsingPattern],
         %Colors = [<<255, 0, 0, 255>> || _ <- lists:seq(1, Width)],
         Row = expand_line_h(Colors, SpixelSz),
-        png:append(Png, { row, Row }) end,
+        png:append(Png, {row, Row}) end,
 
     lists:foreach(AppendRow, lists:seq(1, Height)),
 

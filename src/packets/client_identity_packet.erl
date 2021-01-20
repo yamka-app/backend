@@ -7,4 +7,4 @@
 
 encode(F, Proto) when Proto >= 5 -> datatypes:enc_num(maps:get(id, F), 8).
 
-make(I, R) -> #packet{ type = client_identity, reply = R, fields = #{ id => I } }.
+make(I, R) -> #packet{type = client_identity, reply = R, fields = #{id => I}}.

@@ -9,21 +9,21 @@
 
 normal_listener_loop(Socket, Cassandra) ->
     % accept the client and spawn the client loop
-    { ok, TransportSocket } = ssl:transport_accept(Socket),
+    {ok, TransportSocket} = ssl:transport_accept(Socket),
     spawn(normal_client, client_init, [TransportSocket, Cassandra]),
 
     normal_listener_loop(Socket, Cassandra).
 
 normal_listener(Cassandra, CertPath, KeyPath) ->
     % listen for new clients
-    { ok, ListenSocket } = ssl:listen(?NormalPort, [
-        { certfile,   CertPath },
-        { cacertfile, CertPath },
-        { keyfile,    KeyPath },
-        { verify,     verify_none },
-        { reuseaddr,  true },
-        { versions,   ['tlsv1.2', 'tlsv1.3'] },
-        { active,     false }
+    {ok, ListenSocket} = ssl:listen(?NormalPort, [
+        {certfile,   CertPath},
+        {cacertfile, CertPath},
+        {keyfile,    KeyPath},
+        {verify,     verify_none},
+        {reuseaddr,  true},
+        {versions,   ['tlsv1.2', 'tlsv1.3']},
+        {active,     false}
        ]),
 
     logging:log("Normal server listening on port ~w", [?NormalPort]),
