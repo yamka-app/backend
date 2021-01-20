@@ -3,6 +3,8 @@
 -license("MPL-2.0").
 -description("Handles access tokens").
 
+-define(TOKEN_TTL, 3600*24*365).
+
 -include("packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
@@ -18,7 +20,7 @@ create_token(Permissions, UserId) ->
     TokenStr   = base64:encode(TokenBytes),
     % write it to the database
     {ok, _} = cqerl:run_query(get(cassandra), #cql_query{
-        statement = "INSERT INTO tokens (id, hash, permissions) VALUES (?,?,?)",
+        statement = "INSERT INTO tokens (id, hash, permissions) VALUES (?,?,?) USING TTL " ++ integer_to_list(?TOKEN_TTL),
         values    = [
             {id, UserId},
             {hash, TokenHash},
