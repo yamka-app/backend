@@ -28,7 +28,7 @@ client_init(Settings, Task) ->
     exit(normal).
 
 send_packet(P) ->
-    logging:log("<--F ~p", [P]),
+    logging:log("<--F ~p", [packet_iface:clear_for_printing(P)]),
     spawn_monitor(packet_iface, writer, [
         get(socket), P,
         get(protocol), false, self()

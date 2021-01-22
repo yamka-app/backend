@@ -6,7 +6,7 @@
 -include("packet.hrl").
 -define(COMPRESSION_THRESHOLD, 128). % used when sending only
 
--export([reader/3, writer/5]).
+-export([reader/3, writer/5, clear_for_printing/1]).
 
 %% decodes a packet
 decode(Data, ProtocolVersion) ->
@@ -105,3 +105,9 @@ writer(Socket, Packet, Proto, SupportsCompression, Pid) ->
     ssl:send(Socket, <<CBin/binary, CLBin/binary, CData/binary>>),
     
     Pid ! {sent, Packet#packet.seq}.
+
+%% clears out "spammy" unneeded fields for nice logging output
+clear_for_printing(#packet{type=T, fields=F}=P) -> P#packet{fields=clear_fields_for_printing(T, F)}.
+
+clear_fields_for_printing(file_data_chunk, F) -> maps:put(data, removed, F);
+clear_fields_for_printing(_, F) -> F.
