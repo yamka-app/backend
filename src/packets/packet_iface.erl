@@ -27,21 +27,22 @@ decode(Data, ProtocolVersion) ->
     %% evaluate to {ok, #packet} in case it succeeded,
     %% evaluate to {error, Seq} in case it failed
     try case Type of
-            login          -> fun login_packet:decode/2;
-            ping           -> fun ping_packet:decode/2;
-            identification -> fun identification_packet:decode/2;
-            signup         -> fun signup_packet:decode/2;
-            access_token   -> fun access_token_packet:decode/2;
-            entity_get     -> fun entity_get_packet:decode/2;
-            entities       -> fun entities_packet:decode/2;
-            _              -> fun(_,_) -> #{} end
+            login                 -> fun login_packet:decode/2;
+            ping                  -> fun ping_packet:decode/2;
+            identification        -> fun identification_packet:decode/2;
+            signup                -> fun signup_packet:decode/2;
+            access_token          -> fun access_token_packet:decode/2;
+            entity_get            -> fun entity_get_packet:decode/2;
+            entities              -> fun entities_packet:decode/2;
+            file_download_request -> fun file_download_request_packet:decode/2;
+            _                     -> fun(_,_) -> #{} end
         end
     of
         F -> {ok, #packet{type    = Type,
-                            seq     = Seq,
-                            reply   = Reply,
-                            captcha = Captcha,
-                            fields  = F(Payload, ProtocolVersion)}}
+                          seq     = Seq,
+                          reply   = Reply,
+                          captcha = Captcha,
+                          fields  = F(Payload, ProtocolVersion)}}
     catch
         E:D:T -> {error, Seq, Type, {E, D, T}}
     end.
@@ -54,7 +55,8 @@ encode(Packet, ProtocolVersion) ->
         client_identity -> fun client_identity_packet:encode/2;
         pong            -> fun pong_packet:encode/2;
         access_token    -> fun access_token_packet:encode/2;
-        entities        -> fun entities_packet:encode/2
+        entities        -> fun entities_packet:encode/2;
+        file_data_chunk -> fun file_data_chunk_packet:encode/2
     end(Fields, ProtocolVersion),
     
     Type     = datatypes:enc_num(maps:get(Packet#packet.type, ?REVERSE_PACKET_TYPE_MAP), 1),

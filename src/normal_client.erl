@@ -89,17 +89,20 @@ handle_packet(#packet{type=access_token, seq=Seq,
 
 handle_packet(#packet{type=entity_get, seq=Seq,
                       fields=#{entities := Entities}}, ScopeRef) ->
-    % ensure proper connection state
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
-    % handle each request
     entities_packet:make([entity:handle_get_request(R) || R <- Entities], Seq);
 
 handle_packet(#packet{type=entities, seq=Seq,
                       fields=#{entities := Entities}}, ScopeRef) ->
-    % ensure proper connection state
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
-    % handle each request
     [entity:handle_entity(R, Seq, ScopeRef) || R <- Entities];
+
+handle_packet(#packet{type=file_download_request, seq=Seq,
+                      fields=#{id := Id}}, ScopeRef) ->
+    {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
+    {_, true} = {{ScopeRef, status_packet:make(invalid_id, "Unknown ID", Seq)}, file_storage:exists(Id)},
+    file_storage:send_file(Id, Seq, {get(socket), get(protocol)}),
+    none;
 
 handle_packet(#packet{type=ping, seq=Seq,
                       fields=#{echo := Echo}}, _ScopeRef) ->
@@ -117,8 +120,9 @@ client_loop() ->
         {'DOWN', _, process, ReaderPid, Reason} when Reason /= normal
             -> {error, Reason};
         {packet, P}                 -> {ok, P};
-        {decoding_error, S, T, Err} -> {error, decoding, S, T, Err}
-        after ?TIMEOUT                -> exit(ReaderPid, normal), {error, timeout}
+        {decoding_error, S, T, Err} -> {error, decoding, S, T, Err};
+        _                           -> ignore
+        after ?TIMEOUT              -> exit(ReaderPid, normal), {error, timeout}
     end,
 
     % weed out errors
@@ -157,15 +161,18 @@ client_loop() ->
                     catch
                         error:{badmatch, {{ScopeRef, Response}, _}} -> Response
                     end
-            end
+            end;
+
+        ignore -> none
     end,
 
     % send the response packet
     DoNext = case ReplyWith of
-        stop        -> stop;
-        close       -> ssl:close(get(socket)), stop;
-        [H|RT]      -> lists:foreach(fun send_packet/1, [H|RT]), continue;
-        ReplyPacket -> send_packet(ReplyPacket)
+        stop   -> stop;
+        close  -> ssl:close(get(socket)), stop;
+        none   -> continue;
+        [H|RT] -> lists:foreach(fun send_packet/1, [H|RT]), continue;
+        ReplyPacket when is_record(ReplyPacket, packet) -> send_packet(ReplyPacket), continue
     end,
 
     % what to do next?
@@ -207,12 +214,12 @@ client_init(TransportSocket, Cassandra) ->
             logging:err("Internal error: ~p", [{Ex, Type, Trace}]),
             Packet = status_packet:make(internal_error, "Sorry, an internal server error has occured"),
             {WriterPid, _} = spawn_monitor(packet_iface, writer, [
-                get(socket), Packet, 1337,
+                get(socket), Packet,
                 get(protocol), get(supports_comp), self()
             ]),
             receive
                 {'DOWN', _, process, WriterPid, _} -> stop;
-                {sent, 1337}                       -> continue
+                {sent, _}                       -> continue
             end,
             ssl:close(get(socket)),
             exit(crash)

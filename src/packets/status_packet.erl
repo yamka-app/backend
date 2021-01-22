@@ -7,7 +7,7 @@
 -export([encode/2, make/2, make/3, make_rate_limiting/1, make_invalid_state/2]).
 
 encode(F, P) ->
-    Code = datatypes:enc_num(maps:get(maps:get(code, F), ?STATUS_CODE_MAP), 2),
+    Code = datatypes:enc_num(maps:get(maps:get(code, F), ?REVERSE_STATUS_CODE_MAP), 2),
     Msg  = datatypes:enc_str(maps:get(msg, F)),
     <<Code/binary, Msg/binary>>.
 
