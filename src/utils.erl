@@ -41,7 +41,7 @@ expand_line_h(L, SS) -> lists:flatten([[X || _ <- lists:seq(1, SS)] || X <- L]).
 mirror_line_h(L) -> lists:append(L, tl(lists:reverse(L))).
 %% generates an avatar
 gen_avatar() ->
-    {Width, Height} = {140, 140}, Width = Height,
+    {Width, Height} = {280, 280}, Width = Height,
     SpixelSz = Width div 7,
 
     Palette = [
