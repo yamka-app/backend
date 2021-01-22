@@ -120,8 +120,7 @@ client_loop() ->
         {'DOWN', _, process, ReaderPid, Reason} when Reason /= normal
             -> {error, Reason};
         {packet, P}                 -> {ok, P};
-        {decoding_error, S, T, Err} -> {error, decoding, S, T, Err};
-        _                           -> ignore
+        {decoding_error, S, T, Err} -> {error, decoding, S, T, Err}
         after ?TIMEOUT              -> exit(ReaderPid, normal), {error, timeout}
     end,
 
@@ -161,9 +160,7 @@ client_loop() ->
                     catch
                         error:{badmatch, {{ScopeRef, Response}, _}} -> Response
                     end
-            end;
-
-        ignore -> none
+            end
     end,
 
     % send the response packet
@@ -177,7 +174,7 @@ client_loop() ->
 
     % what to do next?
     case DoNext of
-        stop     -> ok;
+        stop     -> exit(ReaderPid, normal), ok;
         continue -> client_loop()
     end.
 
