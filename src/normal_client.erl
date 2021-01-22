@@ -66,8 +66,9 @@ handle_packet(#packet{type=signup, seq=Seq,
     EMailLen = length(EMail),
     {_, {match, [{0, EMailLen}]}} = {{ScopeRef, status_packet:make(signup_error, "Invalid E-Mail", Seq)}, re:run(EMail, ?EMAIL_REGEX)},
     % check password length (should be at least 6)
-    PassLen = length(SentPass),
-    if PassLen < 6 -> status_packet:make(signup_error, "Use a longer password", Seq); true -> ok end,
+    {_, true} = {{ScopeRef, status_packet:make(signup_error, "Use a longer password", Seq)}, length(SentPass) >= 6},
+    % check nickname length
+    {_, true} = {{ScopeRef, status_packet:make(signup_error, "The name is too long or too short", Seq)}, (length(Name) >= 3) and (length(Name) =< 128)},
     % check if someone is using this E-Mail address already,
     {_, false} = {{ScopeRef, status_packet:make(signup_error, "E-Mail is already in use", Seq)}, user:email_in_use(EMail)},
     % create the user
