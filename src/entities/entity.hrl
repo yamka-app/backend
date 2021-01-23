@@ -35,5 +35,12 @@
             badges      => {17, num_list, {1}},
             bot_owner   => {18, number,   {8}},
             owned_bots  => {19, num_list, {8}}
-       }
+        },
+    file => #{
+            id         => {0, number, {8}},
+            name       => {1, string, {}},
+            pixel_size => {2, string, {}},
+            preview    => {3, string, {}},
+            length     => {4, number, {4}}
+        }
 }).

@@ -36,8 +36,8 @@ win_id(Size) ->
 reset(Name) ->
     Tab = get_limit_table(),
     [{Name, Limiter}] = ets:lookup(Tab, Name),
-    Limiter#limiter{cur_win = win_id(Limiter#limiter.win_size), hits_in_win = 0},
-    ets:insert(Tab, {Name, Limiter}).
+    NewLimiter = Limiter#limiter{cur_win=win_id(Limiter#limiter.win_size), hits_in_win=0},
+    ets:insert(Tab, {Name, NewLimiter}).
 
 %% hits a limiter and checks if an action is allowed
 hit(Name, 1) ->

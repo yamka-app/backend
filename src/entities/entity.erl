@@ -45,14 +45,19 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
             _ -> false
         end
     end, user:get(Id)),
-    #entity{type=user, fields=FilteredFields}.
+    #entity{type=user, fields=FilteredFields};
+
+%% handles a get request
+handle_get_request(#entity_get_rq{type=file, id=Id, pagination=none, context=none}) ->
+    % there are no permission restrictions on file accesses
+    #entity{type=file, fields=file_e:get(Id)}.
 
 %% encodes entities
-encode_field(number,   V, {Size})      -> datatypes:enc_num(V, Size);
-encode_field(string,   V, {})            -> datatypes:enc_str(V);
-encode_field(atom,     V, {Size, Map}) -> datatypes:enc_num(maps:get(V, utils:swap_map(Map)), Size);
-encode_field(bool,     V, {})            -> datatypes:enc_bool(V);
-encode_field(num_list, V, {Size})      -> datatypes:enc_num_list(V, Size).
+encode_field(number,   V, {Size})       -> datatypes:enc_num(V, Size);
+encode_field(string,   V, {})           -> datatypes:enc_str(V);
+encode_field(atom,     V, {Size, Map})  -> datatypes:enc_num(maps:get(V, utils:swap_map(Map)), Size);
+encode_field(bool,     V, {})           -> datatypes:enc_bool(V);
+encode_field(num_list, V, {Size})       -> datatypes:enc_num_list(V, Size).
 encode_field({{Id, Type, Args}, Value}) ->
     Repr = encode_field(Type, Value, Args),
     IdBin = datatypes:enc_num(Id, 1),

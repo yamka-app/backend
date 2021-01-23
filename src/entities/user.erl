@@ -14,7 +14,7 @@ email_in_use(EMail) ->
     {ok, User} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = "SELECT email FROM users WHERE email=?",
         values    = [{email, EMail}]
-   }),
+    }),
     cqerl:size(User) > 0.
 
 %% creates the user
@@ -29,7 +29,7 @@ create(Name, EMail, Password, BotOwner) ->
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = "INSERT INTO users (id, name, tag, email, salt, password, status, status_text,"
                       "ava_file, badges, bot_owner) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-        values    = [
+        values = [
             {id, Id},
             {name, Name},
             {tag, Tag},
@@ -43,7 +43,7 @@ create(Name, EMail, Password, BotOwner) ->
             {badges, if BotOwner > 0 -> [3]; true -> [] end},
             {bot_owner, BotOwner}
         ]
-   }),
+    }),
     Id.
 
 create(Name, EMail, Password) -> create(Name, EMail, Password, 0).
@@ -53,7 +53,7 @@ get(Id) ->
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = "SELECT * FROM users WHERE id=?",
         values    = [{id, Id}]
-   }),
+    }),
     1 = cqerl:size(Rows),
     Row = maps:from_list(cqerl:head(Rows)),
     % insert default values
@@ -65,7 +65,7 @@ get(Id) ->
         dm_channels => [],
         groups      => [],
         badges      => []
-   }, maps:filter(fun(_, V) -> V /= null end, Row)),
+    }, maps:filter(fun(_, V) -> V /= null end, Row)),
     % convert the status into its atomic representation
     #{status := StatusNum} = Vals,
     maps:put(status, maps:get(StatusNum, ?USER_STATUS_MAP), Vals).
