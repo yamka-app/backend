@@ -105,6 +105,11 @@ handle_packet(#packet{type=file_download_request, seq=Seq,
     file_storage:send_file(Id, Seq, {get(socket), get(protocol)}),
     none;
 
+handle_packet(#packet{type=file_data_chunk, seq=_Seq,
+                      fields=#{data := Data}}, _ScopeRef) ->
+    get(file_recv_pid) ! Data,
+    none;
+
 handle_packet(#packet{type=ping, seq=Seq,
                       fields=#{echo := Echo}}, _ScopeRef) ->
     #packet{type = pong, reply = Seq, fields = #{echo => Echo}};
@@ -117,13 +122,16 @@ client_loop() ->
     ScopeRef = make_ref(),
     % read a packet
     {ReaderPid, _} = spawn_monitor(packet_iface, reader, [get(socket), get(protocol), self()]),
-    DecodingStatus = receive
-        {'DOWN', _, process, ReaderPid, Reason} when Reason /= normal
-            -> {error, Reason};
-        {packet, P}                 -> {ok, P};
-        {decoding_error, S, T, Err} -> {error, decoding, S, T, Err}
-        after ?TIMEOUT              -> exit(ReaderPid, normal), {error, timeout}
-    end,
+    DecodingStatus =
+        receive
+            {'DOWN', _, process, ReaderPid, Reason} when Reason /= normal
+                -> {error, Reason};
+            {packet, P}                 -> {ok, P};
+            {decoding_error, S, T, Err} -> {error, decoding, S, T, Err};
+            upload_fin                  -> upload_fin
+
+            after ?TIMEOUT              -> exit(ReaderPid, normal), {error, timeout}
+        end,
 
     % weed out errors
     State = get(state),
@@ -161,14 +169,16 @@ client_loop() ->
                     catch
                         error:{badmatch, {{ScopeRef, Response}, _}} -> Response
                     end
-            end
+            end;
+
+        upload_fin -> put(file_recv_pid, none), none
     end,
 
     % send the response packet
     DoNext = case ReplyWith of
         stop   -> stop;
-        close  -> ssl:close(get(socket)), stop;
         none   -> continue;
+        close  -> ssl:close(get(socket)), stop;
         [H|RT] -> lists:foreach(fun send_packet/1, [H|RT]), continue;
         ReplyPacket when is_record(ReplyPacket, packet) -> send_packet(ReplyPacket), continue
     end,
@@ -193,6 +203,7 @@ client_init(TransportSocket, Cassandra) ->
     put(protocol, 0), put(supports_comp, false),
     put(seq, 1),
     put(state, awaiting_identification),
+    put(file_recv_pid, none),
 
     % make rate limiters
     ratelimit:make(packet,  {50,  1000  }),

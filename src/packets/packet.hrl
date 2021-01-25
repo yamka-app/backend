@@ -46,7 +46,8 @@
     20 => friend_request_sent,
     21 => packet_parsing_error,
     22 => start_uploading,
-    23 => stream_end
+    23 => stream_end,
+    24 => one_upload_only
 }).
 
 -define(REVERSE_TOKEN_PERMISSION_MAP, utils:swap_map(?TOKEN_PERMISSION_MAP)).

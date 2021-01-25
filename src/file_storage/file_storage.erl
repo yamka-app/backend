@@ -8,7 +8,7 @@
 % http://erlang.org/doc/man/file.html#type-file_info
 -record(file_info, {size, type, access, atime, mtime, ctime, mode, links, major_device, minor_device, inode, uid, gid}).
 
--export([register_file/2, send_file/3, exists/1]).
+-export([register_file/2, send_file/3, recv_file/3, exists/1]).
 
 %% determines the file name by its ID
 path_in_storage(Id) -> string:concat(?STORAGE_PATH, integer_to_list(Id)).
@@ -38,6 +38,10 @@ register_file(Path, Name) ->
 %% sends a file to the client
 send_file(Id, Reply, Settings) ->
     spawn(file_client, client_init, [Settings, {send_file, path_in_storage(Id), Reply}]).
+
+%% receives a file from the client
+recv_file(Reply, Settings, {Length, Name}) ->
+    spawn(file_client, client_init, [Settings, {recv_file, Length, Name, Reply}]).
 
 %% checks if a file exists
 exists(Id) -> filelib:is_file(path_in_storage(Id)).

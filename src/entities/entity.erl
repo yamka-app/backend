@@ -8,7 +8,7 @@
 -export([encode_field/1, encode/1, len_decode/1]).
 -export([construct_kv_str/1]).
 
-%% handles an entity sent from the client
+%% updates a user
 handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, ScopeRef) ->
     % a user can only change info about themselves
     {_, Id} = {{ScopeRef, status_packet:make(invalid_id, "You can only change info about yourself", Seq)}, get(id)},
@@ -18,13 +18,20 @@ handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, ScopeRef) ->
     ]) end, F),
     % change the DB record
     user:update(Id, AllowedFields),
-    none.
+    none;
 
-%% handles a get request
+%% puts a file
+handle_entity(#entity{type=file, fields=#{name:=Name, length:=Length}}, Seq, ScopeRef) ->
+    {_, none} = {{ScopeRef, status_packet:make(one_upload_only, "Only one concurrent upload is allowed", Seq)}, get(file_recv_pid)},
+    put(file_recv_pid, file_storage:recv_file(Seq,
+        {get(socket), get(protocol), self(), get(cassandra)},
+        {Length, Name})),
+    none.
+    
+
+%% gets a user
 handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=none}) ->
     true = auth:has_permission(see_profile),
-
-    % filter fields based on permissions
     FilteredFields = maps:filter(fun(K, _) ->
         case K of
             id          -> true;
@@ -47,7 +54,7 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
     end, user:get(Id)),
     #entity{type=user, fields=FilteredFields};
 
-%% handles a get request
+%% gets a file
 handle_get_request(#entity_get_rq{type=file, id=Id, pagination=none, context=none}) ->
     % there are no permission restrictions on file accesses
     #entity{type=file, fields=file_e:get(Id)}.

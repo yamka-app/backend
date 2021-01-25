@@ -35,6 +35,7 @@ decode(Data, ProtocolVersion) ->
             entity_get            -> fun entity_get_packet:decode/2;
             entities              -> fun entities_packet:decode/2;
             file_download_request -> fun file_download_request_packet:decode/2;
+            file_data_chunk       -> fun file_data_chunk_packet:decode/2;
             _                     -> fun(_,_) -> #{} end
         end
     of

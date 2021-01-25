@@ -5,7 +5,8 @@
 
 -export([swap_map/1, map_keys/1, intersect_lists/1,
          hash_token/1, hash_password/2,
-         gen_snowflake/0, gen_avatar/0]).
+         gen_snowflake/0, gen_avatar/0,
+         temp_file_name/0]).
 
 %% swaps map keys and values
 swap_map(M) -> maps:from_list([{V,K} || {K,V} <- maps:to_list(M)]).
@@ -35,6 +36,11 @@ gen_snowflake() ->
     Random = crypto:strong_rand_bytes(2),
     <<Snowflake:64/unsigned-integer>> = <<Epoch:48/unsigned-integer, Random/binary>>, Snowflake.
 
+%% generates a temporary file
+temp_file_name() ->
+    {MS, S, MiS} = now(),
+    lists:flatten(io_lib:format("/tmp/~p.~p.~p", [MS, S, MiS])).
+
 %% gen_avatar helper: expands a line into superpixels horizontally
 expand_line_h(L, SS) -> lists:flatten([[X || _ <- lists:seq(1, SS)] || X <- L]).
 %% gen_avatar helper: mirrors a pattern around the Y axis
@@ -54,9 +60,8 @@ gen_avatar() ->
         [<<244,  62, 131, 255>>, <<213,  54, 115, 255>>]
     ],
     % create the file
-    {MS, S, MiS} = now(),
-    RandomFilename = lists:flatten(io_lib:format("/tmp/~p.~p.~p", [MS, S, MiS])),
-    {ok, File} = file:open(RandomFilename, [write]),
+    Filename = temp_file_name(),
+    {ok, File} = file:open(Filename, [write]),
     % create the image
     Png = png:create(#{size    => {Width, Height},
                         mode    => {rgba, 8},
@@ -88,4 +93,4 @@ gen_avatar() ->
     % flush the data
     ok = png:close(Png),
     
-    RandomFilename.
+    Filename.
