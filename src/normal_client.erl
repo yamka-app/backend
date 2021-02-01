@@ -127,7 +127,7 @@ handle_packet(#packet{type=contacts_manage, seq=Seq,
     % PO   V
     %  B V V
     %  G   V
-    if Action == remove ->
+    if Action == add ->
         {_, true} = {{ScopeRef, status_packet:make(contact_action_not_applicable, "Contact action not applicable")},
             (Type == blocked) or ((Type == friend) and lists:member(Id, maps:get(pending_in, Self))) };
         true ->
