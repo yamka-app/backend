@@ -33,6 +33,7 @@ handle_entity(#entity{type=file, fields=#{name:=Name, length:=Length}}, Seq, Sco
 handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=none}) ->
     true = auth:has_permission(see_profile),
     IsSelf = Id == get(id),
+    Self = user:get(get(id)),
     FilteredFields = maps:filter(fun(K, _) ->
         case K of
             id          -> true;
@@ -42,17 +43,23 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
             status      -> true;
             status_text -> true;
             ava_file    -> true;
-            friends     -> IsSelf and auth:has_permission(see_relationships);
+            friends     -> auth:has_permission(see_relationships);
             blocked     -> IsSelf and auth:has_permission(see_relationships);
             pending_in  -> IsSelf and auth:has_permission(see_relationships);
             pending_out -> IsSelf and auth:has_permission(see_relationships);
             dm_channels -> IsSelf and auth:has_permission(see_direct_messages);
-            groups      -> IsSelf and auth:has_permission(see_groups);
+            groups      -> auth:has_permission(see_groups);
             badges      -> true;
             bot_owner   -> true;
             _ -> false
         end
-    end, user:get(Id)),
+    end, maps:map(fun(K, V) ->
+            case K of
+                groups  -> utils:intersect_lists([V, maps:get(groups,  Self)]);
+                friends -> utils:intersect_lists([V, maps:get(friends, Self)]);
+                _ -> V
+            end
+        end, user:get(Id))),
     #entity{type=user, fields=FilteredFields};
 
 %% gets a file

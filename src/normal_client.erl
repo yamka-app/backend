@@ -117,37 +117,40 @@ handle_packet(#packet{type=file_data_chunk, seq=Seq,
     none;
 
 handle_packet(#packet{type=contacts_manage, seq=Seq,
-                      fields=#{type:=Type, action:=Action, id:=Id}}, ScopeRef) ->
+                      fields=#{type:=Type, action:=add, id:=Id}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
     Self = user:get(get(id)),
-    % Here's the matrix:
-    %    + -
-    %  F ? V   addition is allowed when the subject is pending in
-    % PI   V
-    % PO   V
-    %  B V V
-    %  G   V
-    if Action == add ->
-        {_, true} = {{ScopeRef, status_packet:make(contact_action_not_applicable, "Contact action not applicable")},
-            (Type == blocked) or ((Type == friend) and lists:member(Id, maps:get(pending_in, Self))) };
-        true ->
-            % write changes to the DB
-            user:manage_contact(get(id), Action, {Type, Id}),
-            % if we're adding a friend, remove them from corresponding pending in/out queues
-            if Type == friend ->
-                user:manage_contact(get(id), remove, {pending_in,  Id}),
-                user:manage_contact(Id,      remove, {pending_out, get(id)});
-               true -> ok
-            end,
-            % broadcast the changes to each of both users' devices
-            icpc_broadcast_entity(get(id), #entity{type=user, fields=user:get(get(id))}, [user:contact_field(Type)]),
-            Opposite = user:opposite_type(Type),
-            if
-                Opposite /= none ->
-                    icpc_broadcast_entity(Id, #entity{type=user, fields=user:get(Id)}, [user:contact_field(Opposite)]);
-                true -> ok
-            end
+    {_, true} = {{ScopeRef, status_packet:make(contact_action_not_applicable, "Contact action not applicable")},
+        (Type == blocked) or ((Type == friend) and lists:member(Id, maps:get(pending_in, Self))) },
+    % write changes to the DB
+    user:manage_contact(get(id), add, {Type, Id}),
+    % if we're adding a friend, remove them from corresponding pending in/out queues
+    if  Type == friend ->
+            user:manage_contact(get(id), remove, {pending_in,  Id}),
+            user:manage_contact(Id,      remove, {pending_out, get(id)});
+        true -> ok
     end,
+    % broadcast the changes to each of both users' devices
+    icpc_broadcast_entity(get(id), #entity{type=user, fields=user:get(get(id))},
+        [user:contact_field(Type), pending_in, pending_out]),
+    Opposite = user:opposite_type(Type),
+    if
+        Opposite /= none ->
+            icpc_broadcast_entity(Id, #entity{type=user, fields=user:get(Id)},
+                [user:contact_field(Opposite), pending_in, pending_out]);
+        true -> ok
+    end,
+    none;
+
+handle_packet(#packet{type=contacts_manage, seq=Seq,
+                      fields=#{type:=Type, action:=remove, id:=Id}}, ScopeRef) ->
+    {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
+    % write changes to the DB
+    user:manage_contact(get(id), remove, {Type, Id}),
+    % broadcast the changes to each of both users' devices
+    icpc_broadcast_entity(get(id), #entity{type=user, fields=user:get(get(id))}, [user:contact_field(Type)]),
+    Opposite = user:opposite_type(Type),
+    icpc_broadcast_entity(Id, #entity{type=user, fields=user:get(Id)}, [user:contact_field(Opposite)]),
     none;
 
 handle_packet(#packet{type=user_search, seq=Seq,
