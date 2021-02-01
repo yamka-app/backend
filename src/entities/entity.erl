@@ -32,21 +32,22 @@ handle_entity(#entity{type=file, fields=#{name:=Name, length:=Length}}, Seq, Sco
 %% gets a user
 handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=none}) ->
     true = auth:has_permission(see_profile),
+    IsSelf = Id == get(id),
     FilteredFields = maps:filter(fun(K, _) ->
         case K of
             id          -> true;
-            email       -> Id == get(id);
+            email       -> IsSelf;
             name        -> true;
             tag         -> true;
             status      -> true;
             status_text -> true;
             ava_file    -> true;
-            friends     -> auth:has_permission(see_relationships);
-            blocked     -> auth:has_permission(see_relationships);
-            pending_in  -> auth:has_permission(see_relationships);
-            pending_out -> auth:has_permission(see_relationships);
-            dm_channels -> auth:has_permission(see_direct_messages);
-            groups      -> auth:has_permission(see_groups);
+            friends     -> IsSelf and auth:has_permission(see_relationships);
+            blocked     -> IsSelf and auth:has_permission(see_relationships);
+            pending_in  -> IsSelf and auth:has_permission(see_relationships);
+            pending_out -> IsSelf and auth:has_permission(see_relationships);
+            dm_channels -> IsSelf and auth:has_permission(see_direct_messages);
+            groups      -> IsSelf and auth:has_permission(see_groups);
             badges      -> true;
             bot_owner   -> true;
             _ -> false
