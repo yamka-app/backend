@@ -6,7 +6,7 @@
 
 -export([handle_get_request/1, handle_entity/3]).
 -export([encode_field/1, encode/1, len_decode/1]).
--export([construct_kv_str/1]).
+-export([construct_kv_str/1, filter/2]).
 
 %% updates a user
 handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, ScopeRef) ->
@@ -64,7 +64,8 @@ encode_field(number,   V, {Size})       -> datatypes:enc_num(V, Size);
 encode_field(string,   V, {})           -> datatypes:enc_str(V);
 encode_field(atom,     V, {Size, Map})  -> datatypes:enc_num(maps:get(V, utils:swap_map(Map)), Size);
 encode_field(bool,     V, {})           -> datatypes:enc_bool(V);
-encode_field(num_list, V, {Size})       -> datatypes:enc_num_list(V, Size).
+encode_field(num_list, V, {Size})       -> datatypes:enc_num_list(V, Size);
+encode_field(list,     V, {LS, EF, _})  -> datatypes:enc_list(V, EF, LS).
 encode_field({{Id, Type, Args}, Value}) ->
     Repr = encode_field(Type, Value, Args),
     IdBin = datatypes:enc_num(Id, 1),
@@ -80,6 +81,13 @@ encode(#entity{type=Type, fields=Fields}) ->
     BinaryRepr     = datatypes:enc_list(FieldValues, fun encode_field/1, 1),
     <<TypeBin/binary, BinaryRepr/binary>>.
 
+%% filters entity fields
+filter(#entity{fields=Fields}=E, Allowed) ->
+    E#entity{fields=maps:from_list(
+        lists:filter(fun({K, _}) -> lists:member(K, [id|Allowed]) end,
+            maps:to_list(Fields))
+    )}.
+
 %% finds a field descriptor by its ID in a reversed entity structure map
 find_desc(RevS, Id) ->
     Desc = lists:nth(1, [D || {I, _, _} = D <- utils:map_keys(RevS), I == Id]),
@@ -87,11 +95,12 @@ find_desc(RevS, Id) ->
     {Name, Desc}.
 
 %% decodes entities
-len_decode_field(number,   V, {Size})      -> {datatypes:dec_num(V, Size), Size};
-len_decode_field(string,   V, {})            -> {datatypes:dec_str(V), datatypes:len_str(V)};
-len_decode_field(atom,     V, {Size, Map}) -> {maps:get(datatypes:dec_num(V, Size), Map), Size};
-len_decode_field(bool,     V, {})            -> {datatypes:dec_bool(V), 1};
-len_decode_field(num_list, V, {Size})      -> R=datatypes:dec_num_list(V, Size), {R, 2+(length(R)*Size)}.
+len_decode_field(number,   V, {Size})       -> {datatypes:dec_num(V, Size), Size};
+len_decode_field(string,   V, {})           -> {datatypes:dec_str(V), datatypes:len_str(V)};
+len_decode_field(atom,     V, {Size, Map})  -> {maps:get(datatypes:dec_num(V, Size), Map), Size};
+len_decode_field(bool,     V, {})           -> {datatypes:dec_bool(V), 1};
+len_decode_field(num_list, V, {Size})       -> R=datatypes:dec_num_list(V, Size), {R, 2+(length(R)*Size)};
+len_decode_field(list,     V, {LS, _, LDF}) -> datatypes:len_dec_list(V, LDF, LS).
 len_decode_field(RevStructure, Bin) ->
     <<Id:8/unsigned-integer, Repr/binary>> = Bin,
     % find the descriptor

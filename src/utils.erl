@@ -7,6 +7,11 @@
          hash_token/1, hash_password/2,
          gen_snowflake/0, gen_avatar/0,
          temp_file_name/0]).
+-export([broadcast/2]).
+
+%% broadcasts some value to a list of processes
+broadcast(_, []) -> ok;
+broadcast(D, [H|T]) -> H ! D, broadcast(D, T).
 
 %% swaps map keys and values
 swap_map(M) -> maps:from_list([{V,K} || {K,V} <- maps:to_list(M)]).

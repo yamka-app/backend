@@ -40,7 +40,7 @@ token_get_worker(Token, Cassandra, Pid) ->
         values    = [
             {hash, TokenHash}
         ]
-   }),
+    }),
     1 = cqerl:size(Rows),
     [{id, Id}, {permissions, Perms}] = cqerl:head(Rows),
     Pid ! {ok, {Id, Perms}}.

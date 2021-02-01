@@ -32,10 +32,12 @@ decode(Data, ProtocolVersion) ->
             identification        -> fun identification_packet:decode/2;
             signup                -> fun signup_packet:decode/2;
             access_token          -> fun access_token_packet:decode/2;
+            contacts_manage       -> fun contacts_manage_packet:decode/2;
             entity_get            -> fun entity_get_packet:decode/2;
             entities              -> fun entities_packet:decode/2;
             file_download_request -> fun file_download_request_packet:decode/2;
             file_data_chunk       -> fun file_data_chunk_packet:decode/2;
+            user_search           -> fun user_search_packet:decode/2;
             _                     -> fun(_,_) -> #{} end
         end
     of

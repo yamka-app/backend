@@ -7,7 +7,8 @@
 -include("../packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
--export([get/1, update/2, email_in_use/1, create/4, create/3]).
+-export([get/1, search/1, update/2, email_in_use/1, create/4, create/3]).
+-export([manage_contact/3, opposite_type/1, contact_field/1]).
 
 %% checks if the specified E-Mail address is in use
 email_in_use(EMail) ->
@@ -19,11 +20,9 @@ email_in_use(EMail) ->
 
 %% creates the user
 create(Name, EMail, Password, BotOwner) ->
-    % generate random data
-    Id   = utils:gen_snowflake(),
-    Tag  = rand:uniform(99999),
-    Salt = crypto:strong_rand_bytes(32),
+    Id = utils:gen_snowflake(),
     % hash the password
+    Salt = crypto:strong_rand_bytes(32),
     PasswordHash = utils:hash_password(Password, Salt),
     % execute the CQL query
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
@@ -32,7 +31,7 @@ create(Name, EMail, Password, BotOwner) ->
         values = [
             {id, Id},
             {name, Name},
-            {tag, Tag},
+            {tag, rand:uniform(99999)},
             {email, EMail},
             {salt, Salt},
             {password, PasswordHash},
@@ -70,14 +69,69 @@ get(Id) ->
     #{status := StatusNum} = Vals,
     maps:put(status, maps:get(StatusNum, ?USER_STATUS_MAP), Vals).
 
+%% searches a user by name and tag
+search(NameTag) ->
+    [Name, TagStr] = string:tokens(NameTag, "#"),
+    Tag = list_to_integer(TagStr),
+    {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        % ALLOW FILTERING should be fine, we're guaranteed to have <=1k users with the same tag
+        statement = "SELECT id FROM users WHERE name=? AND tag=? ALLOW FILTERING",
+        values    = [{name, Name}, {tag, Tag}]
+    }),
+    1 = cqerl:size(Rows),
+    [{id, Id}] = cqerl:head(Rows),
+    Id.
+
 %% updates a user record
 update(Id, Fields) ->
     {Str, Bind} = entity:construct_kv_str(Fields),
     Statement = "UPDATE users SET " ++ Str ++ " WHERE id=?",
     % de-atomize the status field if present
     Vals = [{K, case K of status->maps:get(V, utils:swap_map(?USER_STATUS_MAP));_->V end} || {K,V} <- Bind],
-    logging:log("~p ~p ~p", [Id, Vals, Statement]),
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = Statement,
         values    = [{id, Id}|Vals]
     }).
+
+%% adds a contact
+add_contact(Id, {friend, Tid})      -> add_contacts(Id, "friends",     [Tid]);
+add_contact(Id, {pending_in, Tid})  -> add_contacts(Id, "pending_in",  [Tid]);
+add_contact(Id, {pending_out, Tid}) -> add_contacts(Id, "pending_out", [Tid]);
+add_contact(Id, {blocked, Tid})     -> add_contacts(Id, "bocked",      [Tid]);
+add_contact(_,  {none, _}) -> ok.
+add_contacts(Id, PropName, Tids) ->
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "UPDATE users SET " ++ PropName ++ "+=? WHERE id=?",
+        values    = [{id, Id}, {list_to_atom(PropName), Tids}]
+    }).
+
+%% removes a contact
+remove_contact(Id, {friend, Tid})      -> remove_contacts(Id, "friends",     [Tid]);
+remove_contact(Id, {pending_in, Tid})  -> remove_contacts(Id, "pending_in",  [Tid]);
+remove_contact(Id, {pending_out, Tid}) -> remove_contacts(Id, "pending_out", [Tid]);
+remove_contact(Id, {blocked, Tid})     -> remove_contacts(Id, "bocked",      [Tid]);
+remove_contact(_,  {none, _}) -> ok.
+remove_contacts(Id, PropName, Tids) ->
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "UPDATE users SET " ++ PropName ++ "-=? WHERE id=?",
+        values    = [{id, Id}, {list_to_atom(PropName), Tids}]
+    }).
+
+%% determines the opposite of the contact type for the target ID
+opposite_type(friend)      -> friend;
+opposite_type(blocked)     -> none; % (un-)blocking somebody shouldn't change the subject's block list
+opposite_type(pending_in)  -> pending_out;
+opposite_type(pending_out) -> pending_in.
+
+%% determines the field that contains contacts of type
+contact_field(friend) -> friends;
+contact_field(F)      -> F.
+
+%% adds/removes a contact to/from both the object and the subject
+manage_contact(Id, add, {Type, Tid}) ->
+    add_contact(Id, {Type, Tid}),
+    add_contact(Tid, {opposite_type(Type), Id});
+
+manage_contact(Id, remove, {Type, Tid}) ->
+    remove_contact(Id, {Type, Tid}),
+    remove_contact(Tid, {opposite_type(Type), Id}).

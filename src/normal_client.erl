@@ -7,10 +7,13 @@
 -define(EMAIL_REGEX, "(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|\"(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21\\x23-\\x5b\\x5d-\\x7f]|\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])*\")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21-\\x5a\\x53-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])+)\\])").
 -define(MIN_PROTO, 5).
 -define(MAX_PROTO, 5).
+-include("entities/entity.hrl").
 -include("packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
--export([client_init/2]).
+-export([client_init/2, icpc_init/2]).
+-export([icpc_broadcast_entity/2, icpc_broadcast_entity/3]).
+-export([safe_call/2, safe_call/3]).
 
 %% handles client packets
 handle_packet(#packet{type=identification, seq=Seq,
@@ -82,6 +85,8 @@ handle_packet(#packet{type=access_token, seq=Seq,
     {_, awaiting_login} = {{ScopeRef, status_packet:make_invalid_state(awaiting_login, Seq)}, get(state)},
     % get the token
     {_, {Id, Perms}} = {{ScopeRef, status_packet:make(invalid_access_token, "Invalid token")}, auth:get_token(Token)},
+    % create an ICPC process
+    spawn(?MODULE, icpc_init, [get(socket), {Id, Perms, get(protocol), get(supports_comp)}]),
     % save state
     put(state, normal),
     put(id, Id),
@@ -105,10 +110,56 @@ handle_packet(#packet{type=file_download_request, seq=Seq,
     file_storage:send_file(Id, Seq, {get(socket), get(protocol)}),
     none;
 
-handle_packet(#packet{type=file_data_chunk, seq=_Seq,
-                      fields=#{data := Data}}, _ScopeRef) ->
+handle_packet(#packet{type=file_data_chunk, seq=Seq,
+                      fields=#{data := Data}}, ScopeRef) ->
+    {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
     get(file_recv_pid) ! Data,
     none;
+
+handle_packet(#packet{type=contacts_manage, seq=Seq,
+                      fields=#{type:=Type, action:=Action, id:=Id}}, ScopeRef) ->
+    {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
+    Self = user:get(get(id)),
+    % Here's the matrix:
+    %    + -
+    %  F ? V   addition is allowed when the subject is pending in
+    % PI   V
+    % PO   V
+    %  B V V
+    %  G   V
+    if Action == remove ->
+        {_, true} = {{ScopeRef, status_packet:make(contact_action_not_applicable, "Contact action not applicable")},
+            (Type == blocked) or ((Type == friend) and lists:member(Id, maps:get(pending_in, Self))) };
+        true ->
+            % write changes to the DB
+            user:manage_contact(get(id), Action, {Type, Id}),
+            % if we're adding a friend, remove them from corresponding pending in/out queues
+            if Type == friend ->
+                user:manage_contact(get(id), remove, {pending_in,  Id}),
+                user:manage_contact(Id,      remove, {pending_out, get(id)});
+               true -> ok
+            end,
+            % broadcast the changes to each of both users' devices
+            icpc_broadcast_entity(get(id), #entity{type=user, fields=user:get(get(id))}, [user:contact_field(Type)]),
+            Opposite = user:opposite_type(Type),
+            if
+                Opposite /= none ->
+                    icpc_broadcast_entity(Id, #entity{type=user, fields=user:get(Id)}, [user:contact_field(Opposite)]);
+                true -> ok
+            end
+    end,
+    none;
+
+handle_packet(#packet{type=user_search, seq=Seq,
+                      fields=#{name:=Name}}, ScopeRef) ->
+    {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
+    {_, {ok, Id}} = {{ScopeRef, status_packet:make(invalid_username, "Invalid username", Seq)},
+        safe_call(fun user:search/1, [Name], [{cassandra, get(cassandra)}])},
+    % write and broadcast changes
+    user:manage_contact(get(id), add, {pending_out, Id}),
+    icpc_broadcast_entity(get(id), #entity{type=user, fields=user:get(get(id))}, [pending_out]),
+    icpc_broadcast_entity(Id,      #entity{type=user, fields=user:get(Id)},      [pending_in]),
+    status_packet:make(friend_request_sent, "Friend request sent", Seq);
 
 handle_packet(#packet{type=ping, seq=Seq,
                       fields=#{echo := Echo}}, _ScopeRef) ->
@@ -221,15 +272,7 @@ client_init(TransportSocket, Cassandra) ->
             % no idea
             % at least let's log it so we can take a look later
             logging:err("Internal error: ~p", [{Ex, Type, Trace}]),
-            Packet = status_packet:make(internal_error, "Sorry, an internal server error has occured"),
-            {WriterPid, _} = spawn_monitor(packet_iface, writer, [
-                get(socket), Packet,
-                get(protocol), get(supports_comp), self()
-            ]),
-            receive
-                {'DOWN', _, process, WriterPid, _} -> stop;
-                {sent, _}                       -> continue
-            end,
+            send_packet(status_packet:make(internal_error, "Sorry, an internal server error has occured")),
             ssl:close(get(socket)),
             exit(crash)
     end.
@@ -248,3 +291,42 @@ send_packet(P) ->
         {'DOWN', _, process, WriterPid, _} -> stop;
         {sent, ReplySeq}                   -> continue
     end.
+
+%% calls a function safely, trapping all exceptions
+put_pd([]) -> ok;
+put_pd([{K,V}|T]) -> put(K, V), put_pd(T).
+
+safe_call(Fun, Args) -> safe_call(Fun, Args, []).
+safe_call(Fun, Args, PD) ->
+    Self = self(),
+    Wrapper = fun() ->
+            put_pd(PD),
+            Self ! {ok, self(), apply(Fun, Args)}
+        end,
+    {Pid, _} = spawn_monitor(Wrapper),
+    receive
+        {ok, Pid, Val} -> {ok, Val};
+        {'DOWN', _, process, Pid, Reason} -> {error, Reason}
+    end.
+
+%%% INTER-CLIENT PROCESS COMMUNICATION
+%%% for things like sending entities around
+
+icpc_broadcast_entity(Id, E) -> icpc_broadcast_entity(Id, E, []).
+icpc_broadcast_entity(Id, E, F) -> icpc_broadcast(Id, {entities, [entity:filter(E, F)]}).
+icpc_broadcast(Id, D) ->
+    utils:broadcast(D, [P || {_,P} <- ets:lookup(icpc_processes, Id)]).
+
+icpc_init(Socket, {Id, Perms, Protocol, SC}) ->
+    put(socket, Socket), put(id, Id), put(perms, Perms),
+    put(protocol, Protocol), put(supports_comp, SC), put(seq, 0),
+    % announce ourselves
+    ets:insert(icpc_processes, {Id, self()}),
+    % start the loop
+    icpc_loop().
+
+icpc_loop() ->
+    receive
+        {entities, E} -> send_packet(entities_packet:make(E))
+    end,
+    icpc_loop().

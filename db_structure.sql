@@ -1,6 +1,6 @@
 CREATE KEYSPACE orderdb WITH replication = {'class': 'SimpleStrategy', 'replication_factor': '3'}  AND durable_writes = true;
 
-CREATE TYPE orderdb.message_block (
+CREATE TYPE orderdb.message_section (
     type smallint,
     txt text,
     blob bigint
@@ -78,12 +78,11 @@ CREATE TABLE orderdb.users (
     AND min_index_interval = 128
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
-CREATE INDEX username_idx ON orderdb.users (name);
-CREATE INDEX user_cc_idx ON orderdb.users (values(channel_cache));
-CREATE INDEX bot_owner_idx ON orderdb.users (bot_owner);
-CREATE INDEX email_idx ON orderdb.users (email);
 CREATE INDEX user_tag_idx ON orderdb.users (tag);
+CREATE INDEX email_idx ON orderdb.users (email);
+CREATE INDEX bot_owner_idx ON orderdb.users (bot_owner);
 CREATE INDEX bot_token_idx ON orderdb.users (password);
+CREATE INDEX username_idx ON orderdb.users (name);
 
 CREATE TABLE orderdb.roles (
     id bigint,
@@ -134,9 +133,7 @@ CREATE INDEX members_idx ON orderdb.roles_by_user (role);
 
 CREATE TABLE orderdb.messages (
     id bigint PRIMARY KEY,
-    blocks list<frozen<message_block>>,
     channel bigint,
-    edited boolean,
     lcid bigint,
     sender bigint
 ) WITH bloom_filter_fp_chance = 0.01
@@ -179,7 +176,7 @@ CREATE TABLE orderdb.channels (
     lcid bigint,
     name text,
     perms map<bigint, blob>,
-    rules boolean
+    type smallint
 ) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
     AND comment = ''
@@ -278,3 +275,23 @@ CREATE TABLE orderdb.blob_store (
     AND min_index_interval = 128
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
+
+CREATE TABLE orderdb.message_states (
+    id bigint PRIMARY KEY,
+    msg_id bigint,
+    sections list<frozen<message_section>>
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
+CREATE INDEX message_state_idx ON orderdb.message_states (msg_id);

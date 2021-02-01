@@ -15,6 +15,8 @@ normal_listener_loop(Socket, Cassandra) ->
     normal_listener_loop(Socket, Cassandra).
 
 normal_listener(Cassandra, CertPath, KeyPath) ->
+    % create a table that holds the list of inter-client process commiunication endpoints
+    ets:new(icpc_processes, [duplicate_bag, public, named_table]),
     % listen for new clients
     {ok, ListenSocket} = ssl:listen(?NormalPort, [
         {certfile,   CertPath},
