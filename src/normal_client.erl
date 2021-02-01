@@ -125,19 +125,23 @@ handle_packet(#packet{type=contacts_manage, seq=Seq,
     % write changes to the DB
     user:manage_contact(get(id), add, {Type, Id}),
     % if we're adding a friend, remove them from corresponding pending in/out queues
+    % also create a DM channel
     if  Type == friend ->
             user:manage_contact(get(id), remove, {pending_in,  Id}),
-            user:manage_contact(Id,      remove, {pending_out, get(id)});
+            user:manage_contact(Id,      remove, {pending_out, get(id)}),
+            DM = channel:create(normal, "DM", 0, []),
+            user:add_channel(get(id), DM),
+            user:add_channel(Id,      DM);
         true -> ok
     end,
     % broadcast the changes to each of both users' devices
     icpc_broadcast_entity(get(id), #entity{type=user, fields=user:get(get(id))},
-        [user:contact_field(Type), pending_in, pending_out]),
+        [user:contact_field(Type), pending_in, pending_out, dm_channels]),
     Opposite = user:opposite_type(Type),
     if
         Opposite /= none ->
             icpc_broadcast_entity(Id, #entity{type=user, fields=user:get(Id)},
-                [user:contact_field(Opposite), pending_in, pending_out]);
+                [user:contact_field(Opposite), pending_in, pending_out, dm_channels]);
         true -> ok
     end,
     none;

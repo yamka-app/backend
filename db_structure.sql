@@ -63,7 +63,8 @@ CREATE TABLE orderdb.users (
     salt blob,
     status int,
     status_text text,
-    tag int
+    tag int,
+    wall bigint
 ) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
     AND comment = ''

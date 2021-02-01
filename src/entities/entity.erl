@@ -34,23 +34,26 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
     true = auth:has_permission(see_profile),
     IsSelf = Id == get(id),
     Self = user:get(get(id)),
+    Unfiltered = user:get(Id),
     FilteredFields = maps:filter(fun(K, _) ->
         case K of
-            id          -> true;
-            email       -> IsSelf;
-            name        -> true;
-            tag         -> true;
-            status      -> true;
-            status_text -> true;
-            ava_file    -> true;
-            friends     -> auth:has_permission(see_relationships);
-            blocked     -> IsSelf and auth:has_permission(see_relationships);
-            pending_in  -> IsSelf and auth:has_permission(see_relationships);
-            pending_out -> IsSelf and auth:has_permission(see_relationships);
-            dm_channels -> IsSelf and auth:has_permission(see_direct_messages);
-            groups      -> auth:has_permission(see_groups);
-            badges      -> true;
-            bot_owner   -> true;
+            id              -> true;
+            email           -> IsSelf;
+            email_confirmed -> IsSelf;
+            name            -> true;
+            tag             -> true;
+            status          -> true;
+            status_text     -> true;
+            ava_file        -> true;
+            friends         -> auth:has_permission(see_relationships);
+            blocked         -> auth:has_permission(see_relationships)   and IsSelf;
+            pending_in      -> auth:has_permission(see_relationships)   and IsSelf;
+            pending_out     -> auth:has_permission(see_relationships)   and IsSelf;
+            dm_channels     -> auth:has_permission(see_direct_messages) and IsSelf;
+            groups          -> auth:has_permission(see_groups);
+            badges          -> true;
+            bot_owner       -> true;
+            wall            -> maps:get(bot_owner, Unfiltered) == 0;
             _ -> false
         end
     end, maps:map(fun(K, V) ->
@@ -59,7 +62,7 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
                 friends -> utils:intersect_lists([V, maps:get(friends, Self)]);
                 _ -> V
             end
-        end, user:get(Id))),
+        end, Unfiltered)),
     #entity{type=user, fields=FilteredFields};
 
 %% gets a file

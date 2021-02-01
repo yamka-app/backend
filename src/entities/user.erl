@@ -9,6 +9,7 @@
 
 -export([get/1, search/1, update/2, email_in_use/1, create/4, create/3]).
 -export([manage_contact/3, opposite_type/1, contact_field/1]).
+-export([add_channel/2, remove_channel/2]).
 
 %% checks if the specified E-Mail address is in use
 email_in_use(EMail) ->
@@ -27,7 +28,7 @@ create(Name, EMail, Password, BotOwner) ->
     % execute the CQL query
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = "INSERT INTO users (id, name, tag, email, salt, password, status, status_text,"
-                      "ava_file, badges, bot_owner) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                      "ava_file, badges, bot_owner, email_confirmed) VALUES (?,?,?,?,?,?,?,?,?,?,?,false)",
         values = [
             {id, Id},
             {name, Name},
@@ -40,7 +41,8 @@ create(Name, EMail, Password, BotOwner) ->
             % generate a random avatar
             {ava_file, file_storage:register_file(utils:gen_avatar(), "user_avatar.png")},
             {badges, if BotOwner > 0 -> [3]; true -> [] end},
-            {bot_owner, BotOwner}
+            {bot_owner, BotOwner},
+            {wall, channel:create(wall)}
         ]
     }),
     Id.
@@ -135,3 +137,7 @@ manage_contact(Id, add, {Type, Tid}) ->
 manage_contact(Id, remove, {Type, Tid}) ->
     remove_contact(Id, {Type, Tid}),
     remove_contact(Tid, {opposite_type(Type), Id}).
+
+%% adds/removes a channel
+add_channel   (Id, Tid) -> add_contacts   (Id, "dm_channels", [Tid]).
+remove_channel(Id, Tid) -> remove_contacts(Id, "dm_channels", [Tid]).
