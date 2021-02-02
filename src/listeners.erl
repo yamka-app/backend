@@ -7,16 +7,32 @@
 
 -define(NormalPort, 1746).
 
+cleanup(Pid) ->
+    [{Pid, Id}] = ets:lookup(id_of_processes, Pid),
+    ets:match_delete(user_awareness, {'_', {Id, Pid}}).
+
+listener_server() ->
+    receive
+        {start, Args}                -> spawn_monitor(normal_client, client_init, Args);
+        {'DOWN', _, process, Pid, _} ->
+            spawn(fun() -> cleanup(Pid) end),
+            logging:log("Listener server: ~p died", [Pid])
+    end,
+    listener_server().
+
 normal_listener_loop(Socket, Cassandra) ->
     % accept the client and spawn the client loop
     {ok, TransportSocket} = ssl:transport_accept(Socket),
-    spawn(normal_client, client_init, [TransportSocket, Cassandra]),
-
+    listener_server ! {start, [TransportSocket, Cassandra]},
     normal_listener_loop(Socket, Cassandra).
 
 normal_listener(Cassandra, CertPath, KeyPath) ->
-    % create a table that holds the list of inter-client process commiunication endpoints
-    ets:new(icpc_processes, [duplicate_bag, public, named_table]),
+    % start the listener message server
+    register(listener_server, spawn(fun listener_server/0)),
+    % create a handful of tables
+    ets:new(id_of_processes, [set, public, named_table]),
+    ets:new(icpc_processes,  [bag, public, named_table]),
+    ets:new(user_awareness,  [bag, public, named_table]),
     % listen for new clients
     {ok, ListenSocket} = ssl:listen(?NormalPort, [
         {certfile,   CertPath},

@@ -31,8 +31,10 @@ handle_entity(#entity{type=file, fields=#{name:=Name, length:=Length}}, Seq, Sco
 
 %% gets a user
 handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=none}) ->
+    ets:insert(user_awareness, {Id, {get(id), self()}}),
+
     true = auth:has_permission(see_profile),
-    IsSelf = Id == get(id),
+    IsSelf = Id == get(id), Online = user:online(Id),
     Self = user:get(get(id)),
     Unfiltered = user:get(Id),
     FilteredFields = maps:filter(fun(K, _) ->
@@ -58,8 +60,13 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
         end
     end, maps:map(fun(K, V) ->
             case K of
+                status -> if
+                        (V == online) and not Online -> offline;
+                        true -> V
+                    end;
                 groups  -> utils:intersect_lists([V, maps:get(groups,  Self)]);
                 friends -> utils:intersect_lists([V, maps:get(friends, Self)]);
+                email_confirmed -> true; % for now
                 _ -> V
             end
         end, Unfiltered)),

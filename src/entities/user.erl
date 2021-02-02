@@ -7,9 +7,12 @@
 -include("../packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
--export([get/1, search/1, update/2, email_in_use/1, create/4, create/3]).
+-export([get/1, search/1, update/2, email_in_use/1, create/4, create/3, online/1]).
 -export([manage_contact/3, opposite_type/1, contact_field/1]).
 -export([add_channel/2, remove_channel/2]).
+
+%% returns true if the user is currently connected
+online(Id) -> length(ets:lookup(icpc_processes, Id)) > 0.
 
 %% checks if the specified E-Mail address is in use
 email_in_use(EMail) ->
@@ -27,8 +30,9 @@ create(Name, EMail, Password, BotOwner) ->
     PasswordHash = utils:hash_password(Password, Salt),
     % execute the CQL query
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "INSERT INTO users (id, name, tag, email, salt, password, status, status_text,"
-                      "ava_file, badges, bot_owner, email_confirmed) VALUES (?,?,?,?,?,?,?,?,?,?,?,false)",
+        statement = "INSERT INTO users (id,name,tag,email,salt,password,status,status_text, "
+                    "ava_file,badges,bot_owner,wall,email_confirmed) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,false)",
         values = [
             {id, Id},
             {name, Name},

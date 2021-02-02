@@ -11,7 +11,7 @@
 -include("packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
--export([client_init/2, icpc_init/2]).
+-export([client_init/2, icpc_init/3]).
 -export([icpc_broadcast_entity/2, icpc_broadcast_entity/3]).
 -export([safe_call/2, safe_call/3]).
 
@@ -86,11 +86,12 @@ handle_packet(#packet{type=access_token, seq=Seq,
     % get the token
     {_, {Id, Perms}} = {{ScopeRef, status_packet:make(invalid_access_token, "Invalid token")}, auth:get_token(Token)},
     % create an ICPC process
-    spawn(?MODULE, icpc_init, [get(socket), {Id, Perms, get(protocol), get(supports_comp)}]),
+    spawn_link(?MODULE, icpc_init, [self(), get(socket), {Id, Perms, get(protocol), get(supports_comp)}]),
     % save state
     put(state, normal),
     put(id, Id),
     put(perms, Perms),
+    ets:insert(id_of_processes, {self(), Id}),
     client_identity_packet:make(Id, Seq);
 
 handle_packet(#packet{type=entity_get, seq=Seq,
@@ -322,13 +323,13 @@ safe_call(Fun, Args, PD) ->
 icpc_broadcast_entity(Id, E) -> icpc_broadcast_entity(Id, E, []).
 icpc_broadcast_entity(Id, E, F) -> icpc_broadcast(Id, {entities, [entity:filter(E, F)]}).
 icpc_broadcast(Id, D) ->
-    utils:broadcast(D, [P || {_,P} <- ets:lookup(icpc_processes, Id)]).
+    utils:broadcast(D, [P || {_,{_,P}} <- ets:lookup(icpc_processes, Id)]).
 
-icpc_init(Socket, {Id, Perms, Protocol, SC}) ->
+icpc_init(Host, Socket, {Id, Perms, Protocol, SC}) ->
     put(socket, Socket), put(id, Id), put(perms, Perms),
     put(protocol, Protocol), put(supports_comp, SC), put(seq, 0),
     % announce ourselves
-    ets:insert(icpc_processes, {Id, self()}),
+    ets:insert(icpc_processes, {Id, {Host, self()}}),
     % start the loop
     icpc_loop().
 
