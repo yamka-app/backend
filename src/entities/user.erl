@@ -8,11 +8,19 @@
 -include_lib("cqerl/include/cqerl.hrl").
 
 -export([get/1, search/1, update/2, email_in_use/1, create/4, create/3, online/1]).
+-export([broadcast_status/1, broadcast_status/2]).
 -export([manage_contact/3, opposite_type/1, contact_field/1]).
 -export([add_channel/2, remove_channel/2]).
 
 %% returns true if the user is currently connected
 online(Id) -> length(ets:lookup(icpc_processes, Id)) > 0.
+
+%% broadcasts the user's status after they have logged in
+broadcast_status(Id) ->
+    #{status:=Status} = user:get(Id),
+    broadcast_status(Id, Status).
+broadcast_status(Id, Status) ->
+    normal_client:icpc_broadcast_to_aware(#entity{type=user, fields=#{id=>Id, status=>Status}}, [status]).
 
 %% checks if the specified E-Mail address is in use
 email_in_use(EMail) ->

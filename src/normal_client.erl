@@ -12,7 +12,7 @@
 -include_lib("cqerl/include/cqerl.hrl").
 
 -export([client_init/2, icpc_init/3]).
--export([icpc_broadcast_entity/2, icpc_broadcast_entity/3]).
+-export([icpc_broadcast_entity/2, icpc_broadcast_entity/3, icpc_broadcast_to_aware/1, icpc_broadcast_to_aware/2]).
 -export([safe_call/2, safe_call/3]).
 
 %% handles client packets
@@ -92,6 +92,7 @@ handle_packet(#packet{type=access_token, seq=Seq,
     put(id, Id),
     put(perms, Perms),
     ets:insert(id_of_processes, {self(), Id}),
+    user:broadcast_status(Id),
     client_identity_packet:make(Id, Seq);
 
 handle_packet(#packet{type=entity_get, seq=Seq,
@@ -324,6 +325,12 @@ icpc_broadcast_entity(Id, E) -> icpc_broadcast_entity(Id, E, []).
 icpc_broadcast_entity(Id, E, F) -> icpc_broadcast(Id, {entities, [entity:filter(E, F)]}).
 icpc_broadcast(Id, D) ->
     utils:broadcast(D, [P || {_,{_,P}} <- ets:lookup(icpc_processes, Id)]).
+
+icpc_broadcast_to_aware(E) -> icpc_broadcast_to_aware(E, []).
+icpc_broadcast_to_aware(E, F) ->
+    Id = maps:get(id, E#entity.fields),
+    [icpc_broadcast_entity(RId, E, F)
+        || {_,{RId,_}} <- ets:lookup(user_awareness, Id)].
 
 icpc_init(Host, Socket, {Id, Perms, Protocol, SC}) ->
     put(socket, Socket), put(id, Id), put(perms, Perms),

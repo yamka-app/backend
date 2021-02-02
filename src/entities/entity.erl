@@ -18,6 +18,10 @@ handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, ScopeRef) ->
     ]) end, F),
     % change the DB record
     user:update(Id, AllowedFields),
+    % broadcast the changes
+    normal_client:icpc_broadcast_to_aware(#entity{type=user,
+        fields=maps:merge(AllowedFields, #{id=>Id})},
+        maps:keys(AllowedFields)),
     none;
 
 %% puts a file
