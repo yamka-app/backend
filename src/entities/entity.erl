@@ -103,12 +103,12 @@ handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=none, context=
             0 -> #{unread => UnreadCnt};
             _ -> #{unread => UnreadCnt, first_unread => UnreadId}
         end,
-    #entity{type=channel, fields=maps:merge(Filtered, UnreadMap)};
+    #entity{type=channel, fields=maps:merge(maps:merge(Filtered, UnreadMap), #{typing => []})};
 
 %% gets channel messages
 handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=#entity_pagination{
         field=4, dir=Dir, from=From, cnt=Cnt}, context=none}) ->
-    #entity{type=channel, fields=#{messages => channel:get_messages(Id, From, Cnt, Dir)}}.
+    #entity{type=channel, fields=#{id => Id, messages => channel:get_messages(Id, From, Cnt, Dir)}}.
 
 %% encodes entities
 encode_field(number,   V, {Size})       -> datatypes:enc_num(V, Size);
