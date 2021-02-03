@@ -65,7 +65,7 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
     end, maps:map(fun(K, V) ->
             case K of
                 status -> if
-                        (V == online) and not Online -> offline;
+                        (V /= offline) and not Online -> offline;
                         true -> V
                     end;
                 groups  -> utils:intersect_lists([V, maps:get(groups,  Self)]);

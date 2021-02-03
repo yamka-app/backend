@@ -25,6 +25,26 @@ CREATE TABLE orderdb.tokens (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
+CREATE TABLE orderdb.message_states (
+    id bigint PRIMARY KEY,
+    msg_id bigint,
+    sections list<frozen<message_section>>
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
+CREATE INDEX message_state_idx ON orderdb.message_states (msg_id);
+
 CREATE TABLE orderdb.users_by_role (
     role bigint,
     user bigint,
@@ -53,6 +73,7 @@ CREATE TABLE orderdb.users (
     bot_owner bigint,
     dm_channels set<bigint>,
     email text,
+    email_confirmed boolean,
     friends set<bigint>,
     groups set<bigint>,
     mfa_secret blob,
@@ -79,7 +100,6 @@ CREATE TABLE orderdb.users (
     AND min_index_interval = 128
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
-CREATE INDEX user_tag_idx ON orderdb.users (tag);
 CREATE INDEX email_idx ON orderdb.users (email);
 CREATE INDEX bot_owner_idx ON orderdb.users (bot_owner);
 CREATE INDEX bot_token_idx ON orderdb.users (password);
@@ -277,11 +297,12 @@ CREATE TABLE orderdb.blob_store (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE orderdb.message_states (
-    id bigint PRIMARY KEY,
-    msg_id bigint,
-    sections list<frozen<message_section>>
-) WITH bloom_filter_fp_chance = 0.01
+CREATE TABLE orderdb.message_ids_by_chan_reverse (
+    channel bigint,
+    id bigint,
+    PRIMARY KEY (channel, id)
+) WITH CLUSTERING ORDER BY (id ASC)
+    AND bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
     AND comment = ''
     AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
@@ -295,4 +316,3 @@ CREATE TABLE orderdb.message_states (
     AND min_index_interval = 128
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
-CREATE INDEX message_state_idx ON orderdb.message_states (msg_id);
