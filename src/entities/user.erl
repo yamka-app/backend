@@ -75,7 +75,6 @@ get(Id) ->
         blocked     => [],
         pending_in  => [],
         pending_out => [],
-        dm_channels => [],
         groups      => [],
         badges      => []
     }, maps:filter(fun(_, V) -> V /= null end, Row)),

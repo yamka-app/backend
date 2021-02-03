@@ -41,7 +41,7 @@
             blocked         => {10, num_list, {8}},
             pending_in      => {11, num_list, {8}},
             pending_out     => {12, num_list, {8}},
-            dm_channels     => {13, num_list, {8}},
+            dm_channel      => {13, number,   {8}},
             groups          => {14, num_list, {8}},
             roles           => {15, num_list, {8}},
             color           => {16, number,   {3}},

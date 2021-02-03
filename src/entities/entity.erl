@@ -37,10 +37,16 @@ handle_entity(#entity{type=file, fields=#{name:=Name, length:=Length}}, Seq, Sco
 handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=none}) ->
     ets:insert(user_awareness, {Id, {get(id), self()}}),
 
+    Dm = case utils:safe_call(fun channel:get_dm/1, [[get(id), Id]], [{cassandra, get(cassandra)}]) of
+        {error, _} -> #{};
+        {ok, DmId} -> #{dm_channel => DmId}
+    end,
+
     true = auth:has_permission(see_profile),
     IsSelf = Id == get(id), Online = user:online(Id),
     Self = user:get(get(id)),
     Unfiltered = user:get(Id),
+    
     FilteredFields = maps:filter(fun(K, _) ->
         case K of
             id              -> true;
@@ -52,10 +58,10 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
             status_text     -> true;
             ava_file        -> true;
             friends         -> auth:has_permission(see_relationships);
-            blocked         -> auth:has_permission(see_relationships)   and IsSelf;
-            pending_in      -> auth:has_permission(see_relationships)   and IsSelf;
-            pending_out     -> auth:has_permission(see_relationships)   and IsSelf;
-            dm_channels     -> auth:has_permission(see_direct_messages) and IsSelf;
+            blocked         -> auth:has_permission(see_relationships) and IsSelf;
+            pending_in      -> auth:has_permission(see_relationships) and IsSelf;
+            pending_out     -> auth:has_permission(see_relationships) and IsSelf;
+            dm_channel      -> auth:has_permission(see_direct_messages);
             groups          -> auth:has_permission(see_groups);
             badges          -> true;
             bot_owner       -> true;
@@ -68,18 +74,41 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
                         (V /= offline) and not Online -> offline;
                         true -> V
                     end;
-                groups  -> utils:intersect_lists([V, maps:get(groups,  Self)]);
-                friends -> utils:intersect_lists([V, maps:get(friends, Self)]);
+                groups          -> utils:intersect_lists([V, maps:get(groups,  Self)]);
+                friends         -> utils:intersect_lists([V, maps:get(friends, Self)]);
                 email_confirmed -> true; % for now
                 _ -> V
             end
         end, Unfiltered)),
-    #entity{type=user, fields=FilteredFields};
+    #entity{type=user, fields=maps:merge(FilteredFields, Dm)};
 
 %% gets a file
 handle_get_request(#entity_get_rq{type=file, id=Id, pagination=none, context=none}) ->
     % there are no permission restrictions on file accesses
-    #entity{type=file, fields=file_e:get(Id)}.
+    #entity{type=file, fields=file_e:get(Id)};
+
+%% gets a channel
+handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=none, context=none}) ->
+    Unfiltered = channel:get(Id),
+    {UnreadLcid, UnreadId} = channel:get_unread(Id, get(id)),
+    Filtered = maps:filter(fun(K, _) ->
+            case K of
+                lcid  -> false;
+                perms -> false;
+                _     -> true
+            end
+        end, Unfiltered),
+    UnreadCnt = maps:get(lcid, Unfiltered) - UnreadLcid,
+    UnreadMap = case UnreadCnt of
+            0 -> #{unread => UnreadCnt};
+            _ -> #{unread => UnreadCnt, first_unread => UnreadId}
+        end,
+    #entity{type=channel, fields=maps:merge(Filtered, UnreadMap)};
+
+%% gets channel messages
+handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=#entity_pagination{
+        field=4, dir=Dir, from=From, cnt=Cnt}, context=none}) ->
+    #entity{type=channel, fields=#{messages => channel:get_messages(Id, From, Cnt, Dir)}}.
 
 %% encodes entities
 encode_field(number,   V, {Size})       -> datatypes:enc_num(V, Size);

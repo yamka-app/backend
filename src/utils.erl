@@ -7,7 +7,7 @@
          hash_token/1, hash_password/2,
          gen_snowflake/0, gen_avatar/0,
          temp_file_name/0]).
--export([broadcast/2]).
+-export([broadcast/2, safe_call/2, safe_call/3]).
 
 %% broadcasts some value to a list of processes
 broadcast(_, []) -> ok;
@@ -99,3 +99,20 @@ gen_avatar() ->
     ok = png:close(Png),
     
     Filename.
+
+%% calls the function safely
+put_pd([]) -> ok;
+put_pd([{K,V}|T]) -> put(K, V), put_pd(T).
+
+safe_call(Fun, Args) -> safe_call(Fun, Args, []).
+safe_call(Fun, Args, PD) ->
+    Self = self(),
+    Wrapper = fun() ->
+            put_pd(PD),
+            Self ! {ok, self(), apply(Fun, Args)}
+        end,
+    {Pid, _} = spawn_monitor(Wrapper),
+    receive
+        {ok, Pid, Val} -> {ok, Val};
+        {'DOWN', _, process, Pid, Reason} -> {error, Reason}
+    end.

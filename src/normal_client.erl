@@ -13,7 +13,6 @@
 
 -export([client_init/2, icpc_init/3]).
 -export([icpc_broadcast_entity/2, icpc_broadcast_entity/3, icpc_broadcast_to_aware/1, icpc_broadcast_to_aware/2]).
--export([safe_call/2, safe_call/3]).
 
 %% handles client packets
 handle_packet(#packet{type=identification, seq=Seq,
@@ -163,7 +162,7 @@ handle_packet(#packet{type=user_search, seq=Seq,
                       fields=#{name:=Name}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
     {_, {ok, Id}} = {{ScopeRef, status_packet:make(invalid_username, "Invalid username", Seq)},
-        safe_call(fun user:search/1, [Name], [{cassandra, get(cassandra)}])},
+        utils:safe_call(fun user:search/1, [Name], [{cassandra, get(cassandra)}])},
     % write and broadcast changes
     user:manage_contact(get(id), add, {pending_out, Id}),
     icpc_broadcast_entity(get(id), #entity{type=user, fields=user:get(get(id))}, [pending_out]),
@@ -299,23 +298,6 @@ send_packet(P) ->
     receive
         {'DOWN', _, process, WriterPid, _} -> stop;
         {sent, ReplySeq}                   -> continue
-    end.
-
-%% calls a function safely, trapping all exceptions
-put_pd([]) -> ok;
-put_pd([{K,V}|T]) -> put(K, V), put_pd(T).
-
-safe_call(Fun, Args) -> safe_call(Fun, Args, []).
-safe_call(Fun, Args, PD) ->
-    Self = self(),
-    Wrapper = fun() ->
-            put_pd(PD),
-            Self ! {ok, self(), apply(Fun, Args)}
-        end,
-    {Pid, _} = spawn_monitor(Wrapper),
-    receive
-        {ok, Pid, Val} -> {ok, Val};
-        {'DOWN', _, process, Pid, Reason} -> {error, Reason}
     end.
 
 %%% INTER-CLIENT PROCESS COMMUNICATION
