@@ -65,28 +65,12 @@ CREATE TABLE orderdb.users_by_role (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE orderdb.users (
-    id bigint PRIMARY KEY,
-    ava_file bigint,
-    badges set<int>,
-    blocked set<bigint>,
-    bot_owner bigint,
-    dm_channels set<bigint>,
-    email text,
-    email_confirmed boolean,
-    friends set<bigint>,
-    groups set<bigint>,
-    mfa_secret blob,
-    name text,
-    password blob,
-    pending_in set<bigint>,
-    pending_out set<bigint>,
-    salt blob,
-    status int,
-    status_text text,
-    tag int,
-    wall bigint
-) WITH bloom_filter_fp_chance = 0.01
+CREATE TABLE orderdb.message_ids_by_chan_reverse (
+    channel bigint,
+    id bigint,
+    PRIMARY KEY (channel, id)
+) WITH CLUSTERING ORDER BY (id ASC)
+    AND bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
     AND comment = ''
     AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
@@ -100,10 +84,6 @@ CREATE TABLE orderdb.users (
     AND min_index_interval = 128
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
-CREATE INDEX email_idx ON orderdb.users (email);
-CREATE INDEX bot_owner_idx ON orderdb.users (bot_owner);
-CREATE INDEX bot_token_idx ON orderdb.users (password);
-CREATE INDEX username_idx ON orderdb.users (name);
 
 CREATE TABLE orderdb.roles (
     id bigint,
@@ -258,10 +238,10 @@ CREATE TABLE orderdb.message_ids_by_chan (
 CREATE TABLE orderdb.unread (
     channel bigint,
     user bigint,
+    lcid bigint,
     msg bigint,
-    PRIMARY KEY (channel, user)
-) WITH CLUSTERING ORDER BY (user ASC)
-    AND bloom_filter_fp_chance = 0.01
+    PRIMARY KEY ((channel, user))
+) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
     AND comment = ''
     AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
@@ -297,12 +277,28 @@ CREATE TABLE orderdb.blob_store (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE orderdb.message_ids_by_chan_reverse (
-    channel bigint,
-    id bigint,
-    PRIMARY KEY (channel, id)
-) WITH CLUSTERING ORDER BY (id ASC)
-    AND bloom_filter_fp_chance = 0.01
+CREATE TABLE orderdb.users (
+    id bigint PRIMARY KEY,
+    ava_file bigint,
+    badges set<int>,
+    blocked set<bigint>,
+    bot_owner bigint,
+    dm_channels set<bigint>,
+    email text,
+    email_confirmed boolean,
+    friends set<bigint>,
+    groups set<bigint>,
+    mfa_secret blob,
+    name text,
+    password blob,
+    pending_in set<bigint>,
+    pending_out set<bigint>,
+    salt blob,
+    status int,
+    status_text text,
+    tag int,
+    wall bigint
+) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
     AND comment = ''
     AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
@@ -316,3 +312,7 @@ CREATE TABLE orderdb.message_ids_by_chan_reverse (
     AND min_index_interval = 128
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
+CREATE INDEX email_idx ON orderdb.users (email);
+CREATE INDEX bot_owner_idx ON orderdb.users (bot_owner);
+CREATE INDEX bot_token_idx ON orderdb.users (password);
+CREATE INDEX username_idx ON orderdb.users (name);
