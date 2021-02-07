@@ -66,7 +66,8 @@
             id      => {0, number,   {8}},
             states  => {1, num_list, {8}},
             channel => {2, number,   {8}},
-            sender  => {3, number,   {8}}
+            sender  => {3, number,   {8}},
+            latest  => {4, entity,   {}}
         },
     file => #{
             id         => {0, number, {8}},
