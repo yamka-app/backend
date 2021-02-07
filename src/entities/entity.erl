@@ -40,9 +40,9 @@ handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, la
     StateId = message_state:create(MsgId, Sections),
     channel:reg_msg(Channel, MsgId),
     % broadcast the message
-    normal_client:icpc_broadcast_to_aware(chan_awareness,
-        M#entity{fields=#{id => 0, latest =>
-            L#entity{fields=#{id => StateId, sections => Sections}}}}, [id, latest]),
+    normal_client:icpc_broadcast_to_aware(chan_awareness, Channel,
+        M#entity{fields=maps:merge(message:get(MsgId), #{latest =>
+            L#entity{fields=message_state:get(StateId)}})}, [id, states, channel, sender, latest]),
     none.
     
 

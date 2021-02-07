@@ -13,7 +13,7 @@
 
 -export([client_init/2, icpc_init/3]).
 -export([icpc_broadcast_entity/2, icpc_broadcast_entity/3]).
--export([icpc_broadcast_to_aware/1, icpc_broadcast_to_aware/2, icpc_broadcast_to_aware/3]).
+-export([icpc_broadcast_to_aware/1, icpc_broadcast_to_aware/2, icpc_broadcast_to_aware/3, icpc_broadcast_to_aware/4]).
 
 %% handles client packets
 handle_packet(#packet{type=identification, seq=Seq,
@@ -309,10 +309,10 @@ icpc_broadcast_entity(Id, E, F) -> icpc_broadcast(Id, {entities, [entity:filter(
 icpc_broadcast(Id, D) ->
     utils:broadcast(D, [P || {_,{_,P}} <- ets:lookup(icpc_processes, Id)]).
 
-icpc_broadcast_to_aware(E) -> icpc_broadcast_to_aware(E, []).
-icpc_broadcast_to_aware(E, F) -> icpc_broadcast_to_aware(user_awareness, E, F).
-icpc_broadcast_to_aware(T, E, F) ->
-    Id = maps:get(id, E#entity.fields),
+icpc_broadcast_to_aware(E)       -> icpc_broadcast_to_aware(E, maps:keys(E#entity.fields)).
+icpc_broadcast_to_aware(E, F)    -> icpc_broadcast_to_aware(user_awareness, E, F).
+icpc_broadcast_to_aware(T, E, F) -> icpc_broadcast_to_aware(T, maps:get(id, E#entity.fields), E, F).
+icpc_broadcast_to_aware(T, Id, E, F) ->
     [icpc_broadcast_entity(RId, E, F)
         || {_,{RId,_}} <- ets:lookup(T, Id)].
 
