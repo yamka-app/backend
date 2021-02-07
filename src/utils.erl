@@ -36,8 +36,8 @@ hash_password(Pass, Salt) ->
 
 %% generates an ID (Snowflake)
 gen_snowflake() ->
-    {MeS, S, _MiS} = now(),
-    Epoch = ((MeS * 1000000) + S),
+    {MeS, S, MiS} = now(),
+    Epoch = ((MeS * 1000000000) + (S * 1000) + MiS) - 1577836800000,
     Random = crypto:strong_rand_bytes(2),
     <<Snowflake:64/unsigned-integer>> = <<Epoch:48/unsigned-integer, Random/binary>>, Snowflake.
 
