@@ -35,6 +35,7 @@ normal_listener(Cassandra, CertPath, KeyPath) ->
     ets:new(id_of_processes, [set, public, named_table]),
     ets:new(icpc_processes,  [bag, public, named_table]),
     ets:new(user_awareness,  [bag, public, named_table]),
+    ets:new(chan_awareness,  [bag, public, named_table]),
     % listen for new clients
     {ok, ListenSocket} = ssl:listen(?NormalPort, [
         {certfile,   CertPath},

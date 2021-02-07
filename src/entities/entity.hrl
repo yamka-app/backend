@@ -4,6 +4,7 @@
 -record(entity_get_rq, {type=unknown, id=0, pagination=none, context=none}).
 -record(message_section, {type=unknown, blob=0, text=""}).
 
+-define(REVERSE_MESSAGE_SECTION_TYPE_MAP, utils:swap_map(?MESSAGE_SECTION_TYPE_MAP)).
 -define(MESSAGE_SECTION_TYPE_MAP, #{
     0 => text,
     1 => file,

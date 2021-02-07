@@ -30,8 +30,22 @@ handle_entity(#entity{type=file, fields=#{name:=Name, length:=Length}}, Seq, Sco
     put(file_recv_pid, file_storage:recv_file(Seq,
         {get(socket), get(protocol), self(), get(cassandra)},
         {Length, Name})),
+    none;
+
+%% sends a message
+handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, latest:=
+              L=#entity{type=message_state, fields=#{id:=0, sections:=Sections}}}}, Seq, ScopeRef) ->
+    {_, none} = {{ScopeRef, status_packet:make(one_upload_only, "Only one concurrent upload is allowed", Seq)}, get(file_recv_pid)},
+    MsgId = message:create(Channel, get(id)),
+    StateId = message_state:create(MsgId, Sections),
+    channel:reg_msg(Channel, MsgId),
+    % broadcast the message
+    normal_client:icpc_broadcast_to_aware(chan_awareness,
+        M#entity{fields=#{id => 0, latest =>
+            L#entity{fields=#{id => StateId, sections => Sections}}}}, [id, latest]),
     none.
     
+
 
 %% gets a user
 handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=none}) ->
@@ -89,6 +103,8 @@ handle_get_request(#entity_get_rq{type=file, id=Id, pagination=none, context=non
 
 %% gets a channel
 handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=none, context=none}) ->
+    ets:insert(chan_awareness, {Id, {get(id), self()}}),
+
     Unfiltered = channel:get(Id),
     {UnreadLcid, UnreadId} = channel:get_unread(Id, get(id)),
     Filtered = maps:filter(fun(K, _) ->
@@ -108,7 +124,14 @@ handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=none, context=
 %% gets channel messages
 handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=#entity_pagination{
         field=4, dir=Dir, from=From, cnt=Cnt}, context=none}) ->
-    #entity{type=channel, fields=#{id => Id, messages => channel:get_messages(Id, From, Cnt, Dir)}}.
+    #entity{type=channel, fields=#{id => Id, messages => channel:get_messages(Id, From, Cnt, Dir)}};
+
+%% gets a message by id
+handle_get_request(#entity_get_rq{type=message, id=Id}) ->
+    Filtered = maps:filter(fun(K, _) -> K /= lcid end, message:get(Id)),
+    LatestMap = #{states => [], latest => #entity{type=message_state, fields=
+        message_state:get(message:get_latest_state(Id))}},
+    #entity{type=message, fields=maps:merge(Filtered, LatestMap)}.
 
 %% encodes entities
 encode_field(number,   V, {Size})       -> datatypes:enc_num(V, Size);
@@ -127,7 +150,7 @@ encode(#entity{type=Type, fields=Fields}) ->
     TypeBin        = datatypes:enc_num(maps:get(Type, ?REVERSE_ENTITY_MAP), 1),
     Structure      = maps:get(Type, ?ENTITY_STRUCTURE),
 
-    FieldsToEncode = utils:intersect_lists([utils:map_keys(Fields), utils:map_keys(Structure)]),
+    FieldsToEncode = utils:intersect_lists([maps:keys(Fields), maps:keys(Structure)]),
     FieldValues    = [{maps:get(K, Structure), maps:get(K, Fields)} || K <- FieldsToEncode],
 
     BinaryRepr     = datatypes:enc_list(FieldValues, fun encode_field/1, 1),

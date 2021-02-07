@@ -7,8 +7,8 @@
 -include("../packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
--export([get/1, get_dm/1, create/1, create/4, get_messages/4]).
--export([set_unread/3, get_unread/2]).
+-export([get/1, get_dm/1, create/1, create/4, update/2, get_messages/4]).
+-export([set_unread/3, get_unread/2, reg_msg/2]).
 
 %% gets a channel by ID
 get(Id) ->
@@ -65,11 +65,11 @@ get_unread(Id, User) ->
     end.
 
 %% gets messages IDs (with pagination)
-get_messages(Id, StartId, Limit, down) -> get_messages_worker(Id, StartId, Limit, "message_ids_by_chan");
-get_messages(Id, StartId, Limit, up)   -> get_messages_worker(Id, StartId, Limit, "message_ids_by_chan_reverse").
-get_messages_worker(Id, StartId, Limit, Tab) ->
+get_messages(Id, StartId, Limit, down) -> get_messages_worker(Id, StartId, Limit, "message_ids_by_chan", "<");
+get_messages(Id, StartId, Limit, up)   -> get_messages_worker(Id, StartId, Limit, "message_ids_by_chan_reverse", ">").
+get_messages_worker(Id, StartId, Limit, Tab, Operator) ->
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "SELECT * FROM " ++ Tab ++ " WHERE channel=? AND id>? LIMIT ? ALLOW FILTERING",
+        statement = "SELECT * FROM " ++ Tab ++ " WHERE channel=? AND id" ++ Operator ++ "? LIMIT ? ALLOW FILTERING",
         values    = [{channel, Id}, {id, StartId}, {'[limit]', Limit}]
     }),
     [MId || [{channel, _}, {id, MId}] <- cqerl:all_rows(Rows)].
@@ -82,3 +82,24 @@ get_dm([_,_]=Users) ->
     }),
     [{channel, Id}] = cqerl:head(Rows),
     Id.
+
+%% updates a channel record
+update(Id, Fields) ->
+    {Str, Vals} = entity:construct_kv_str(Fields),
+    Statement = "UPDATE channels SET " ++ Str ++ " WHERE id=?",
+    % de-atomize the status field if present
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = Statement,
+        values    = [{id, Id}|Vals]
+    }).
+
+%% registers a message
+reg_msg(Id, Msg) ->
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "INSERT INTO message_ids_by_chan (channel, id) VALUES (?,?)",
+        values    = [{channel, Id}, {id, Msg}]
+    }),
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "INSERT INTO message_ids_by_chan_reverse (channel, id) VALUES (?,?)",
+        values    = [{channel, Id}, {id, Msg}]
+    }).
