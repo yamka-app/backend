@@ -8,6 +8,7 @@
          gen_snowflake/0, gen_avatar/0,
          temp_file_name/0]).
 -export([broadcast/2, safe_call/2, safe_call/3]).
+-export([ms_since/1]).
 
 %% broadcasts some value to a list of processes
 broadcast(_, []) -> ok;
@@ -117,3 +118,6 @@ safe_call(Fun, Args, PD) ->
         {ok, Pid, Val} -> {ok, Val};
         {'DOWN', _, process, Pid, Reason} -> {error, Reason}
     end.
+
+%% time difference between now and past in ms
+ms_since(Time) -> erlang:convert_time_unit(erlang:monotonic_time() - Time, native, milli_seconds).

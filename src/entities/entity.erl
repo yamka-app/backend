@@ -32,6 +32,18 @@ handle_entity(#entity{type=file, fields=#{name:=Name, length:=Length}}, Seq, Sco
         {Length, Name})),
     none;
 
+%% (re-)sets a typing status
+handle_entity(#entity{type=channel, fields=#{id:=Id, typing:=[0]}}, _Seq, _ScopeRef) ->
+    channel:set_typing(Id, get(id)),
+    normal_client:icpc_broadcast_to_aware(chan_awareness,
+        #entity{type=channel, fields=#{id=>Id, typing=>channel:get_typing(Id)}}, [id, typing]),
+    none;
+handle_entity(#entity{type=channel, fields=#{id:=Id, typing:=[]}}, _Seq, _ScopeRef) ->
+    channel:reset_typing(Id, get(id)), 
+    normal_client:icpc_broadcast_to_aware(chan_awareness,
+        #entity{type=channel, fields=#{id=>Id, typing=>channel:get_typing(Id)}}, [id, typing]),
+    none;
+
 %% sends a message
 handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, latest:=
               L=#entity{type=message_state, fields=#{id:=0, sections:=Sections}}}}, Seq, ScopeRef) ->
@@ -115,11 +127,11 @@ handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=none, context=
             end
         end, Unfiltered),
     UnreadCnt = maps:get(lcid, Unfiltered) - UnreadLcid,
-    UnreadMap = case UnreadCnt of
-            0 -> #{unread => UnreadCnt};
-            _ -> #{unread => UnreadCnt, first_unread => UnreadId}
+    AddMap = case UnreadCnt of
+            0 -> #{typing => channel:get_typing(Id), unread => UnreadCnt};
+            _ -> #{typing => channel:get_typing(Id), unread => UnreadCnt, first_unread => UnreadId}
         end,
-    #entity{type=channel, fields=maps:merge(maps:merge(Filtered, UnreadMap), #{typing => []})};
+    #entity{type=channel, fields=maps:merge(maps:merge(Filtered, AddMap), #{typing => []})};
 
 %% gets channel messages
 handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=#entity_pagination{

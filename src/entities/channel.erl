@@ -9,6 +9,9 @@
 
 -export([get/1, get_dm/1, create/1, create/4, update/2, get_messages/4]).
 -export([set_unread/3, get_unread/2, reg_msg/2]).
+-export([get_typing/1, set_typing/2, reset_typing/2]).
+
+-define(TYPING_RESET_THRESHOLD, 15000).
 
 %% gets a channel by ID
 get(Id) ->
@@ -103,3 +106,17 @@ reg_msg(Id, Msg) ->
         statement = "INSERT INTO message_ids_by_chan_reverse (channel, id) VALUES (?,?)",
         values    = [{channel, Id}, {id, Msg}]
     }).
+
+%% gets the users who are typing
+get_typing_filter([]) -> [];
+get_typing_filter([{_, {User, Time}}|T]) ->
+    MsSince = utils:ms_since(Time),
+    if MsSince >= ?TYPING_RESET_THRESHOLD -> get_typing_filter(T);
+       true -> [User|get_typing_filter(T)]
+    end.
+get_typing(Id) -> get_typing_filter(ets:lookup(typing, Id)).
+
+%% adds a user to the typing list
+set_typing(Id, User) -> ets:insert(typing, {Id, {User, erlang:monotonic_time()}}).
+%% removes a user from the typing list
+reset_typing(Id, User) -> ets:match_delete(typing, {Id, {User, '_'}}).

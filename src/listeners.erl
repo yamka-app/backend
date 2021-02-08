@@ -12,7 +12,8 @@ cleanup(Pid) ->
     user:broadcast_status(Id, offline),
     ets:match_delete(icpc_processes, {Id, '_'}),
     ets:match_delete(user_awareness, {'_', {Id, Pid}}),
-    ets:match_delete(chan_awareness, {'_', {Id, Pid}}).
+    ets:match_delete(chan_awareness, {'_', {Id, Pid}}),
+    ets:match_delete(typing,         {'_', {Id, '_'}}).
 
 listener_server() ->
     receive
@@ -37,6 +38,7 @@ normal_listener(Cassandra, CertPath, KeyPath) ->
     ets:new(icpc_processes,  [bag, public, named_table]),
     ets:new(user_awareness,  [bag, public, named_table]),
     ets:new(chan_awareness,  [bag, public, named_table]),
+    ets:new(typing,          [bag, public, named_table]),
     % listen for new clients
     {ok, ListenSocket} = ssl:listen(?NormalPort, [
         {certfile,   CertPath},
