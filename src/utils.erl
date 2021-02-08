@@ -40,7 +40,6 @@ gen_snowflake() ->
     Epoch = ((MeS * 1000000000) + (S * 1000) + (MiS div 1000)) - 1577836800000,
     Random = crypto:strong_rand_bytes(2),
     <<Snowflake:64/unsigned-integer>> = <<Epoch:48/unsigned-integer, Random/binary>>,
-    logging:log("~p ~p ~p ~p", [now(), Epoch, Random, Snowflake]),
     Snowflake.
 
 %% generates a temporary file
