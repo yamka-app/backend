@@ -10,7 +10,7 @@
 -export([get/1, search/1, update/2, email_in_use/1, create/4, create/3, online/1]).
 -export([broadcast_status/1, broadcast_status/2]).
 -export([manage_contact/3, opposite_type/1, contact_field/1]).
--export([add_channel/2, remove_channel/2]).
+-export([add_dm_channel/2]).
 
 %% returns true if the user is currently connected
 online(Id) -> length(ets:lookup(icpc_processes, Id)) > 0.
@@ -150,5 +150,8 @@ manage_contact(Id, remove, {Type, Tid}) ->
     remove_contact(Tid, {opposite_type(Type), Id}).
 
 %% adds/removes a channel
-add_channel   (Id, Tid) -> add_contacts   (Id, "dm_channels", [Tid]).
-remove_channel(Id, Tid) -> remove_contacts(Id, "dm_channels", [Tid]).
+add_dm_channel(Peers=[_,_], Channel) ->
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "INSERT INTO dm_channels (users, channel) VALUES (?, ?)",
+        values    = [{users, Peers}, {channel, Channel}]
+    }).

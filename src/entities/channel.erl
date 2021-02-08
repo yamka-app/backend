@@ -62,7 +62,7 @@ get_unread(Id, User) ->
         [{lcid, Lcid}, {msg, Msg}] -> {Lcid, Msg};
         empty_dataset ->
             Lcid = maps:get(lcid, channel:get(Id)),
-            [Msg|_] = if Lcid==0->[0];true->get_messages(Id, 16#FFFFFFFFFFFFFFFF, 1, down)end, % gets the last message
+            [Msg|_] = if Lcid==0->[0];true->get_messages(Id, 9223372036854775807, 1, down)end, % gets the last message
             set_unread(Id, User, {Lcid, Msg}),
             {Lcid, Msg}
     end.

@@ -132,8 +132,7 @@ handle_packet(#packet{type=contacts_manage, seq=Seq,
             user:manage_contact(get(id), remove, {pending_in,  Id}),
             user:manage_contact(Id,      remove, {pending_out, get(id)}),
             DM = channel:create(normal, "DM", 0, []),
-            user:add_channel(get(id), DM),
-            user:add_channel(Id,      DM);
+            user:add_dm_channel([Id, get(id)], DM);
         true -> ok
     end,
     % broadcast the changes to each of both users' devices
