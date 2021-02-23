@@ -7,7 +7,7 @@
 
 -export([enc_num/2,  dec_num/1, dec_num/2,
          enc_bool/1, dec_bool/1,
-         enc_str/1,  dec_str/1,  len_str/1,
+         enc_str/1,  dec_str/1,  len_str/1, len_dec_str/1,
          enc_list/3,
          dec_list/3, dec_list/4, len_dec_list/3, len_list/3,
          enc_num_list/2, dec_num_list/2]).
@@ -38,6 +38,7 @@ dec_str(X) ->
 len_str(X) ->
    % take the length marker into account
    dec_num(binary:part(X, 0, 2)) + 2.
+len_dec_str(X) -> {dec_str(X), len_str(X)}.
 
 enc_msg_section(#message_section{type=Type, blob=Blob, text=Text}) ->
    TypeNum = maps:get(Type, utils:swap_map(?MESSAGE_SECTION_TYPE_MAP)),
@@ -46,7 +47,7 @@ enc_msg_section(#message_section{type=Type, blob=Blob, text=Text}) ->
 len_dec_msg_section(<<TypeNum:8/unsigned-integer, Blob:64/unsigned-integer, Str/binary>>) ->
    Type = maps:get(TypeNum, ?MESSAGE_SECTION_TYPE_MAP),
    Text = dec_str(Str),
-   {#message_section{type=Type, blob=Blob, text=Text}, byte_size(Str) + 5}.
+   {#message_section{type=Type, blob=Blob, text=Text}, len_str(Str) + 9}.
 
 
 %%% this set of functions expects three functions to work with data types:

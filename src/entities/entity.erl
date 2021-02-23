@@ -165,6 +165,7 @@ encode_field(string,   V, {})           -> datatypes:enc_str(V);
 encode_field(atom,     V, {Size, Map})  -> datatypes:enc_num(maps:get(V, utils:swap_map(Map)), Size);
 encode_field(bool,     V, {})           -> datatypes:enc_bool(V);
 encode_field(num_list, V, {Size})       -> datatypes:enc_num_list(V, Size);
+encode_field(str_list, V, {})           -> datatypes:enc_list(V, fun datatypes:enc_str/1, 2);
 encode_field(list,     V, {LS, EF, _})  -> datatypes:enc_list(V, EF, LS);
 encode_field(entity,   V, {})           -> entity:encode(V).
 encode_field({{Id, Type, Args}, Value}) ->
@@ -201,6 +202,7 @@ len_decode_field(string,   V, {})           -> {datatypes:dec_str(V), datatypes:
 len_decode_field(atom,     V, {Size, Map})  -> {maps:get(datatypes:dec_num(V, Size), Map), Size};
 len_decode_field(bool,     V, {})           -> {datatypes:dec_bool(V), 1};
 len_decode_field(num_list, V, {Size})       -> R=datatypes:dec_num_list(V, Size), {R, 2+(length(R)*Size)};
+len_decode_field(str_list, V, {})           -> datatypes:len_dec_list(V, fun datatypes:len_dec_str/1, 2);
 len_decode_field(list,     V, {LS, _, LDF}) -> datatypes:len_dec_list(V, LDF, LS);
 len_decode_field(entity,   V, {})           -> entity:len_decode(V).
 len_decode_field(RevStructure, Bin) ->
