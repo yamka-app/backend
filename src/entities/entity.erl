@@ -32,7 +32,7 @@ handle_entity(#entity{type=file, fields=#{name:=Name, length:=Length}}, Seq, Sco
         {Length, Name})),
     none;
 
-%% (re-)sets a typing status
+%% (re-)sets the typing status
 handle_entity(#entity{type=channel, fields=#{id:=Id, typing:=[0]}}, _Seq, _ScopeRef) ->
     channel:set_typing(Id, get(id)),
     normal_client:icpc_broadcast_to_aware(chan_awareness,
@@ -42,6 +42,20 @@ handle_entity(#entity{type=channel, fields=#{id:=Id, typing:=[]}}, _Seq, _ScopeR
     channel:reset_typing(Id, get(id)), 
     normal_client:icpc_broadcast_to_aware(chan_awareness,
         #entity{type=channel, fields=#{id=>Id, typing=>channel:get_typing(Id)}}, [id, typing]),
+    none;
+
+%% sets the unread message
+handle_entity(#entity{type=channel, fields=#{id:=Id, first_unread:=FirstUnread}}, _Seq, _ScopeRef) ->
+    % get the message and its LCID
+    #{lcid := Lcid} = message:get(FirstUnread),
+    channel:set_unread(Id, get(id), {Lcid, FirstUnread}),
+    none;
+%% marks the channel as unread
+handle_entity(#entity{type=channel, fields=#{id:=Id, unread:=0}}, _Seq, _ScopeRef) ->
+    % get the last message and its LCID
+    [LastMsg] = channel:get_messages(Id, 9223372036854775807, 1, down),
+    #{lcid := Lcid} = message:get(LastMsg),
+    channel:set_unread(Id, get(id), {Lcid, LastMsg}),
     none;
 
 %% sends a message
