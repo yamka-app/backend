@@ -81,6 +81,19 @@ handle_entity(M=#entity{type=message,       fields=#{id:=Id, latest:=
     normal_client:icpc_broadcast_to_aware(chan_awareness, maps:get(channel, Existing),
         M#entity{fields=maps:merge(message:get(Id), #{states => message:get_states(Id), latest =>
             L#entity{fields=message_state:get(StateId)}})}, [id, states, channel, sender, latest]),
+    none;
+
+%% deletes a message
+handle_entity(M=#entity{type=message, fields=#{id:=Id, sender:=0}}, Seq, ScopeRef) ->
+    Existing = message:get(Id),
+    {_, true} = {{ScopeRef, status_packet:make(permission_denied, "This message was sent by another user", Seq)},
+        maps:get(sender, Existing) =:= get(id)},
+    message:delete(Id),
+    channel:unreg_msg(maps:get(channel, Existing), Id),
+    % broadcast the deletion notification
+    normal_client:icpc_broadcast_to_aware(chan_awareness, maps:get(channel, Existing),
+        M#entity{fields=#{id => Id, channel => maps:get(channel, Existing), sender => 0}},
+            [id, channel, sender]),
     none.
     
 

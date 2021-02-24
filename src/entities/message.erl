@@ -7,7 +7,7 @@
 -include("../packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
--export([get/1, create/2]).
+-export([get/1, create/2, delete/1]).
 -export([get_states/1, get_latest_state/1]).
 
 %% gets a message by ID
@@ -37,6 +37,12 @@ create(Channel, Sender) ->
     % update the channel's LCID
     channel:update(Channel, #{lcid => Lcid + 1}),
     Id.
+
+delete(Id) ->
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "DELETE FROM messages WHERE id=?",
+        values = [{id, Id}]
+    }).
 
 %% gets all message states
 get_latest_state(Id) -> lists:last(get_states(Id)).
