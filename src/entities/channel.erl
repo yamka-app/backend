@@ -60,8 +60,10 @@ get_unread(Id, User) ->
     }),
     case cqerl:head(Rows) of
         [{lcid, Lcid}, {msg, 0}] ->
-            [FirstMsg|_] = get_messages(Id, 0, 1, up),
-            {Lcid, FirstMsg};
+            case get_messages(Id, 0, 1, up) of
+                [FirstMsg] -> {Lcid, FirstMsg};
+                [] -> {Lcid, 0}
+            end;
         [{lcid, Lcid}, {msg, Msg}] -> {Lcid, Msg};
         empty_dataset ->
             Lcid = maps:get(lcid, channel:get(Id)),

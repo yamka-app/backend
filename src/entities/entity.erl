@@ -155,9 +155,13 @@ handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=#entity_pagina
 %% gets a message by id
 handle_get_request(#entity_get_rq{type=message, id=Id}) ->
     Filtered = maps:filter(fun(K, _) -> K /= lcid end, message:get(Id)),
-    LatestMap = #{states => [], latest => #entity{type=message_state, fields=
+    StateMap = #{states => message:get_states(Id), latest => #entity{type=message_state, fields=
         message_state:get(message:get_latest_state(Id))}},
-    #entity{type=message, fields=maps:merge(Filtered, LatestMap)}.
+    #entity{type=message, fields=maps:merge(Filtered, StateMap)};
+
+%% gets a message state by id
+handle_get_request(#entity_get_rq{type=message_state, id=Id}) ->
+    #entity{type=message_state, fields=message_state:get(Id)}.
 
 %% encodes entities
 encode_field(number,   V, {Size})       -> datatypes:enc_num(V, Size);
