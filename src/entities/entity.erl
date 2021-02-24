@@ -61,13 +61,25 @@ handle_entity(#entity{type=channel, fields=#{id:=Id, unread:=0}}, _Seq, _ScopeRe
 %% sends a message
 handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, latest:=
               L=#entity{type=message_state, fields=#{id:=0, sections:=Sections}}}}, Seq, ScopeRef) ->
-    {_, none} = {{ScopeRef, status_packet:make(one_upload_only, "Only one concurrent upload is allowed", Seq)}, get(file_recv_pid)},
     MsgId = message:create(Channel, get(id)),
-    StateId = message_state:create(MsgId, Sections),
+    StateId = message_state:create(MsgId, message_state:filter_sections(Sections)),
     channel:reg_msg(Channel, MsgId),
     % broadcast the message
     normal_client:icpc_broadcast_to_aware(chan_awareness, Channel,
         M#entity{fields=maps:merge(message:get(MsgId), #{states => message:get_states(MsgId), latest =>
+            L#entity{fields=message_state:get(StateId)}})}, [id, states, channel, sender, latest]),
+    none;
+
+%% edits a message
+handle_entity(M=#entity{type=message,       fields=#{id:=Id, latest:=
+              L=#entity{type=message_state, fields=#{id:=0, sections:=Sections}}}}, Seq, ScopeRef) ->
+    Existing = message:get(Id),
+    {_, true} = {{ScopeRef, status_packet:make(permission_denied, "This message was sent by another user", Seq)},
+        maps:get(sender, Existing) =:= get(id)},
+    StateId = message_state:create(Id, message_state:filter_sections(Sections)),
+    % broadcast the message
+    normal_client:icpc_broadcast_to_aware(chan_awareness, maps:get(channel, Existing),
+        M#entity{fields=maps:merge(message:get(Id), #{states => message:get_states(Id), latest =>
             L#entity{fields=message_state:get(StateId)}})}, [id, states, channel, sender, latest]),
     none.
     
