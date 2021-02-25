@@ -62,9 +62,18 @@ handle_entity(#entity{type=channel, fields=#{id:=Id, unread:=0}}, _Seq, _ScopeRe
     end,
     none;
 
+%% creates a channel
+handle_entity(#entity{type=channel, fields=#{id:=0, group:=Group, name:=Name}}, Seq, ScopeRef) ->
+    #{owner := Owner} = group_e:get(Group),
+    {_, Owner} = {{ScopeRef, status_packet:make(permission_denied, "No administrative permission", Seq)}, get(id)},
+    channel:create(normal, Name, Group, []),
+    normal_client:icpc_broadcast_to_aware(group_awareness, #entity{
+        type=group, fields=group_e:get(Group)}, [id, channels]),
+    none;
+
 %% sends a message
 handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, latest:=
-              L=#entity{type=message_state, fields=#{id:=0, sections:=Sections}}}}, Seq, ScopeRef) ->
+              L=#entity{type=message_state, fields=#{id:=0, sections:=Sections}}}}, _Seq, _ScopeRef) ->
     MsgId = message:create(Channel, get(id)),
     StateId = message_state:create(MsgId, message_state:filter_sections(Sections)),
     channel:reg_msg(Channel, MsgId),
@@ -220,6 +229,7 @@ handle_get_request(#entity_get_rq{type=message_state, id=Id, pagination=none, co
 
 %% gets a group by id
 handle_get_request(#entity_get_rq{type=group, id=Id, pagination=none, context=none}) ->
+    ets:insert(group_awareness, {Id, {get(id), self()}}),
     #entity{type=group, fields=group_e:get(Id)};
 
 %% gets a role by id
