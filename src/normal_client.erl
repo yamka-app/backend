@@ -169,6 +169,21 @@ handle_packet(#packet{type=user_search, seq=Seq,
     icpc_broadcast_entity(Id,      #entity{type=user, fields=user:get(Id)},      [pending_in]),
     status_packet:make(friend_request_sent, "Friend request sent", Seq);
 
+handle_packet(#packet{type=invite_resolve, seq=Seq,
+                      fields=#{code:=Code, add:=Add}}, ScopeRef) ->
+    {_, {ok, Id}} = {{ScopeRef, status_packet:make(invalid_invite, "Invalid invite", Seq)},
+        group_e:resolve_invite(Code)},
+    Fields=#{everyone_role := Everyone} = group_e:get(Id),
+    case Add of
+        false -> entities_packet:make([#entity{type=group, fields=Fields}]);
+        true ->
+            role:add(Everyone, get(id)),
+            user:manage_contact(get(id), add, {group, Id}),
+            icpc_broadcast_entity(get(id),
+                #entity{type=user, fields=user:get(get(id))}, [groups]),
+            none
+    end;
+
 handle_packet(#packet{type=ping, seq=Seq,
                       fields=#{echo := Echo}}, _ScopeRef) ->
     #packet{type = pong, reply = Seq, fields = #{echo => Echo}};

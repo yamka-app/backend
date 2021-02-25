@@ -8,8 +8,8 @@
 
 len_segment(Bin) ->
     <<_:78, C:1/unsigned, P:1/unsigned, _/binary>> = Bin,
-    10 + if C > 0, P > 0 -> 10 + 11;
-            C > 0        -> 10;
+    10 + if C > 0, P > 0 -> 9 + 11;
+            C > 0        -> 9;
             P > 0        -> 11;
             true         -> 0
     end.
@@ -35,7 +35,7 @@ decode_segment(Bin) ->
     end,
     Context = case C of
         0 -> none;
-        1 -> decode_context(PC_Rest)
+        1 -> decode_context(binary:part(PC_Rest, 0, 9))
     end,
     #entity_get_rq{type=maps:get(Type, ?ENTITY_TYPE_MAP), id=Id, pagination=Pagination, context=Context}.
 

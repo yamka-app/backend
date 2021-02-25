@@ -45,7 +45,7 @@
             dm_channel      => {13, number,   {8}},
             groups          => {14, num_list, {8}},
             roles           => {15, num_list, {8}},
-            color           => {16, number,   {3}},
+            color           => {16, number,   {4}},
             badges          => {17, num_list, {1}},
             bot_owner       => {18, number,   {8}},
             owned_bots      => {19, num_list, {8}},
@@ -79,6 +79,15 @@
             channel => {2, number,   {8}},
             sender  => {3, number,   {8}},
             latest  => {4, entity,   {}}
+        },
+    role => #{
+            id          => {0, number,   {8}},
+            name        => {1, string,   {}},
+            color       => {2, number,   {4}},
+            group       => {3, number,   {8}},
+            priority    => {4, number,   {2}},
+            permissions => {5, number,   {6}},
+            members     => {6, num_list, {8}}
         },
     file => #{
             id         => {0, number, {8}},

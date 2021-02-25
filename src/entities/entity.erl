@@ -2,6 +2,7 @@
 -author("Order").
 -license("MPL-2.0").
 
+-include("../packets/packet.hrl").
 -include("entity.hrl").
 
 -export([handle_get_request/1, handle_entity/3]).
@@ -50,12 +51,15 @@ handle_entity(#entity{type=channel, fields=#{id:=Id, first_unread:=FirstUnread}}
     #{lcid := Lcid} = message:get(FirstUnread),
     channel:set_unread(Id, get(id), {Lcid, FirstUnread}),
     none;
-%% marks the channel as unread
+%% marks the channel as read
 handle_entity(#entity{type=channel, fields=#{id:=Id, unread:=0}}, _Seq, _ScopeRef) ->
     % get the last message and its LCID
-    [LastMsg] = channel:get_messages(Id, 9223372036854775807, 1, down),
-    #{lcid := Lcid} = message:get(LastMsg),
-    channel:set_unread(Id, get(id), {Lcid, LastMsg}),
+    case channel:get_messages(Id, 9223372036854775807, 1, down) of
+        [] -> ok;
+        [LastMsg] ->
+            #{lcid := Lcid} = message:get(LastMsg),
+            channel:set_unread(Id, get(id), {Lcid, LastMsg})
+    end,
     none;
 
 %% sends a message
@@ -94,7 +98,27 @@ handle_entity(M=#entity{type=message, fields=#{id:=Id, sender:=0}}, Seq, ScopeRe
     normal_client:icpc_broadcast_to_aware(chan_awareness, maps:get(channel, Existing),
         M#entity{fields=#{id => Id, channel => maps:get(channel, Existing), sender => 0}},
             [id, channel, sender]),
-    none.
+    none;
+
+%% creates a group
+handle_entity(#entity{type=group, fields=#{id:=0, name:=Name}}, _Seq, _ScopeRef) ->
+    {Id, Everyone} = group_e:create(Name, get(id)),
+    role:add(Everyone, get(id)),
+    user:manage_contact(get(id), add, {group, Id}),
+    normal_client:icpc_broadcast_entity(get(id),
+        #entity{type=user, fields=user:get(get(id))}, [groups]),
+    none;
+
+%% manages invites
+handle_entity(#entity{type=group, fields=#{id:=Id, invites:=Invites}}, Seq, ScopeRef) ->
+    #{owner := Owner, invites := ExInvites} = group_e:get(Id),
+    {_, Owner} = {{ScopeRef, status_packet:make(permission_denied, "No administrative permission", Seq)}, get(id)},
+    % calculate the list difference
+    {Added, Removed} = utils:list_diff(Invites, ExInvites),
+    lists:foreach(fun(_) -> group_e:add_invite(Id) end, lists:seq(1, length(Added))),
+    lists:foreach(fun(I) -> group_e:remove_invite(Id, I) end, Removed),
+    #{invites := NewInvites} = group_e:get(Id),
+    #packet{type=entities, fields=#{entities => [#entity{type=group, fields=#{id => Id, invites => NewInvites}}]}, reply=Seq}.
     
 
 
@@ -147,6 +171,12 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
         end, Unfiltered)),
     #entity{type=user, fields=maps:merge(FilteredFields, Dm)};
 
+%% gets a user in context of a group
+handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=
+        #entity_context{type=group, id=_Group}}) ->
+    % TODO
+    #entity{type=user, fields=#{id => Id, color => 0}};
+
 %% gets a file
 handle_get_request(#entity_get_rq{type=file, id=Id, pagination=none, context=none}) ->
     % there are no permission restrictions on file accesses
@@ -185,8 +215,21 @@ handle_get_request(#entity_get_rq{type=message, id=Id}) ->
     #entity{type=message, fields=maps:merge(Filtered, StateMap)};
 
 %% gets a message state by id
-handle_get_request(#entity_get_rq{type=message_state, id=Id}) ->
-    #entity{type=message_state, fields=message_state:get(Id)}.
+handle_get_request(#entity_get_rq{type=message_state, id=Id, pagination=none, context=none}) ->
+    #entity{type=message_state, fields=message_state:get(Id)};
+
+%% gets a group by id
+handle_get_request(#entity_get_rq{type=group, id=Id, pagination=none, context=none}) ->
+    #entity{type=group, fields=group_e:get(Id)};
+
+%% gets a role by id
+handle_get_request(#entity_get_rq{type=role, id=Id, pagination=none, context=none}) ->
+    #entity{type=role, fields=role:get(Id)};
+
+%% gets role members
+handle_get_request(#entity_get_rq{type=role, id=Id, pagination=#entity_pagination{
+        field=6, dir=Dir, from=From, cnt=Cnt}, context=none}) ->
+    #entity{type=role, fields=#{id => Id, members => role:get_members(Id, From, Cnt, Dir)}}.
 
 %% encodes entities
 encode_field(number,   V, {Size})       -> datatypes:enc_num(V, Size);

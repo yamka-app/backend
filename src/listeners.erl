@@ -9,11 +9,11 @@
 
 cleanup(Pid) ->
     [{Pid, Id}] = ets:lookup(id_of_processes, Pid),
-    user:broadcast_status(Id, offline),
     ets:match_delete(icpc_processes, {Id, '_'}),
     ets:match_delete(user_awareness, {'_', {Id, Pid}}),
     ets:match_delete(chan_awareness, {'_', {Id, Pid}}),
-    ets:match_delete(typing,         {'_', {Id, '_'}}).
+    ets:match_delete(typing,         {'_', {Id, '_'}}),
+    user:broadcast_status(Id, offline).
 
 listener_server() ->
     receive

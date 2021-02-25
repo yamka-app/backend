@@ -38,6 +38,7 @@ decode(Data, ProtocolVersion) ->
             file_download_request -> fun file_download_request_packet:decode/2;
             file_data_chunk       -> fun file_data_chunk_packet:decode/2;
             user_search           -> fun user_search_packet:decode/2;
+            invite_resolve        -> fun invite_resolve_packet:decode/2;
             _                     -> fun(_,_) -> #{} end
         end
     of

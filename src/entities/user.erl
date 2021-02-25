@@ -110,7 +110,8 @@ update(Id, Fields) ->
 add_contact(Id, {friend, Tid})      -> add_contacts(Id, "friends",     [Tid]);
 add_contact(Id, {pending_in, Tid})  -> add_contacts(Id, "pending_in",  [Tid]);
 add_contact(Id, {pending_out, Tid}) -> add_contacts(Id, "pending_out", [Tid]);
-add_contact(Id, {blocked, Tid})     -> add_contacts(Id, "bocked",      [Tid]);
+add_contact(Id, {blocked, Tid})     -> add_contacts(Id, "blocked",     [Tid]);
+add_contact(Id, {group, Tid})       -> add_contacts(Id, "groups",      [Tid]);
 add_contact(_,  {none, _}) -> ok.
 add_contacts(Id, PropName, Tids) ->
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
@@ -122,7 +123,8 @@ add_contacts(Id, PropName, Tids) ->
 remove_contact(Id, {friend, Tid})      -> remove_contacts(Id, "friends",     [Tid]);
 remove_contact(Id, {pending_in, Tid})  -> remove_contacts(Id, "pending_in",  [Tid]);
 remove_contact(Id, {pending_out, Tid}) -> remove_contacts(Id, "pending_out", [Tid]);
-remove_contact(Id, {blocked, Tid})     -> remove_contacts(Id, "bocked",      [Tid]);
+remove_contact(Id, {blocked, Tid})     -> remove_contacts(Id, "blocked",     [Tid]);
+remove_contact(Id, {group, Tid})       -> remove_contacts(Id, "groups",      [Tid]);
 remove_contact(_,  {none, _}) -> ok.
 remove_contacts(Id, PropName, Tids) ->
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
@@ -134,7 +136,8 @@ remove_contacts(Id, PropName, Tids) ->
 opposite_type(friend)      -> friend;
 opposite_type(blocked)     -> none; % (un-)blocking somebody shouldn't change the subject's block list
 opposite_type(pending_in)  -> pending_out;
-opposite_type(pending_out) -> pending_in.
+opposite_type(pending_out) -> pending_in;
+opposite_type(group)       -> none.
 
 %% determines the field that contains contacts of type
 contact_field(friend) -> friends;

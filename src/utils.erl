@@ -5,10 +5,11 @@
 
 -export([swap_map/1, map_keys/1, intersect_lists/1,
          hash_token/1, hash_password/2,
-         gen_snowflake/0, gen_avatar/0,
+         gen_snowflake/0, gen_invite/0, gen_avatar/0,
          temp_file_name/0]).
 -export([broadcast/2, safe_call/2, safe_call/3]).
 -export([ms_since/1]).
+-export([list_diff/2]).
 
 %% broadcasts some value to a list of processes
 broadcast(_, []) -> ok;
@@ -42,6 +43,9 @@ gen_snowflake() ->
     Random = crypto:strong_rand_bytes(2),
     <<Snowflake:64/unsigned-integer>> = <<Epoch:48/unsigned-integer, Random/binary>>,
     Snowflake.
+
+%% generates an invite code
+gen_invite() -> base64:encode(crypto:strong_rand_bytes(9)).
 
 %% generates a temporary file
 temp_file_name() ->
@@ -121,3 +125,10 @@ safe_call(Fun, Args, PD) ->
 
 %% time difference between now and past in ms
 ms_since(Time) -> erlang:convert_time_unit(erlang:monotonic_time() - Time, native, milli_seconds).
+
+%% difference between two lists
+list_diff(L1, L2) ->
+    {
+        lists:filter(fun(V) -> not lists:member(V, L2) end, L1),
+        lists:filter(fun(V) -> not lists:member(V, L1) end, L2)
+    }.
