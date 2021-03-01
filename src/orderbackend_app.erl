@@ -11,7 +11,8 @@
 -export([start/2, stop/1, app_worker/0]).
 
 app_worker() ->
-    logging:log("Order backend v. ~p", [?VERSION]),
+    {ok, _} = logging:start(),
+    {ok, _} = tasty:start(),
 
     % connect to the Cassandra cluster
     {User, Password} = {os:getenv("CAS_LOGIN"), os:getenv("CAS_PASS")},

@@ -236,7 +236,7 @@ client_loop() ->
                         {_, 1} = {{ScopeRef, close}, ratelimit:hit(close)},
                         % ignore the packet if the client sends us too many of them, but not as many to close the connection
                         {_, 1} = {{ScopeRef, status_packet:make_rate_limiting(Packet)}, ratelimit:hit(packet)},
-                        logging:log("--> ~p", [packet_iface:clear_for_printing(Packet)]),
+                        logging:dbg("--> ~p", [packet_iface:clear_for_printing(Packet)]),
                         handle_packet(Packet, ScopeRef)
                     of
                         V -> V
@@ -305,7 +305,7 @@ send_packet(none) -> continue;
 send_packet(P) ->
     ReplySeq = put(seq, get(seq) + 1) + 1,
     SeqPacket = P#packet{seq = ReplySeq},
-    logging:log("<-- ~p", [packet_iface:clear_for_printing(SeqPacket)]),
+    logging:dbg("<-- ~p", [packet_iface:clear_for_printing(SeqPacket)]),
     {WriterPid, _} = spawn_monitor(packet_iface, writer, [
         get(socket), SeqPacket,
         get(protocol), get(supports_comp), self()

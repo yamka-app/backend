@@ -15,7 +15,7 @@ recv_chunk(Handle, Length) ->
         <<DataChunk/binary>> ->
             Trimmed = binary:part(DataChunk, 0, min(Length, byte_size(DataChunk))),
             ChunkLen = byte_size(Trimmed),
-            logging:log("client file transfer: ~p/~p", [ChunkLen, Length]),
+            logging:dbg("client file transfer: ~p/~p", [ChunkLen, Length]),
             file:write(Handle, Trimmed),
             if
                 ChunkLen >= Length -> ok;
@@ -59,7 +59,7 @@ client_init({Socket, Protocol, Host, Cassandra}, {recv_file, Length, Name, Reply
 
 %% sends a packet
 send_packet(P) ->
-    logging:log("<--F ~p", [packet_iface:clear_for_printing(P)]),
+    logging:dbg("<--F ~p", [packet_iface:clear_for_printing(P)]),
     spawn_monitor(packet_iface, writer, [
         get(socket), P,
         get(protocol), false, self()

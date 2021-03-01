@@ -39,4 +39,5 @@ decode_segment(Bin) ->
     end,
     #entity_get_rq{type=maps:get(Type, ?ENTITY_TYPE_MAP), id=Id, pagination=Pagination, context=Context}.
 
-decode(P, Proto) when Proto >= 5 -> #{entities => datatypes:dec_list(P, fun decode_segment/1, fun len_segment/1, 2)}.
+decode(P, Proto) when Proto >= 5 ->
+    #{entities => datatypes:dec_list(P, fun decode_segment/1, fun len_segment/1, 2)}.
