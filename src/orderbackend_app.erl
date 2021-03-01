@@ -1,10 +1,9 @@
 -module(orderbackend_app).
+-behaviour(application).
 -author("Order").
 -license("MPL-2.0").
 -description("The main file").
--behaviour(application).
 
--define(VERSION,        "1.0").
 -define(CASSANDRA_IP,   "127.0.0.1").
 -define(CASSANDRA_PORT, 9042).
 
@@ -20,7 +19,7 @@ app_worker() ->
         {auth, {cqerl_auth_plain_handler, [{User, Password}]}},
         {keyspace, "orderdb"}
        ]),
-    logging:log("Connected to the Cassandra node at ~p:~w", [?CASSANDRA_IP, ?CASSANDRA_PORT]),
+    logging:log("Connected to the Cassandra node at ~s:~p", [?CASSANDRA_IP, ?CASSANDRA_PORT]),
 
     % start protocol listeners
     ssl:start(),

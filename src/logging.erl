@@ -20,7 +20,7 @@ maybe_write(Lvl, Format, Args, #state{level=Tlvl, file=File}) ->
         Lvl < Tlvl -> none;
         true ->
             Formatted = lists:flatten(io_lib:format(Format, Args)),
-            ToWrite = lists:flatten(io_lib:format("[~p ~p][~p] ~p~n", [
+            ToWrite = lists:flatten(io_lib:format("[~p ~p][~s] ~s~n", [
                 date(), time(), level_spec(Lvl), Formatted])),
             io:fwrite(ToWrite),
             file:write(File, ToWrite)
