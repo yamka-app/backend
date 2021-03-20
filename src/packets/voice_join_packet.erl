@@ -3,12 +3,18 @@
 -license("MPL-2.0").
 
 -include("packet.hrl").
--export([encode/2, decode/2, make/2]).
+-export([encode/2, decode/2, make/3]).
 
-encode(#{crypto:=Session}, Proto) when Proto >= 5 ->
-    <<0:64/unsigned-integer, Session/binary>>.
+encode(#{crypto:=Session, address:=Addr}, Proto) when Proto >= 5 ->
+    AddrBin = datatypes:enc_str(Addr),
+    <<0:64/unsigned-integer, Session/binary, AddrBin/binary>>.
 
-decode(<<Channel:64/unsigned-integer, Key:128/binary>>, ProtocolVersion) when ProtocolVersion >= 5 ->
+%% the two zero bytes specify an empty string
+%% why is there always an empty string?
+%% I'm just too lazy to implement different structures for a packet
+%% on the client side or two different packets here
+decode(<<Channel:64/unsigned-integer, Key:128/binary, 0:16/integer>>, ProtocolVersion) when ProtocolVersion >= 5 ->
     #{channel => Channel, crypto => Key}.
 
-make(S, R) -> #packet{type = file_data_chunk, reply = R, fields = #{crypto => S}}.
+make(S, A, R) -> #packet{type = file_data_chunk, reply = R,
+    fields = #{crypto => S, address => A}}.

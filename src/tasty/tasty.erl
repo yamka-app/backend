@@ -4,10 +4,14 @@
 -license("MPL-2.0").
 -description("The Tasty (voice protocol) gen_server").
 
+-export([server_name/0]).
 -export([create_session/3, get_session/1, register_user/2, unregister_user/1, broadcast/3]).
 -export([start/0, stop/1, start_link/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -record(state, {}).
+
+%% TODO: buy a second server and make this function not static
+server_name() -> "voice-hel1.ordermsg.tk".
 
 create_session(K, U, C) -> gen_server:call(?MODULE, {create_session, K, U, C}).
 get_session(S)          -> gen_server:call(?MODULE, {get_session, S}).
