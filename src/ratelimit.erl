@@ -25,7 +25,7 @@ make(Name, {HitsPerWindow, WindowSize}) ->
         hits_per_win = HitsPerWindow,
         win_size     = WindowSize,
         cur_win      = 0
-   }}).
+    }}).
 
 %% calculates the window ID
 win_id(Size) ->

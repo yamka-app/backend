@@ -1,7 +1,7 @@
 -module(tasty_listener).
 -author("Order").
 -license("MPL-2.0").
--description("The Tasty (voice protocol) UDP listener").
+-description("The Tasty (voice/video protocol) UDP listener").
 
 -define(PORT, 1747).
 
@@ -20,8 +20,8 @@ run(State = #state{socket=Socket}) ->
     receive
         {udp, Socket, IP, Port, Packet} ->
             tasty_client:handle_packet({IP, Port}, Packet);
-        {send, Dest, Data} ->
-            gen_udp:send(Socket, Dest, Data);
+        {send, {IP, Port}, Data} ->
+            gen_udp:send(Socket, IP, Port, Data);
         _ -> ok
     end,
     run(State).
