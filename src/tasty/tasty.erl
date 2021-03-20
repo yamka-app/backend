@@ -9,11 +9,11 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -record(state, {}).
 
-create_session(RP, U, C) -> gen_server:call(?MODULE, {create_session, RP, U, C}).
-get_session(S)           -> gen_server:call(?MODULE, {get_session, S}).
-register_user(S, C)      -> gen_server:cast(?MODULE, {register_user, S, C}).
-unregister_user(S)       -> gen_server:cast(?MODULE, {unregister_user, S}).
-broadcast(C, D, U)       -> gen_server:cast(?MODULE, {broadcast, C, D, U}).
+create_session(K, U, C) -> gen_server:call(?MODULE, {create_session, K, U, C}).
+get_session(S)          -> gen_server:call(?MODULE, {get_session, S}).
+register_user(S, C)     -> gen_server:cast(?MODULE, {register_user, S, C}).
+unregister_user(S)      -> gen_server:cast(?MODULE, {unregister_user, S}).
+broadcast(C, D, U)      -> gen_server:cast(?MODULE, {broadcast, C, D, U}).
 
 stop(Name)       -> gen_server:call(Name, stop).
 start()          -> start_link(?MODULE).

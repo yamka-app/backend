@@ -15,7 +15,9 @@
 -export([icpc_broadcast_entity/2, icpc_broadcast_entity/3]).
 -export([icpc_broadcast_to_aware/1, icpc_broadcast_to_aware/2, icpc_broadcast_to_aware/3, icpc_broadcast_to_aware/4]).
 
-%% handles client packets
+%%% handles client packets
+
+%% identification packet (protocol version, compression support)
 handle_packet(#packet{type=identification, seq=Seq,
                       fields=#{supports_comp:=SupportsComp,
                                protocol     := Protocol}}, ScopeRef) ->
@@ -30,6 +32,7 @@ handle_packet(#packet{type=identification, seq=Seq,
             none
     end;
 
+%% login packet (to acquire an access token)
 handle_packet(#packet{type=login, seq=Seq,
                       fields=#{email   :=Email,
                                password:=SentPass,
@@ -59,6 +62,7 @@ handle_packet(#packet{type=login, seq=Seq,
             status_packet:make(mfa_required, "2FA is enabled on this account", Seq)
     end;
 
+%% signup packet (to create an account)
 handle_packet(#packet{type=signup, seq=Seq,
                       fields=#{email   :=EMail,
                                password:=SentPass,
@@ -79,6 +83,7 @@ handle_packet(#packet{type=signup, seq=Seq,
     Id = user:create(Name, EMail, SentPass),
     access_token_packet:make(auth:create_token(?ALL_PERMISSIONS_EXCEPT_BOT, Id), Seq);
 
+%% access token packet (to identify the user and permissions)
 handle_packet(#packet{type=access_token, seq=Seq,
                       fields=#{token := Token}}, ScopeRef) ->
     % ensure proper connection state
@@ -95,16 +100,19 @@ handle_packet(#packet{type=access_token, seq=Seq,
     user:broadcast_status(Id),
     client_identity_packet:make(Id, Seq);
 
+%% entity get packet (to request a set of entities)
 handle_packet(#packet{type=entity_get, seq=Seq,
                       fields=#{entities := Entities}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
     entities_packet:make([entity:handle_get_request(R) || R <- Entities], Seq);
 
+%% entity packet (to put a set of entities)
 handle_packet(#packet{type=entities, seq=Seq,
                       fields=#{entities := Entities}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
     [entity:handle_entity(R, Seq, ScopeRef) || R <- Entities];
 
+%% file download request (to download a file)
 handle_packet(#packet{type=file_download_request, seq=Seq,
                       fields=#{id := Id}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
@@ -112,12 +120,14 @@ handle_packet(#packet{type=file_download_request, seq=Seq,
     file_storage:send_file(Id, Seq, {get(socket), get(protocol)}),
     none;
 
+%% file data chunk (to upload a file)
 handle_packet(#packet{type=file_data_chunk, seq=Seq,
                       fields=#{data := Data}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
     get(file_recv_pid) ! Data,
     none;
 
+%% contact manage packet (add a contact such as a friend)
 handle_packet(#packet{type=contacts_manage, seq=Seq,
                       fields=#{type:=Type, action:=add, id:=Id}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
@@ -147,6 +157,7 @@ handle_packet(#packet{type=contacts_manage, seq=Seq,
     end,
     none;
 
+%% contact manage packet (remove a contact such as a friend)
 handle_packet(#packet{type=contacts_manage, seq=Seq,
                       fields=#{type:=Type, action:=remove, id:=Id}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
@@ -158,6 +169,7 @@ handle_packet(#packet{type=contacts_manage, seq=Seq,
     icpc_broadcast_entity(Id, #entity{type=user, fields=user:get(Id)}, [user:contact_field(Opposite)]),
     none;
 
+%% user search packet (send a friend request using their name and tag)
 handle_packet(#packet{type=user_search, seq=Seq,
                       fields=#{name:=Name}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
@@ -169,6 +181,7 @@ handle_packet(#packet{type=user_search, seq=Seq,
     icpc_broadcast_entity(Id,      #entity{type=user, fields=user:get(Id)},      [pending_in]),
     status_packet:make(friend_request_sent, "Friend request sent", Seq);
 
+%% invite resolution packet (to get the group by one of its invites)
 handle_packet(#packet{type=invite_resolve, seq=Seq,
                       fields=#{code:=Code, add:=Add}}, ScopeRef) ->
     {_, {ok, Id}} = {{ScopeRef, status_packet:make(invalid_invite, "Invalid invite", Seq)},
@@ -184,6 +197,13 @@ handle_packet(#packet{type=invite_resolve, seq=Seq,
             none
     end;
 
+%% voice join packet
+handle_packet(#packet{type=voice_join, seq=Seq,
+                      fields=#{channel:=Chan, crypto:=Key}}, _ScopeRef) ->
+    Session = tasty:create_session(Key, get(id), Chan),
+    voice_join_packet:make(Session, Seq);
+
+%% ping packet (to signal to the server that the connection is alive)
 handle_packet(#packet{type=ping, seq=Seq,
                       fields=#{echo := Echo}}, _ScopeRef) ->
     #packet{type = pong, reply = Seq, fields = #{echo => Echo}};

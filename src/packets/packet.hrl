@@ -19,7 +19,8 @@
     16 => bot_create,
     17 => bot_invite,
     18 => identification,
-    19 => client_identity
+    19 => client_identity,
+    20 => voice_join
 }).
 
 -define(REVERSE_STATUS_CODE_MAP, utils:swap_map(?STATUS_CODE_MAP)).

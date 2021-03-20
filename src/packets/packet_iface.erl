@@ -39,6 +39,7 @@ decode(Data, ProtocolVersion) ->
             file_data_chunk       -> fun file_data_chunk_packet:decode/2;
             user_search           -> fun user_search_packet:decode/2;
             invite_resolve        -> fun invite_resolve_packet:decode/2;
+            voice_join            -> fun voice_join_packet:decode/2;
             _                     -> fun(_,_) -> #{} end
         end
     of
@@ -60,7 +61,8 @@ encode(Packet, ProtocolVersion) ->
         pong            -> fun pong_packet:encode/2;
         access_token    -> fun access_token_packet:encode/2;
         entities        -> fun entities_packet:encode/2;
-        file_data_chunk -> fun file_data_chunk_packet:encode/2
+        file_data_chunk -> fun file_data_chunk_packet:encode/2;
+        voice_join      -> fun voice_join_packet:encode/2
     end(Fields, ProtocolVersion),
     
     Type     = datatypes:enc_num(maps:get(Packet#packet.type, ?REVERSE_PACKET_TYPE_MAP), 1),
