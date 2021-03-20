@@ -28,26 +28,25 @@ init(_Args) ->
 
 handle_info(_Info, State) -> {noreply, State}.
 handle_call(stop, _From, State) -> {stop, normal, stopped, State};
-handle_call({create_session, ReceivePub, User, Channel}, _, State) ->
-    {SendPriv, SendPub} = crypto:generate_key(rsa, [65537, 2048]),
+handle_call({create_session, Key, User, Channel}, _, State) ->
     SessionId = crypto:strong_rand_bytes(64),
-    ets:insert(sessions, {SessionId, ReceivePub, SendPriv, User, Channel, _Controller=none}),
-    {reply, {SessionId, SendPub}, State};
+    ets:insert(sessions, {SessionId, Key, User, Channel, _Controller=none}),
+    {reply, SessionId, State};
 
 handle_call({get_session, Src={_,_}}, From, State) ->
     [{Src, Id}] = ets:lookup(srcs, Src),
     handle_call({get_session, Id}, From, State);
 
-handle_call({get_session, Id}, _, State) ->
-    [Session={Id,_,_,_,_,_}] = ets:lookup(sessions, Id),
+handle_call({get_session, <<Id/binary>>}, _, State) ->
+    [Session={Id,_,_,_,_}] = ets:lookup(sessions, Id),
     {reply, Session, State};
 
 handle_call(_Request, _From, State) -> {reply, ok, State}.
 
 handle_cast({register_user, S, C}, State) ->
     % ets:insert would replace the existing record
-    [{I,RP,SP,U,Co,_}] = ets:lookup(sessions, S),
-    ets:insert(sessions, {I,RP,SP,U,C,Co}),
+    [{I,K,U,Co,_}] = ets:lookup(sessions, S),
+    ets:insert(sessions, {I,K,U,C,Co}),
     ets:insert(channel_users, {C, U, Co}),
     {noreply, State};
 

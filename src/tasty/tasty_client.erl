@@ -9,6 +9,14 @@
 
 -export([handle_packet/2, handler/2, controller_init/2]).
 
+%%% encryption helpers
+%% encrypt data
+enc_chunk(<<Data/binary>>, <<Key:128/bitstring, IV:128/bitstring>>) ->
+    crypto:crypto_one_time(aes_128_ctr, Key, IV, Data, true).
+%% decrypt data
+dec_chunk(<<Data/binary>>, <<Key:128/bitstring, IV:128/bitstring>>) ->
+    crypto:crypto_one_time(aes_128_ctr, Key, IV, Data, false).
+
 handle_packet(Src, Packet) -> spawn(?MODULE, handler, [Src, Packet]).
 
 %% "identitification" packet
@@ -18,11 +26,11 @@ handler(Src={_,_}, <<0:8/unsigned-integer, SId:128/unsigned-integer>>) ->
 
 %% normal packet
 handler(Src={_,_}, <<1:8/unsigned-integer, Encrypted/binary>>) ->
-    {_, Pub, _, _, _, Controller} = tasty:get_session(Src),
-    Controller ! {packet, crypto:public_decrypt(rsa, Encrypted, Pub, [])};
+    {_, Key, _, _, Controller} = tasty:get_session(Src),
+    Controller ! {packet, dec_chunk(Encrypted, Key)}.
 
 %% voice data
-handler({_, _, _, User, Chan, _}, <<0:8/unsigned-integer, Data/binary>>) ->
+dec_handler({_, _, _, User, Chan, _}, <<0:8/unsigned-integer, Data/binary>>) ->
     Allow = check_data_lims(Data),
     if Allow ->
             tasty:broadcast(Chan, Data, User);
@@ -45,13 +53,13 @@ controller_init(Session, Src) ->
     controller(Session, Src).
 
 %% controller loop
-controller(Session={SId, _, Priv, _, _, _}, Src={_,_}) ->
+controller(Session={SId, Key, _, _, _}, Src={_,_}) ->
     receive
         % client packet
         {packet, P} ->
-            case handler(Session, P) of
+            case dec_handler(Session, P) of
                 {packet, Data} ->
-                    Encrypted = crypto:private_encrypt(rsa, Data, Priv, []),
+                    Encrypted = enc_chunk(Data, Key),
                     tasty_listener ! {send, Src, Encrypted};
                 drop ->
                     tasty:unregister_user(SId),
@@ -60,7 +68,7 @@ controller(Session={SId, _, Priv, _, _, _}, Src={_,_}) ->
             end;
         % voice/video data from other client
         {broadcast, P} ->
-            Encrypted = crypto:private_encrypt(rsa, P, Priv, []),
+            Encrypted = enc_chunk(P, Key),
             tasty_listener ! {send, Src, Encrypted}
     after ?TIMEOUT ->
         tasty:unregister_user(SId),
