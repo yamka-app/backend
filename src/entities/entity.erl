@@ -71,6 +71,20 @@ handle_entity(#entity{type=channel, fields=#{id:=0, group:=Group, name:=Name}}, 
         type=group, fields=group_e:get(Group)}, [id, channels]),
     none;
 
+%% modifies a channel
+handle_entity(#entity{type=channel, fields=Fields=#{id:=Id}}, Seq, ScopeRef) ->
+    % get existing channel's group
+    #{group := Group} = channel:get(Id),
+    % check group ownership
+    #{owner := Owner} = group_e:get(Group),
+    {_, Owner} = {{ScopeRef, status_packet:make(permission_denied, "No administrative permission", Seq)}, get(id)},
+    % modify channel
+    channel:update(Id, Fields),
+    % broadcast updates
+    normal_client:icpc_broadcast_to_aware(chan_awareness,
+        #entity{type=channel, fields=Fields}, [id, typing]),
+    none;
+
 %% sends a message
 handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, latest:=
               L=#entity{type=message_state, fields=#{id:=0, sections:=Sections}}}}, _Seq, _ScopeRef) ->
