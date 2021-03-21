@@ -7,7 +7,7 @@
 -include("../packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
--export([get/1, get_dm/1, create/1, create/4, update/2, get_messages/4]).
+-export([get/1, get_dm/1, create/1, create/5, update/2, get_messages/4]).
 -export([set_unread/3, get_unread/2, reg_msg/2, unreg_msg/2]).
 -export([get_typing/1, set_typing/2, reset_typing/2]).
 
@@ -22,25 +22,27 @@ get(Id) ->
     1 = cqerl:size(Rows),
     maps:map(fun(K, V) ->
         case K of
-            type -> maps:get(V, ?CHANNEL_TYPE_MAP);
+            type -> maps:get(V, ?CHANNEL_TYPE_MAP); % convert the type from numeric val
+            voice when V =:= null -> false; % the new "voice" field is null by default
             _ -> V
         end
     end, maps:from_list(cqerl:head(Rows))).
 
 %% creates a channel
-create(wall)                       -> create(1, "Wall", 0, []).
-create(normal, Name, Group, Perms) -> create(0, Name, Group, Perms);
-create(Type, Name, Group, Perms) when is_integer(Type) ->
+create(wall)                              -> create(1, "Wall", 0, [], false).
+create(normal, Name, Group, Perms, Voice) -> create(0, Name, Group, Perms, Voice);
+create(Type, Name, Group, Perms, Voice) when is_integer(Type) ->
     Id = utils:gen_snowflake(),
     % execute the CQL query
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "INSERT INTO channels (id, name, group, lcid, type, perms) VALUES (?,?,?,0,?,?)",
+        statement = "INSERT INTO channels (id, name, group, lcid, type, perms, voice) VALUES (?,?,?,0,?,?,?)",
         values = [
             {id,    Id},
             {name,  Name},
             {group, Group},
             {type,  Type},
-            {perms, Perms}
+            {perms, Perms},
+            {voice, Voice}
         ]
     }),
     Id.

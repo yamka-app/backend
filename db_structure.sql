@@ -152,9 +152,12 @@ CREATE TABLE orderdb.messages (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE orderdb.invites (
-    code text PRIMARY KEY,
-    group bigint
+CREATE TABLE orderdb.blob_store (
+    id bigint PRIMARY KEY,
+    length int,
+    name text,
+    pixel_size text,
+    preview text
 ) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
     AND comment = ''
@@ -169,7 +172,6 @@ CREATE TABLE orderdb.invites (
     AND min_index_interval = 128
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
-CREATE INDEX invite_idx ON orderdb.invites (group);
 
 CREATE TABLE orderdb.channels (
     id bigint PRIMARY KEY,
@@ -177,7 +179,8 @@ CREATE TABLE orderdb.channels (
     lcid bigint,
     name text,
     perms map<bigint, blob>,
-    type smallint
+    type smallint,
+    voice boolean
 ) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
     AND comment = ''
@@ -194,9 +197,26 @@ CREATE TABLE orderdb.channels (
     AND speculative_retry = '99PERCENTILE';
 CREATE INDEX chan_group_idx ON orderdb.channels (group);
 
-CREATE TABLE orderdb.dm_channels (
-    users frozen<set<bigint>> PRIMARY KEY,
-    channel bigint
+CREATE TABLE orderdb.users (
+    id bigint PRIMARY KEY,
+    ava_file bigint,
+    badges set<int>,
+    blocked set<bigint>,
+    bot_owner bigint,
+    email text,
+    email_confirmed boolean,
+    friends set<bigint>,
+    groups set<bigint>,
+    mfa_secret blob,
+    name text,
+    password blob,
+    pending_in set<bigint>,
+    pending_out set<bigint>,
+    salt blob,
+    status int,
+    status_text text,
+    tag int,
+    wall bigint
 ) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
     AND comment = ''
@@ -211,6 +231,10 @@ CREATE TABLE orderdb.dm_channels (
     AND min_index_interval = 128
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
+CREATE INDEX email_idx ON orderdb.users (email);
+CREATE INDEX bot_owner_idx ON orderdb.users (bot_owner);
+CREATE INDEX bot_token_idx ON orderdb.users (password);
+CREATE INDEX username_idx ON orderdb.users (name);
 
 CREATE TABLE orderdb.groups (
     id bigint PRIMARY KEY,
@@ -274,12 +298,9 @@ CREATE TABLE orderdb.unread (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE orderdb.blob_store (
-    id bigint PRIMARY KEY,
-    length int,
-    name text,
-    pixel_size text,
-    preview text
+CREATE TABLE orderdb.invites (
+    code text PRIMARY KEY,
+    group bigint
 ) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
     AND comment = ''
@@ -294,27 +315,11 @@ CREATE TABLE orderdb.blob_store (
     AND min_index_interval = 128
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
+CREATE INDEX invite_idx ON orderdb.invites (group);
 
-CREATE TABLE orderdb.users (
-    id bigint PRIMARY KEY,
-    ava_file bigint,
-    badges set<int>,
-    blocked set<bigint>,
-    bot_owner bigint,
-    email text,
-    email_confirmed boolean,
-    friends set<bigint>,
-    groups set<bigint>,
-    mfa_secret blob,
-    name text,
-    password blob,
-    pending_in set<bigint>,
-    pending_out set<bigint>,
-    salt blob,
-    status int,
-    status_text text,
-    tag int,
-    wall bigint
+CREATE TABLE orderdb.dm_channels (
+    users frozen<set<bigint>> PRIMARY KEY,
+    channel bigint
 ) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
     AND comment = ''
@@ -329,7 +334,3 @@ CREATE TABLE orderdb.users (
     AND min_index_interval = 128
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
-CREATE INDEX email_idx ON orderdb.users (email);
-CREATE INDEX bot_owner_idx ON orderdb.users (bot_owner);
-CREATE INDEX bot_token_idx ON orderdb.users (password);
-CREATE INDEX username_idx ON orderdb.users (name);

@@ -71,7 +71,8 @@
             typing       => {5, num_list, {8}},
             type         => {6, atom,     {1, ?CHANNEL_TYPE_MAP}},
             unread       => {7, number,   {4}},
-            first_unread => {8, number,   {8}}
+            first_unread => {8, number,   {8}},
+            voice        => {9, bool,     {}}
         },
     message => #{
             id      => {0, number,   {8}},
