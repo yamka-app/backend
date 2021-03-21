@@ -71,6 +71,20 @@ handle_entity(#entity{type=channel, fields=#{id:=0, group:=Group, name:=Name}}, 
         type=group, fields=group_e:get(Group)}, [id, channels]),
     none;
 
+%% deletes a channel
+handle_entity(#entity{type=channel, fields=#{id:=Id, group:=0}}, Seq, ScopeRef) ->
+    % get existing channel's group
+    #{group := Group} = channel:get(Id),
+    % check group ownership
+    #{owner := Owner} = group_e:get(Group),
+    {_, Owner} = {{ScopeRef, status_packet:make(permission_denied, "No administrative permission", Seq)}, get(id)},
+    % modify channel
+    channel:delete(Id),
+    % broadcast updates
+    normal_client:icpc_broadcast_to_aware(group_awareness, #entity{
+        type=group, fields=group_e:get(Group)}, [id, channels]),
+    none;
+
 %% modifies a channel
 handle_entity(#entity{type=channel, fields=Fields=#{id:=Id}}, Seq, ScopeRef) ->
     % get existing channel's group
@@ -79,7 +93,6 @@ handle_entity(#entity{type=channel, fields=Fields=#{id:=Id}}, Seq, ScopeRef) ->
     #{owner := Owner} = group_e:get(Group),
     {_, Owner} = {{ScopeRef, status_packet:make(permission_denied, "No administrative permission", Seq)}, get(id)},
     % modify channel
-    logging:warn("~p", [Fields]),
     channel:update(Id, maps:filter(fun(K, _) -> K =/= id end, Fields)),
     % broadcast updates
     normal_client:icpc_broadcast_to_aware(chan_awareness,

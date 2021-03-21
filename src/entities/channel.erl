@@ -7,7 +7,8 @@
 -include("../packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
--export([get/1, get_dm/1, create/1, create/5, update/2, get_messages/4]).
+-export([get/1, create/1, create/5, update/2, delete/1]).
+-export([get_dm/1, get_messages/4]).
 -export([set_unread/3, get_unread/2, reg_msg/2, unreg_msg/2]).
 -export([get_typing/1, set_typing/2, reset_typing/2]).
 
@@ -101,6 +102,15 @@ update(Id, Fields) ->
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = Statement,
         values    = [{id, Id}|Vals]
+    }).
+
+%% deletes a channel
+delete(Id) ->
+    Statement = "DELETE FROM channels WHERE id=?",
+    % de-atomize the status field if present
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = Statement,
+        values    = [{id, Id}]
     }).
 
 %% registers a message
