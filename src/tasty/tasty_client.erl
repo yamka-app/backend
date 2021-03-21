@@ -30,7 +30,7 @@ handler(Src={_,_}, <<1:8/unsigned-integer, Encrypted/binary>>) ->
     Controller ! {packet, dec_chunk(Encrypted, Key)}.
 
 %% voice data
-dec_handler({_, _, _, User, Chan, _}, <<0:8/unsigned-integer, Data/binary>>) ->
+dec_handler({_, _, User, Chan, _}, <<0:8/unsigned-integer, Data/binary>>) ->
     Allow = check_data_lims(Data),
     if Allow ->
             tasty:broadcast(Chan, Data, User);
@@ -58,9 +58,10 @@ controller(Session={SId, Key, _, _, _}, Src={_,_}) ->
         % client packet
         {packet, P} ->
             case dec_handler(Session, P) of
-                {packet, Data} ->
-                    Encrypted = enc_chunk(Data, Key),
-                    tasty_listener ! {send, Src, Encrypted};
+                % this may be useful but dialyzer is not happy:
+                % {packet, Data} ->
+                %     Encrypted = enc_chunk(Data, Key),
+                %     tasty_listener ! {send, Src, Encrypted};
                 drop ->
                     tasty:unregister_user(SId),
                     exit(normal);

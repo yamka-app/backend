@@ -66,7 +66,7 @@ handle_entity(#entity{type=channel, fields=#{id:=Id, unread:=0}}, _Seq, _ScopeRe
 handle_entity(#entity{type=channel, fields=#{id:=0, group:=Group, name:=Name}}, Seq, ScopeRef) ->
     #{owner := Owner} = group_e:get(Group),
     {_, Owner} = {{ScopeRef, status_packet:make(permission_denied, "No administrative permission", Seq)}, get(id)},
-    channel:create(normal, Name, Group, []),
+    channel:create(normal, Name, Group, [], false),
     normal_client:icpc_broadcast_to_aware(group_awareness, #entity{
         type=group, fields=group_e:get(Group)}, [id, channels]),
     none;

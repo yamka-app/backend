@@ -52,16 +52,6 @@
             wall            => {20, number,   {8}},
             email_confirmed => {21, bool,     {}}
         },
-    group => #{
-            id            => {0, number,   {8}},
-            name          => {1, string,   {}},
-            channels      => {2, num_list, {8}},
-            owner         => {3, number,   {8}},
-            roles         => {4, num_list, {8}},
-            icon          => {5, number,   {8}},
-            invites       => {6, str_list, {}},
-            everyone_role => {7, number,   {8}}
-        },
     channel => #{
             id           => {0, number,   {8}},
             name         => {1, string,   {}},
@@ -73,6 +63,16 @@
             unread       => {7, number,   {4}},
             first_unread => {8, number,   {8}},
             voice        => {9, bool,     {}}
+        },
+    group => #{
+            id            => {0, number,   {8}},
+            name          => {1, string,   {}},
+            channels      => {2, num_list, {8}},
+            owner         => {3, number,   {8}},
+            roles         => {4, num_list, {8}},
+            icon          => {5, number,   {8}},
+            invites       => {6, str_list, {}},
+            everyone_role => {7, number,   {8}}
         },
     message => #{
             id      => {0, number,   {8}},
