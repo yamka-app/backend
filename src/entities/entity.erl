@@ -79,10 +79,11 @@ handle_entity(#entity{type=channel, fields=Fields=#{id:=Id}}, Seq, ScopeRef) ->
     #{owner := Owner} = group_e:get(Group),
     {_, Owner} = {{ScopeRef, status_packet:make(permission_denied, "No administrative permission", Seq)}, get(id)},
     % modify channel
-    channel:update(Id, Fields),
+    logging:warn("~p", [Fields]),
+    channel:update(Id, maps:filter(fun(K, _) -> K =/= id end, Fields)),
     % broadcast updates
     normal_client:icpc_broadcast_to_aware(chan_awareness,
-        #entity{type=channel, fields=Fields}, [id, typing]),
+        #entity{type=channel, fields=Fields}, maps:keys(Fields)),
     none;
 
 %% sends a message

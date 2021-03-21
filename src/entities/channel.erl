@@ -82,8 +82,7 @@ get_messages(Id, StartId, Limit, Tab, Operator) ->
         statement = "SELECT * FROM " ++ Tab ++ " WHERE channel=? AND id" ++ Operator ++ "? LIMIT ? ALLOW FILTERING",
         values    = [{channel, Id}, {id, StartId}, {'[limit]', Limit}]
     }),
-    Res = [MId || [{channel, _}, {id, MId}] <- cqerl:all_rows(Rows)],
-    logging:warn("~p ~p ~p ~p ~p ~p", [Id, StartId, Limit, Tab, Operator, Res]), Res.
+    [MId || [{channel, _}, {id, MId}] <- cqerl:all_rows(Rows)].
 
 %% gets a DM channel two users share
 get_dm([_,_]=Users) ->
