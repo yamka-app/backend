@@ -12,6 +12,7 @@
          dec_list/3, dec_list/4, len_dec_list/3, len_list/3,
          enc_num_list/2, dec_num_list/2]).
 -export([enc_msg_section/1, len_dec_msg_section/1]).
+-export([enc_chan_voice_status/1, len_dec_chan_voice_status/1]).
 
 bconcat(A, B) -> <<A/binary, B/binary>>.
 bpad(r, B, 0) -> B;
@@ -48,6 +49,26 @@ len_dec_msg_section(<<TypeNum:8/unsigned-integer, Blob:64/unsigned-integer, Str/
    Type = maps:get(TypeNum, ?MESSAGE_SECTION_TYPE_MAP),
    Text = dec_str(Str),
    {#message_section{type=Type, blob=Blob, text=Text}, len_str(Str) + 9}.
+
+enc_chan_voice_status([]) -> 0;
+enc_chan_voice_status([H|T]) ->
+   case H of
+      speaking -> 1;
+      muted    -> 2;
+      deafened -> 4
+   end
+      bor enc_chan_voice_status(T).
+
+status_bit_at(7) -> speaking;
+status_bit_at(6) -> muted;
+status_bit_at(5) -> deafened.
+decode_status_bits(<<>>, 8) -> [];
+decode_status_bits(<<0:1, Rest/bitstring>>, C) ->
+   decode_status_bits(Rest, C + 1);
+decode_status_bits(<<1:1, Rest/bitstring>>, C) ->
+   [status_bit_at(C)|decode_status_bits(Rest, C + 1)].
+decode_status_bits(<<Bits:8/bitstring>>) -> decode_status_bits(Bits, 0).
+len_dec_chan_voice_status(Bits) -> {decode_status_bits(Bits), 1}.
 
 
 %%% this set of functions expects three functions to work with data types:

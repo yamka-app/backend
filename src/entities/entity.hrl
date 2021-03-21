@@ -53,16 +53,19 @@
             email_confirmed => {21, bool,     {}}
         },
     channel => #{
-            id           => {0, number,   {8}},
-            name         => {1, string,   {}},
-            members      => {2, num_list, {8}},
-            group        => {3, number,   {8}},
-            messages     => {4, num_list, {8}},
-            typing       => {5, num_list, {8}},
-            type         => {6, atom,     {1, ?CHANNEL_TYPE_MAP}},
-            unread       => {7, number,   {4}},
-            first_unread => {8, number,   {8}},
-            voice        => {9, bool,     {}}
+            id           => {0,  number,   {8}},
+            name         => {1,  string,   {}},
+            members      => {2,  num_list, {8}},
+            group        => {3,  number,   {8}},
+            messages     => {4,  num_list, {8}},
+            typing       => {5,  num_list, {8}},
+            type         => {6,  atom,     {1, ?CHANNEL_TYPE_MAP}},
+            unread       => {7,  number,   {4}},
+            first_unread => {8,  number,   {8}},
+            voice        => {9,  bool,     {}},
+            voice_users  => {10, num_list, {8}},
+            voice_status => {11, list,     {2, fun datatypes:enc_chan_voice_status/1,
+                                               fun datatypes:len_dec_chan_voice_status/1}}
         },
     group => #{
             id            => {0, number,   {8}},
