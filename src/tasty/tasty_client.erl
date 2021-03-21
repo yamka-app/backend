@@ -35,7 +35,11 @@ dec_handler({_, _, User, Chan, _}, <<0:8/unsigned-integer, Data/binary>>) ->
     if Allow ->
             tasty:broadcast(Chan, Data, User);
        true -> drop
-    end.
+    end;
+
+%% disconnect notice
+dec_handler(_, <<1:8/unsigned-integer>>) ->
+    drop.
 
 %% checks voice data packet limits
 check_data_lims(Data) ->
