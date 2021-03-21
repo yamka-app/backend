@@ -75,14 +75,15 @@ get_unread(Id, User) ->
     end.
 
 %% gets messages IDs (with pagination)
-get_messages(Id, StartId, Limit, down) -> get_messages_worker(Id, StartId, Limit, "message_ids_by_chan", "<");
-get_messages(Id, StartId, Limit, up)   -> get_messages_worker(Id, StartId, Limit, "message_ids_by_chan_reverse", ">").
-get_messages_worker(Id, StartId, Limit, Tab, Operator) ->
+get_messages(Id, StartId, Limit, down) -> get_messages(Id, StartId, Limit, "message_ids_by_chan", "<");
+get_messages(Id, StartId, Limit, up)   -> get_messages(Id, StartId, Limit, "message_ids_by_chan_reverse", ">").
+get_messages(Id, StartId, Limit, Tab, Operator) ->
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = "SELECT * FROM " ++ Tab ++ " WHERE channel=? AND id" ++ Operator ++ "? LIMIT ? ALLOW FILTERING",
         values    = [{channel, Id}, {id, StartId}, {'[limit]', Limit}]
     }),
-    [MId || [{channel, _}, {id, MId}] <- cqerl:all_rows(Rows)].
+    Res = [MId || [{channel, _}, {id, MId}] <- cqerl:all_rows(Rows)],
+    logging:warn("~p ~p ~p ~p ~p ~p", [Id, StartId, Limit, Tab, Operator, Res]), Res.
 
 %% gets a DM channel two users share
 get_dm([_,_]=Users) ->
