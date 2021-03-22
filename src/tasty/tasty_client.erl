@@ -22,7 +22,7 @@ handle_packet(Src, Packet) -> spawn(?MODULE, handler, [Src, Packet]).
 %% "identitification" packet
 handler(Src={_,_}, <<0, SId:128/bitstring>>) ->
     Session = tasty:get_session(SId),
-    tasty:register_user(SId, spawn(?MODULE, controller_init, [Session, Src]));
+    tasty:register_user(SId, Src, spawn(?MODULE, controller_init, [Session, Src]));
 
 %% normal packet
 handler(Src={_,_}, <<1, Encrypted/binary>>) ->
