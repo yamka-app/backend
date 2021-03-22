@@ -56,7 +56,10 @@ handle_cast({register_user, I, Src, Co}, State) ->
     {noreply, State};
 
 handle_cast({unregister_user, S}, State) ->
+    [{S,_,U,C,Co}] = ets:lookup(sessions, S),
     ets:delete(sessions, S),
+    ets:match_delete(src, {'_', S}),
+    ets:match_delete(channel_users, {C, U, Co}),
     {noreply, State};
 
 handle_cast({broadcast, Chan, Data, From}, State) ->

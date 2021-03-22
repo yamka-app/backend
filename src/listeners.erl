@@ -5,7 +5,7 @@
 
 -export([normal_listener/3]).
 
--define(NormalPort, 1746).
+-define(NORMAL_PORT, 1746).
 
 cleanup(Pid) ->
     [{Pid, Id}] = ets:lookup(id_of_processes, Pid),
@@ -42,7 +42,7 @@ normal_listener(Cassandra, CertPath, KeyPath) ->
     ets:new(group_awareness, [bag, public, named_table]),
     ets:new(typing,          [bag, public, named_table]),
     % listen for new clients
-    {ok, ListenSocket} = ssl:listen(?NormalPort, [
+    {ok, ListenSocket} = ssl:listen(?NORMAL_PORT, [
         {certfile,   CertPath},
         {cacertfile, CertPath},
         {keyfile,    KeyPath},
@@ -52,6 +52,6 @@ normal_listener(Cassandra, CertPath, KeyPath) ->
         {active,     false}
        ]),
 
-    logging:log("Normal server listening on port ~w", [?NormalPort]),
+    logging:log("Normal server listening on port ~w", [?NORMAL_PORT]),
 
     normal_listener_loop(ListenSocket, Cassandra).

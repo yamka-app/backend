@@ -4,8 +4,8 @@
 -description("The Tasty (voice/video protocol) UDP listener").
 
 -define(TIMEOUT, 15000).
--define(PACKET_RATE_LIMIT, 55). % slightly higher than the operational 50 Hz
--define(PACKET_SIZE_LIMIT, 95). % slightly higher than the operational 90
+-define(PACKET_RATE_LIMIT, 55).
+-define(PACKET_SIZE_LIMIT, 128).
 
 -export([handle_packet/2, handler/2, controller_init/2]).
 

@@ -230,8 +230,8 @@ client_loop() ->
     % weed out errors
     State = get(state),
     ReplyWith = case DecodingStatus of
-        {error, E} ->
-            logging:log("connection to ~w closed (~p)", [get(client_ip), E]),
+        {error, _} ->
+            logging:log("connection to ~w closed", [get(client_ip)]),
             ssl:close(get(socket)),
             stop;
 
