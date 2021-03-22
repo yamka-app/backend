@@ -33,7 +33,7 @@ init(_Args) ->
 handle_info(_Info, State) -> {noreply, State}.
 handle_call(stop, _From, State) -> {stop, normal, stopped, State};
 handle_call({create_session, Key, User, Channel}, _, State) ->
-    SessionId = crypto:strong_rand_bytes(64),
+    SessionId = crypto:strong_rand_bytes(16),
     ets:insert(sessions, {SessionId, Key, User, Channel, _Controller=none}),
     {reply, SessionId, State};
 
@@ -60,7 +60,7 @@ handle_cast({unregister_user, S}, State) ->
 
 handle_cast({broadcast, Chan, Data, From}, State) ->
     % prefix: voice data (not video), user ID
-    Prefixed = <<0, From:64/unsigned-integer, Data/binary>>,
+    Prefixed = <<1, From:64/unsigned-integer, Data/binary>>,
     % broadcast data to controllers
     lists:foreach(fun({_, _, Controller}) ->
             Controller ! {broadcast, Prefixed}

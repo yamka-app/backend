@@ -12,25 +12,25 @@
 %%% encryption helpers
 %% encrypt data
 enc_chunk(<<Data/binary>>, <<Key:128/bitstring, IV:128/bitstring>>) ->
-    crypto:crypto_one_time(aes_128_gcm, Key, IV, Data, true).
+    crypto:crypto_one_time(aes_128_cfb128, Key, IV, Data, true).
 %% decrypt data
 dec_chunk(<<Data/binary>>, <<Key:128/bitstring, IV:128/bitstring>>) ->
-    crypto:crypto_one_time(aes_128_gcm, Key, IV, Data, false).
+    crypto:crypto_one_time(aes_128_cfb128, Key, IV, Data, false).
 
 handle_packet(Src, Packet) -> spawn(?MODULE, handler, [Src, Packet]).
 
 %% "identitification" packet
-handler(Src={_,_}, <<0:8/unsigned-integer, SId:128/unsigned-integer>>) ->
+handler(Src={_,_}, <<0, SId:128/bitstring>>) ->
     Session = tasty:get_session(SId),
     tasty:register_user(SId, spawn(?MODULE, controller_init, [Session, Src]));
 
 %% normal packet
-handler(Src={_,_}, <<1:8/unsigned-integer, Encrypted/binary>>) ->
+handler(Src={_,_}, <<1, Encrypted/binary>>) ->
     {_, Key, _, _, Controller} = tasty:get_session(Src),
     Controller ! {packet, dec_chunk(Encrypted, Key)}.
 
 %% voice data
-dec_handler({_, _, User, Chan, _}, <<0:8/unsigned-integer, Data/binary>>) ->
+dec_handler({_, _, User, Chan, _}, <<0, Data/binary>>) ->
     Allow = check_data_lims(Data),
     if Allow ->
             tasty:broadcast(Chan, Data, User);
@@ -38,7 +38,7 @@ dec_handler({_, _, User, Chan, _}, <<0:8/unsigned-integer, Data/binary>>) ->
     end;
 
 %% disconnect notice
-dec_handler(_, <<1:8/unsigned-integer>>) ->
+dec_handler(_, <<1>>) ->
     drop.
 
 %% checks voice data packet limits
@@ -52,8 +52,9 @@ check_data_lims(Data) ->
 %%% request from the aforementioned server
 
 %% controller init function
-controller_init(Session, Src) ->
+controller_init(Session={_, Key, _, _, _}, Src) ->
     ratelimit:make(packet, {?PACKET_RATE_LIMIT, 1000}),
+    tasty_listener ! {send, Src, enc_chunk(<<0>>, Key)},
     controller(Session, Src).
 
 %% controller loop
@@ -73,8 +74,7 @@ controller(Session={SId, Key, _, _, _}, Src={_,_}) ->
             end;
         % voice/video data from other client
         {broadcast, P} ->
-            Encrypted = enc_chunk(P, Key),
-            tasty_listener ! {send, Src, Encrypted}
+            tasty_listener ! {send, Src, enc_chunk(P, Key)}
     after ?TIMEOUT ->
         tasty:unregister_user(SId),
         exit(normal)

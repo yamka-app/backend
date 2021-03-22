@@ -12,16 +12,17 @@
 start() -> register(tasty_listener, spawn_link(?MODULE, init, [])).
 
 init() ->
-    Socket = gen_udp:open(?PORT, [binary]),
+    {ok, Socket} = gen_udp:open(?PORT, [inet, inet6, binary]),
     logging:log("Tasty listener running (node ~p, port ~p)", [node(), ?PORT]),
     run(#state{socket=Socket}).
 
 run(State = #state{socket=Socket}) ->
     receive
         {udp, Socket, IP, Port, Packet} ->
+            logging:warn("~p:~p -> ~p", [IP, Port, Packet]),
             tasty_client:handle_packet({IP, Port}, Packet);
         {send, {IP, Port}, Data} ->
-            gen_udp:send(Socket, IP, Port, Data);
-        _ -> ok
+            logging:warn("~p:~p <- ~p", [IP, Port, Data]),
+            gen_udp:send(Socket, IP, Port, Data)
     end,
     run(State).
