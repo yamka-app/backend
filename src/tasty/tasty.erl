@@ -70,8 +70,12 @@ handle_cast({broadcast, Chan, Data, From}, State) ->
     % prefix: voice data (not video), user ID
     Prefixed = <<1, From:64/unsigned-integer, Data/binary>>,
     % broadcast data to controllers
-    lists:foreach(fun({_, _, Controller}) ->
-            Controller ! {broadcast, Prefixed}
+    lists:foreach(fun({_, User, Controller}) ->
+            % don't broadcast to sender
+            if User =/= From ->
+                Controller ! {broadcast, Prefixed};
+               true -> ok
+            end
         end, ets:lookup(channel_users, Chan)),
     {noreply, State};
 
