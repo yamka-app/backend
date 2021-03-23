@@ -6,8 +6,10 @@
 -define(TIMEOUT, 15000).
 -define(PACKET_RATE_LIMIT, 100).
 -define(PACKET_SIZE_LIMIT, 128).
+-define(SPEAKING_IND_THRESHOLD, 1000).
 
 -export([handle_packet/2, handler/2, controller_init/2]).
+-export([speaking_status_timeout/1]).
 
 %%% encryption helpers
 %% encrypt data
@@ -52,16 +54,18 @@ check_data_lims(Data) ->
 %%% request from the aforementioned server
 
 %% controller init function
-controller_init(Session={_, Key, _, _, _}, Src) ->
+controller_init(Session={Id, Key, _, _, _}, Src) ->
     ratelimit:make(packet, {?PACKET_RATE_LIMIT, 1000}),
     tasty_listener ! {send, Src, enc_chunk(<<0>>, Key)},
-    controller(Session, Src).
+    Timeout = spawn(?MODULE, speaking_status_timeout, [Id]),
+    controller_loop(Session, Src, Timeout).
 
 %% controller loop
-controller(Session={SId, Key, _, _, _}, Src={_,_}) ->
+controller_loop(Session={SId, Key, _, _, _}, Src={_,_}, Timeout) ->
     receive
         % client packet
         {packet, P} ->
+            Timeout ! packet,
             case dec_handler(Session, P) of
                 % this may be useful but dialyzer is not happy:
                 % {packet, Data} ->
@@ -80,4 +84,14 @@ controller(Session={SId, Key, _, _, _}, Src={_,_}) ->
         tasty:unregister_user(SId),
         exit(normal)
     end,
-    controller(Session, Src).
+    controller_loop(Session, Src, Timeout).
+
+speaking_status_timeout(Session) ->
+    receive
+        packet ->
+            % repeating requests are ignored
+            tasty:add_speaking_flag(Session),
+            speaking_status_timeout(Session)
+    after ?SPEAKING_IND_THRESHOLD ->
+        tasty:rm_speaking_flag(Session)
+    end.

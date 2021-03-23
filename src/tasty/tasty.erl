@@ -8,6 +8,7 @@
 
 -export([server_name/0]).
 -export([create_session/3, get_users_and_states/1, get_session/1, register_user/3, unregister_user/1, broadcast/3]).
+-export([add_speaking_flag/1, rm_speaking_flag/1]).
 -export([start/0, stop/1, start_link/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -record(state, {}).
@@ -21,6 +22,8 @@ get_session(S)           -> gen_server:call(?MODULE, {get_session, S}).
 register_user(S, Src, C) -> gen_server:cast(?MODULE, {register_user, S, Src, C}).
 unregister_user(S)       -> gen_server:cast(?MODULE, {unregister_user, S}).
 broadcast(C, D, U)       -> gen_server:cast(?MODULE, {broadcast, C, D, U}).
+add_speaking_flag(I)     -> gen_server:cast(?MODULE, {add_speaking_flag, I}).
+rm_speaking_flag(I)      -> gen_server:cast(?MODULE, {rm_speaking_flag, I}).
 
 stop(Name)       -> gen_server:call(Name, stop).
 start()          -> start_link(?MODULE).
@@ -28,18 +31,18 @@ start_link(Name) -> gen_server:start_link({local, Name}, ?MODULE, [], []).
 init(_Args) ->
     ets:new(sessions,      [set, private, named_table]),
     ets:new(srcs,          [set, private, named_table]),
-    ets:new(channel_users, [set, private, named_table]),
+    ets:new(channel_users, [bag, private, named_table]),
     logging:log("Tasty gen_server running (node ~p)", [node()]),
-    tasty_listener:start(),
     {ok, #state{}}.
 
 broadcast_connected(Channel) ->
     States = [{User, UserState} || {_, User, UserState, _} <- ets:lookup(channel_users, Channel)],
+    {Users, Statuses} = lists:unzip(States),
     normal_client:icpc_broadcast_to_aware(chan_awareness,
         #entity{type=channel, fields=#{
             id => Channel,
-            voice_users  => [User || {User, _} <- States],
-            voice_status => [Stat || {_, Stat} <- States]
+            voice_users  => Users,
+            voice_status => Statuses
         }}, [id, voice_users, voice_status]).
 
 handle_info(_Info, State) -> {noreply, State}.
@@ -98,6 +101,30 @@ handle_cast({broadcast, Chan, Data, From}, State) ->
             end
         end, ets:lookup(channel_users, Chan)),
     {noreply, State};
+
+handle_cast({add_speaking_flag, S}, GenServerState) ->
+    [{S, _, U, C, _}] = ets:lookup(sessions, S),
+    [Old={C, U, State, Co}] = ets:match_object(channel_users, {C, U, '_', '_'}),
+    AlreadySpeaking = lists:member(speaking, State),
+    if AlreadySpeaking -> ok;
+       true ->
+            ets:match_delete(channel_users, Old),
+            ets:insert(channel_users, {C, U, [speaking|State], Co}),
+            broadcast_connected(C)
+    end,
+    {noreply, GenServerState};
+
+handle_cast({rm_speaking_flag, S}, GenServerState) ->
+    [{S, _, U, C, _}] = ets:lookup(sessions, S),
+    [Old={C, U, State, Co}] = ets:match_object(channel_users, {C, U, '_', '_'}),
+    Speaking = lists:member(speaking, State),
+    if not Speaking -> ok;
+        true ->
+            ets:match_delete(channel_users, Old),
+            ets:insert(channel_users, {C, U, lists:delete(speaking, State), Co}),
+            broadcast_connected(C)
+    end,
+    {noreply, GenServerState};
 
 handle_cast(_Msg, State)  -> {noreply, State}.
 
