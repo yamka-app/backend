@@ -47,8 +47,9 @@ dec_handler(_, <<2>>) -> ok.
 
 %% checks voice data packet limits
 check_data_lims(Data) ->
-    (byte_size(Data) =< ?PACKET_SIZE_LIMIT) and
-    (ratelimit:hit(packet, 1) == 1).
+    true.
+    % (byte_size(Data) =< ?PACKET_SIZE_LIMIT) and
+    % (ratelimit:hit(packet, 1) == 1).
 
 %%% the controller is responsible for receiving, decypting and parsing
 %%% data packets from one specific client, asking the local Tasty gen_server
@@ -74,9 +75,8 @@ controller_loop(Session={SId, Key, _, _, _}, Src={_,_}, Timeout) ->
                 %     Encrypted = enc_chunk(Data, Key),
                 %     tasty_listener ! {send, Src, Encrypted};
                 drop ->
-                    %tasty:unregister_user(SId),
-                    %exit(normal);
-                    ok;
+                    tasty:unregister_user(SId),
+                    exit(normal);
                 _ -> ok
             end;
         % voice/video data from other client
