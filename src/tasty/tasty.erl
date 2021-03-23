@@ -4,8 +4,10 @@
 -license("MPL-2.0").
 -description("The Tasty (voice protocol) gen_server").
 
+-include("../entities/entity.hrl").
+
 -export([server_name/0]).
--export([create_session/3, get_session/1, register_user/3, unregister_user/1, broadcast/3]).
+-export([create_session/3, get_users_and_states/1, get_session/1, register_user/3, unregister_user/1, broadcast/3]).
 -export([start/0, stop/1, start_link/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -record(state, {}).
@@ -14,6 +16,7 @@
 server_name() -> "voice-hel1.ordermsg.tk".
 
 create_session(K, U, C)  -> gen_server:call(?MODULE, {create_session, K, U, C}).
+get_users_and_states(C)  -> gen_server:call(?MODULE, {get_users_and_states, C}).
 get_session(S)           -> gen_server:call(?MODULE, {get_session, S}).
 register_user(S, Src, C) -> gen_server:cast(?MODULE, {register_user, S, Src, C}).
 unregister_user(S)       -> gen_server:cast(?MODULE, {unregister_user, S}).
@@ -29,6 +32,15 @@ init(_Args) ->
     logging:log("Tasty gen_server running (node ~p)", [node()]),
     tasty_listener:start(),
     {ok, #state{}}.
+
+broadcast_connected(Channel) ->
+    States = [{User, UserState} || {_, User, UserState, _} <- ets:lookup(channel_users, Channel)],
+    normal_client:icpc_broadcast_to_aware(chan_awareness,
+        #entity{type=channel, fields=#{
+            id => Channel,
+            voice_users  => [User || {User, _} <- States],
+            voice_status => [Stat || {_, Stat} <- States]
+        }}, [id, voice_users, voice_status]).
 
 handle_info(_Info, State) -> {noreply, State}.
 handle_call(stop, _From, State) -> {stop, normal, stopped, State};
@@ -46,31 +58,39 @@ handle_call({get_session, Src={_,_}}, From, State) ->
 handle_call({get_session, <<Id/binary>>}, _, State) ->
     {reply, case ets:lookup(sessions, Id) of
         [Session={Id,_,_,_,_}] -> Session;
-        [] -> nosession
+        [] -> badsession
     end, State};
 
-handle_call(_Request, _From, State) -> {reply, ok, State}.
+handle_call({get_users_and_states, Channel}, _, State) ->
+    {reply,
+        [{User, UserState} || {_, User, UserState, _}
+            <- ets:lookup(channel_users, Channel)],
+        State};
+
+handle_call(_Request, _From, State) -> {reply, badrq, State}.
 
 handle_cast({register_user, I, Src, Co}, State) ->
-    % ets:insert would replace the existing record
+    % ets:insert will replace the existing record
     [{I,K,U,C,_}] = ets:lookup(sessions, I),
     ets:insert(sessions, {I,K,U,C,Co}),
     ets:insert(srcs, {Src, I}),
-    ets:insert(channel_users, {C, U, Co}),
+    ets:insert(channel_users, {C, U, [], Co}),
+    broadcast_connected(C),
     {noreply, State};
 
 handle_cast({unregister_user, S}, State) ->
     [{S,_,U,C,Co}] = ets:lookup(sessions, S),
     ets:delete(sessions, S),
     ets:match_delete(srcs, {'_', S}),
-    ets:match_delete(channel_users, {C, U, Co}),
+    ets:match_delete(channel_users, {C, U, '_', Co}),
+    broadcast_connected(C),
     {noreply, State};
 
 handle_cast({broadcast, Chan, Data, From}, State) ->
     % prefix: voice data (not video), user ID
     Prefixed = <<1, From:64/unsigned-integer, Data/binary>>,
     % broadcast data to controllers
-    lists:foreach(fun({_, User, Controller}) ->
+    lists:foreach(fun({_, User, _, Controller}) ->
             % don't broadcast to sender
             if User =/= From ->
                 Controller ! {broadcast, Prefixed};

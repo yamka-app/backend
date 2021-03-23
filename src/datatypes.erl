@@ -50,14 +50,17 @@ len_dec_msg_section(<<TypeNum:8/unsigned-integer, Blob:64/unsigned-integer, Str/
    Text = dec_str(Str),
    {#message_section{type=Type, blob=Blob, text=Text}, len_str(Str) + 9}.
 
-enc_chan_voice_status([]) -> 0;
-enc_chan_voice_status([H|T]) ->
+num_enc_chan_voice_status([]) -> 0;
+num_enc_chan_voice_status([H|T]) ->
    case H of
       speaking -> 1;
       muted    -> 2;
       deafened -> 4
    end
-      bor enc_chan_voice_status(T).
+      bor num_enc_chan_voice_status(T).
+enc_chan_voice_status(List) ->
+   Num = num_enc_chan_voice_status(List),
+   <<Num>>.
 
 status_bit_at(7) -> speaking;
 status_bit_at(6) -> muted;

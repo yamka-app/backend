@@ -4,7 +4,6 @@
 -description("The channel entity").
 
 -include("entity.hrl").
--include("../packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
 -export([get/1, create/1, create/5, update/2, delete/1]).
@@ -21,13 +20,16 @@ get(Id) ->
         values    = [{id, Id}]
     }),
     1 = cqerl:size(Rows),
+    Voice = tasty:get_users_and_states(Id),
     maps:map(fun(K, V) ->
         case K of
             type -> maps:get(V, ?CHANNEL_TYPE_MAP); % convert the type from numeric val
             voice when V =:= null -> false; % the new "voice" field is null by default
             _ -> V
         end
-    end, maps:from_list(cqerl:head(Rows))).
+    end, maps:merge(maps:from_list(cqerl:head(Rows)),
+        #{voice_users  => [User   || {User, _}   <- Voice],
+          voice_status => [Status || {_, Status} <- Voice]})).
 
 %% creates a channel
 create(wall)                              -> create(1, "Wall", 0, [], false).

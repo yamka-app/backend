@@ -270,10 +270,10 @@ client_loop() ->
 
     % send the response packet
     DoNext = case ReplyWith of
-        stop   -> stop;
-        none   -> continue;
-        close  -> ssl:close(get(socket)), stop;
-        [H|RT] -> lists:foreach(fun send_packet/1, [H|RT]), continue;
+        stop          -> stop;
+        none          -> continue;
+        close         -> ssl:close(get(socket)), stop;
+        Packets=[_|_] -> lists:foreach(fun send_packet/1, Packets), continue;
         ReplyPacket when is_record(ReplyPacket, packet) -> send_packet(ReplyPacket), continue
     end,
 
