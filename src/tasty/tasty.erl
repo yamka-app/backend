@@ -126,7 +126,7 @@ handle_cast({rm_speaking_flag, S}, GenServerState) ->
     end,
     {noreply, GenServerState};
 
-handle_cast(_Msg, State)  -> {noreply, State}.
+handle_cast(_Msg, State) -> {noreply, State}.
 
 terminate(_Reason, _State) -> ok.
 code_change(_OldVsn, State, _Extra) -> {ok, State}.

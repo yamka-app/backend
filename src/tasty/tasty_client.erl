@@ -6,7 +6,7 @@
 -define(TIMEOUT, 15000).
 -define(PACKET_RATE_LIMIT, 100).
 -define(PACKET_SIZE_LIMIT, 128).
--define(SPEAKING_IND_THRESHOLD, 1000).
+-define(SPEAKING_IND_THRESHOLD, 250).
 
 -export([handle_packet/2, handler/2, controller_init/2]).
 -export([speaking_status_timeout/1]).
@@ -40,8 +40,10 @@ dec_handler({_, _, User, Chan, _}, <<0, Data/binary>>) ->
     end;
 
 %% disconnect notice
-dec_handler(_, <<1>>) ->
-    drop.
+dec_handler(_, <<1>>) -> drop;
+
+%% heartbeat
+dec_handler(_, <<2>>) -> ok.
 
 %% checks voice data packet limits
 check_data_lims(Data) ->
@@ -57,7 +59,7 @@ check_data_lims(Data) ->
 controller_init(Session={Id, Key, _, _, _}, Src) ->
     ratelimit:make(packet, {?PACKET_RATE_LIMIT, 1000}),
     tasty_listener ! {send, Src, enc_chunk(<<0>>, Key)},
-    Timeout = spawn(?MODULE, speaking_status_timeout, [Id]),
+    Timeout = spawn_link(?MODULE, speaking_status_timeout, [Id]),
     controller_loop(Session, Src, Timeout).
 
 %% controller loop
@@ -90,8 +92,8 @@ speaking_status_timeout(Session) ->
     receive
         packet ->
             % repeating requests are ignored
-            tasty:add_speaking_flag(Session),
-            speaking_status_timeout(Session)
+            tasty:add_speaking_flag(Session)
     after ?SPEAKING_IND_THRESHOLD ->
         tasty:rm_speaking_flag(Session)
-    end.
+    end,
+    speaking_status_timeout(Session).
