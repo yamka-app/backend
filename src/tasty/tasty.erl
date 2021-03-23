@@ -103,26 +103,32 @@ handle_cast({broadcast, Chan, Data, From}, State) ->
     {noreply, State};
 
 handle_cast({add_speaking_flag, S}, GenServerState) ->
-    [{S, _, U, C, _}] = ets:lookup(sessions, S),
-    [Old={C, U, State, Co}] = ets:match_object(channel_users, {C, U, '_', '_'}),
-    AlreadySpeaking = lists:member(speaking, State),
-    if AlreadySpeaking -> ok;
-       true ->
-            ets:match_delete(channel_users, Old),
-            ets:insert(channel_users, {C, U, [speaking|State], Co}),
-            broadcast_connected(C)
+    case ets:lookup(sessions, S) of
+        [{S, _, U, C, _}] ->
+            [Old={C, U, State, Co}] = ets:match_object(channel_users, {C, U, '_', '_'}),
+            AlreadySpeaking = lists:member(speaking, State),
+            if AlreadySpeaking -> ok;
+            true ->
+                    ets:match_delete(channel_users, Old),
+                    ets:insert(channel_users, {C, U, [speaking|State], Co}),
+                    broadcast_connected(C)
+            end;
+        [] -> ok
     end,
     {noreply, GenServerState};
 
 handle_cast({rm_speaking_flag, S}, GenServerState) ->
-    [{S, _, U, C, _}] = ets:lookup(sessions, S),
-    [Old={C, U, State, Co}] = ets:match_object(channel_users, {C, U, '_', '_'}),
-    Speaking = lists:member(speaking, State),
-    if not Speaking -> ok;
-        true ->
-            ets:match_delete(channel_users, Old),
-            ets:insert(channel_users, {C, U, lists:delete(speaking, State), Co}),
-            broadcast_connected(C)
+    case ets:lookup(sessions, S) of
+        [{S, _, U, C, _}] ->
+            [Old={C, U, State, Co}] = ets:match_object(channel_users, {C, U, '_', '_'}),
+            Speaking = lists:member(speaking, State),
+            if not Speaking -> ok;
+                true ->
+                    ets:match_delete(channel_users, Old),
+                    ets:insert(channel_users, {C, U, lists:delete(speaking, State), Co}),
+                    broadcast_connected(C)
+            end;
+        [] -> ok
     end,
     {noreply, GenServerState};
 
