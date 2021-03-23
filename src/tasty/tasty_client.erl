@@ -4,7 +4,7 @@
 -description("The Tasty (voice/video protocol) UDP listener").
 
 -define(TIMEOUT, 15000).
--define(PACKET_RATE_LIMIT, 55).
+-define(PACKET_RATE_LIMIT, 100).
 -define(PACKET_SIZE_LIMIT, 128).
 
 -export([handle_packet/2, handler/2, controller_init/2]).
@@ -43,7 +43,7 @@ dec_handler(_, <<1>>) ->
 
 %% checks voice data packet limits
 check_data_lims(Data) ->
-    (byte_size(Data) < ?PACKET_SIZE_LIMIT) and
+    (byte_size(Data) =< ?PACKET_SIZE_LIMIT) and
     (ratelimit:hit(packet, 1) == 1).
 
 %%% the controller is responsible for receiving, decypting and parsing
@@ -68,8 +68,9 @@ controller(Session={SId, Key, _, _, _}, Src={_,_}) ->
                 %     Encrypted = enc_chunk(Data, Key),
                 %     tasty_listener ! {send, Src, Encrypted};
                 drop ->
-                    tasty:unregister_user(SId),
-                    exit(normal);
+                    %tasty:unregister_user(SId),
+                    %exit(normal);
+                    ok;
                 _ -> ok
             end;
         % voice/video data from other client

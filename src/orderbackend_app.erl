@@ -11,7 +11,7 @@
 
 app_worker() ->
     {ok, _} = logging:start(),
-    {ok, _} = tasty:start(),
+    {ok, _} = tasty_sup:start_link(),
 
     % connect to the Cassandra cluster
     {User, Password} = {os:getenv("CAS_LOGIN"), os:getenv("CAS_PASS")},

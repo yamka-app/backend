@@ -38,12 +38,16 @@ handle_call({create_session, Key, User, Channel}, _, State) ->
     {reply, SessionId, State};
 
 handle_call({get_session, Src={_,_}}, From, State) ->
-    [{Src, Id}] = ets:lookup(srcs, Src),
-    handle_call({get_session, Id}, From, State);
+    case ets:lookup(srcs, Src) of
+        [{Src, Id}] -> handle_call({get_session, Id}, From, State);
+        [] -> {reply, nosession, State}
+    end;
 
 handle_call({get_session, <<Id/binary>>}, _, State) ->
-    [Session={Id,_,_,_,_}] = ets:lookup(sessions, Id),
-    {reply, Session, State};
+    {reply, case ets:lookup(sessions, Id) of
+        [Session={Id,_,_,_,_}] -> Session;
+        [] -> nosession
+    end, State};
 
 handle_call(_Request, _From, State) -> {reply, ok, State}.
 
@@ -58,7 +62,7 @@ handle_cast({register_user, I, Src, Co}, State) ->
 handle_cast({unregister_user, S}, State) ->
     [{S,_,U,C,Co}] = ets:lookup(sessions, S),
     ets:delete(sessions, S),
-    ets:match_delete(src, {'_', S}),
+    ets:match_delete(srcs, {'_', S}),
     ets:match_delete(channel_users, {C, U, Co}),
     {noreply, State};
 
