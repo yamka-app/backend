@@ -9,11 +9,12 @@
 -export([init/0, run/1]).
 -record(state, {socket}).
 
-start() -> register(tasty_listener, spawn_link(?MODULE, init, [])).
+start() -> {ok, spawn_link(?MODULE, init, [])}.
 
 init() ->
     {ok, Socket} = gen_udp:open(?PORT, [inet, inet6, binary]),
     logging:log("Tasty listener running (node ~p, port ~p)", [node(), ?PORT]),
+    register(tasty_listener, self()),
     run(#state{socket=Socket}).
 
 run(State = #state{socket=Socket}) ->

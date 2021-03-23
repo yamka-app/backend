@@ -14,4 +14,10 @@ init(_) ->
             permanent,
             5000,
             worker,
-            [tasty]}]}}.
+            [tasty]},
+         {tasty_listener,
+            {tasty_listener, start, []},
+            permanent,
+            5000,
+            worker,
+            [tasty_listener]}]}}.
