@@ -9,7 +9,8 @@ This project consists of three main parts, all of which are open-source, distrib
 ## Running
 The entire project is containerized. Execute three commands to run it on your own machine:
 ```
-git clone https://github.com/ordermsg/backend
+git clone https://github.com/ordermsg/backend-erl.git
+cd backend
 docker-compose build
 docker-compose up
 ```
