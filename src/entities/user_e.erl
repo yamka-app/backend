@@ -1,4 +1,4 @@
--module(user).
+-module(user_e).
 -author("Order").
 -license("MPL-2.0").
 -description("The user entity").
@@ -17,7 +17,7 @@ online(Id) -> length(ets:lookup(icpc_processes, Id)) > 0.
 
 %% broadcasts the user's status after they have logged in
 broadcast_status(Id) ->
-    #{status:=Status} = user:get(Id),
+    #{status:=Status} = user_e:get(Id),
     broadcast_status(Id, Status).
 broadcast_status(Id, Status) ->
     normal_client:icpc_broadcast_to_aware(#entity{type=user, fields=#{id=>Id, status=>Status}}, [status]).

@@ -56,7 +56,7 @@ handle_packet(#packet{type=login, seq=Seq,
     {_, Password} = {{ScopeRef, status_packet:make(login_error, "Invalid password", Seq)}, utils:hash_password(SentPass, Salt)},
     % generate the token depending on whether the client has 2FA enabled or not
     case MfaSecret of
-        null -> access_token_packet:make(auth:create_token(Permissions, Id), Seq);
+        null -> access_token_packet:make(order_auth:create_token(Permissions, Id), Seq);
         Secret ->
             put(mfa_secret, Secret),
             status_packet:make(mfa_required, "2FA is enabled on this account", Seq)
@@ -79,9 +79,9 @@ handle_packet(#packet{type=signup, seq=Seq,
     {_, true} = {{ScopeRef, status_packet:make(signup_error, "The name is too long or too short", Seq)},
         (length(Name) >= 3) and (length(Name) =< 64)},
     {_, false} = {{ScopeRef, status_packet:make(signup_error, "E-Mail is already in use", Seq)},
-        user:email_in_use(EMail)},
-    Id = user:create(Name, EMail, SentPass),
-    access_token_packet:make(auth:create_token(?ALL_PERMISSIONS_EXCEPT_BOT, Id), Seq);
+        user_e:email_in_use(EMail)},
+    Id = user_e:create(Name, EMail, SentPass),
+    access_token_packet:make(order_auth:create_token(?ALL_PERMISSIONS_EXCEPT_BOT, Id), Seq);
 
 %% access token packet (to identify the user and permissions)
 handle_packet(#packet{type=access_token, seq=Seq,
@@ -89,7 +89,7 @@ handle_packet(#packet{type=access_token, seq=Seq,
     % ensure proper connection state
     {_, awaiting_login} = {{ScopeRef, status_packet:make_invalid_state(awaiting_login, Seq)}, get(state)},
     % get the token
-    {_, {Id, Perms}} = {{ScopeRef, status_packet:make(invalid_access_token, "Invalid token")}, auth:get_token(Token)},
+    {_, {Id, Perms}} = {{ScopeRef, status_packet:make(invalid_access_token, "Invalid token")}, order_auth:get_token(Token)},
     % create an ICPC process
     spawn_link(?MODULE, icpc_init, [self(), get(socket), {Id, Perms, get(protocol), get(supports_comp)}]),
     % save state
@@ -97,7 +97,7 @@ handle_packet(#packet{type=access_token, seq=Seq,
     put(id, Id),
     put(perms, Perms),
     ets:insert(id_of_processes, {self(), Id}),
-    user:broadcast_status(Id),
+    user_e:broadcast_status(Id),
     client_identity_packet:make(Id, Seq);
 
 %% entity get packet (to request a set of entities)
@@ -131,28 +131,28 @@ handle_packet(#packet{type=file_data_chunk, seq=Seq,
 handle_packet(#packet{type=contacts_manage, seq=Seq,
                       fields=#{type:=Type, action:=add, id:=Id}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
-    Self = user:get(get(id)),
+    Self = user_e:get(get(id)),
     {_, true} = {{ScopeRef, status_packet:make(contact_action_not_applicable, "Contact action not applicable")},
         (Type == blocked) or ((Type == friend) and lists:member(Id, maps:get(pending_in, Self))) },
     % write changes to the DB
-    user:manage_contact(get(id), add, {Type, Id}),
+    user_e:manage_contact(get(id), add, {Type, Id}),
     % if we're adding a friend, remove them from corresponding pending in/out queues
     % also create a DM channel
     if  Type == friend ->
-            user:manage_contact(get(id), remove, {pending_in,  Id}),
-            user:manage_contact(Id,      remove, {pending_out, get(id)}),
+            user_e:manage_contact(get(id), remove, {pending_in,  Id}),
+            user_e:manage_contact(Id,      remove, {pending_out, get(id)}),
             DM = channel:create(normal, "DM", 0, [], true),
-            user:add_dm_channel([Id, get(id)], DM);
+            user_e:add_dm_channel([Id, get(id)], DM);
         true -> ok
     end,
     % broadcast the changes to each of both users' devices
-    icpc_broadcast_entity(get(id), #entity{type=user, fields=user:get(get(id))},
-        [user:contact_field(Type), pending_in, pending_out, dm_channels]),
-    Opposite = user:opposite_type(Type),
+    icpc_broadcast_entity(get(id), #entity{type=user, fields=user_e:get(get(id))},
+        [user_e:contact_field(Type), pending_in, pending_out, dm_channels]),
+    Opposite = user_e:opposite_type(Type),
     if
         Opposite /= none ->
-            icpc_broadcast_entity(Id, #entity{type=user, fields=user:get(Id)},
-                [user:contact_field(Opposite), pending_in, pending_out, dm_channels]);
+            icpc_broadcast_entity(Id, #entity{type=user, fields=user_e:get(Id)},
+                [user_e:contact_field(Opposite), pending_in, pending_out, dm_channels]);
         true -> ok
     end,
     none;
@@ -162,11 +162,11 @@ handle_packet(#packet{type=contacts_manage, seq=Seq,
                       fields=#{type:=Type, action:=remove, id:=Id}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
     % write changes to the DB
-    user:manage_contact(get(id), remove, {Type, Id}),
+    user_e:manage_contact(get(id), remove, {Type, Id}),
     % broadcast the changes to each of both users' devices
-    icpc_broadcast_entity(get(id), #entity{type=user, fields=user:get(get(id))}, [user:contact_field(Type)]),
-    Opposite = user:opposite_type(Type),
-    icpc_broadcast_entity(Id, #entity{type=user, fields=user:get(Id)}, [user:contact_field(Opposite)]),
+    icpc_broadcast_entity(get(id), #entity{type=user, fields=user_e:get(get(id))}, [user_e:contact_field(Type)]),
+    Opposite = user_e:opposite_type(Type),
+    icpc_broadcast_entity(Id, #entity{type=user, fields=user_e:get(Id)}, [user_e:contact_field(Opposite)]),
     none;
 
 %% user search packet (send a friend request using their name and tag)
@@ -174,11 +174,11 @@ handle_packet(#packet{type=user_search, seq=Seq,
                       fields=#{name:=Name}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
     {_, {ok, Id}} = {{ScopeRef, status_packet:make(invalid_username, "Invalid username", Seq)},
-        utils:safe_call(fun user:search/1, [Name], [{cassandra, get(cassandra)}])},
+        utils:safe_call(fun user_e:search/1, [Name], [{cassandra, get(cassandra)}])},
     % write and broadcast changes
-    user:manage_contact(get(id), add, {pending_out, Id}),
-    icpc_broadcast_entity(get(id), #entity{type=user, fields=user:get(get(id))}, [pending_out]),
-    icpc_broadcast_entity(Id,      #entity{type=user, fields=user:get(Id)},      [pending_in]),
+    user_e:manage_contact(get(id), add, {pending_out, Id}),
+    icpc_broadcast_entity(get(id), #entity{type=user, fields=user_e:get(get(id))}, [pending_out]),
+    icpc_broadcast_entity(Id,      #entity{type=user, fields=user_e:get(Id)},      [pending_in]),
     status_packet:make(friend_request_sent, "Friend request sent", Seq);
 
 %% invite resolution packet (to get the group by one of its invites)
@@ -191,9 +191,9 @@ handle_packet(#packet{type=invite_resolve, seq=Seq,
         false -> entities_packet:make([#entity{type=group, fields=Fields}]);
         true ->
             role:add(Everyone, get(id)),
-            user:manage_contact(get(id), add, {group, Id}),
+            user_e:manage_contact(get(id), add, {group, Id}),
             icpc_broadcast_entity(get(id),
-                #entity{type=user, fields=user:get(get(id))}, [groups]),
+                #entity{type=user, fields=user_e:get(get(id))}, [groups]),
             none
     end;
 

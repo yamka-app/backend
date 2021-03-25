@@ -30,7 +30,7 @@ stop(Name)       -> gen_server:call(Name, stop).
 start()          -> start_link(?MODULE).
 start_link(Name) -> gen_server:start_link({local, Name}, ?MODULE, [], []).
 init(_Args) ->
-    File = file:open("/var/order.log", [write]),
+    File = file:open("/var/log/order/latest.log", [write]),
     {ok, #state{level=1, file=File}}.
 
 handle_cast({dbg,  Format, Args}, State) -> maybe_write(0, Format, Args, State), {noreply, State};

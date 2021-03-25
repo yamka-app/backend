@@ -18,7 +18,7 @@ handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, ScopeRef) ->
         email, name, status, status_text, ava_file
     ]) end, F),
     % change the DB record
-    user:update(Id, AllowedFields),
+    user_e:update(Id, AllowedFields),
     % broadcast the changes
     normal_client:icpc_broadcast_to_aware(#entity{type=user,
         fields=maps:merge(AllowedFields, #{id=>Id})},
@@ -141,9 +141,9 @@ handle_entity(M=#entity{type=message, fields=#{id:=Id, sender:=0}}, Seq, ScopeRe
 handle_entity(#entity{type=group, fields=#{id:=0, name:=Name}}, _Seq, _ScopeRef) ->
     {Id, Everyone} = group_e:create(Name, get(id)),
     role:add(Everyone, get(id)),
-    user:manage_contact(get(id), add, {group, Id}),
+    user_e:manage_contact(get(id), add, {group, Id}),
     normal_client:icpc_broadcast_entity(get(id),
-        #entity{type=user, fields=user:get(get(id))}, [groups]),
+        #entity{type=user, fields=user_e:get(get(id))}, [groups]),
     none;
 
 %% manages invites
@@ -168,10 +168,10 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
         {ok, DmId} -> #{dm_channel => DmId}
     end,
 
-    true = auth:has_permission(see_profile),
-    IsSelf = Id == get(id), Online = user:online(Id),
-    Self = user:get(get(id)),
-    Unfiltered = user:get(Id),
+    true = order_auth:has_permission(see_profile),
+    IsSelf = Id == get(id), Online = user_e:online(Id),
+    Self = user_e:get(get(id)),
+    Unfiltered = user_e:get(Id),
     
     FilteredFields = maps:filter(fun(K, _) ->
         case K of
@@ -183,12 +183,12 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
             status          -> true;
             status_text     -> true;
             ava_file        -> true;
-            friends         -> auth:has_permission(see_relationships);
-            blocked         -> auth:has_permission(see_relationships) and IsSelf;
-            pending_in      -> auth:has_permission(see_relationships) and IsSelf;
-            pending_out     -> auth:has_permission(see_relationships) and IsSelf;
-            dm_channel      -> auth:has_permission(see_direct_messages);
-            groups          -> auth:has_permission(see_groups);
+            friends         -> order_auth:has_permission(see_relationships);
+            blocked         -> order_auth:has_permission(see_relationships) and IsSelf;
+            pending_in      -> order_auth:has_permission(see_relationships) and IsSelf;
+            pending_out     -> order_auth:has_permission(see_relationships) and IsSelf;
+            dm_channel      -> order_auth:has_permission(see_direct_messages);
+            groups          -> order_auth:has_permission(see_groups);
             badges          -> true;
             bot_owner       -> true;
             wall            -> maps:get(bot_owner, Unfiltered) == 0;

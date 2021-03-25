@@ -14,7 +14,7 @@ cleanup(Pid) ->
     ets:match_delete(chan_awareness,  {'_', {Id, Pid}}),
     ets:match_delete(group_awareness, {'_', {Id, Pid}}),
     ets:match_delete(typing,          {'_', {Id, '_'}}),
-    user:broadcast_status(Id, offline).
+    user_e:broadcast_status(Id, offline).
 
 listener_server() ->
     receive

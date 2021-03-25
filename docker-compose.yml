@@ -1,0 +1,61 @@
+version: '3.7'
+
+services:
+  cassandra:
+    image: cassandra:3.11.10
+    expose:
+      - "9042"
+    restart: unless-stopped
+    volumes:
+      - /var/lib/cassandra/data:/var/lib/cassandra/data
+      - /etc/cassandra/conf:/etc/cassandra
+
+  gluster:
+    image: gluster/gluster-centos:gluster4u0_centos7
+    ports:
+      - "24007:24007"
+      - "24008:24008"
+      - "49152:49152"
+      - "2049:2049"
+    restart: unless-stopped
+    volumes:
+      - /etc/glusterfs:/etc/glusterfs:z
+      - /var/lib/glusterd:/var/lib/glusterd:z
+      - /var/log/glusterfs:/var/log/glusterfs:z
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+      - /dev/:/dev
+      - /data/brick1/gv0:/data/brick1/gv0
+
+  order:
+    image: ordermsg/backend:latest
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    ports:
+      - "1746:1746"
+      - "1747:1747/udp"
+    links:
+      - cassandra
+    restart: unless-stopped
+    volumes:
+      - /var/log/order:/var/log/order
+      - /data/brick1/gv0/file_storage:/data/brick1/gv0/file_storage
+    depends_on:
+      - cassandra
+      - gluster
+    secrets:
+      - tls_fullchain
+      - tls_privkey
+      - cassandra_password
+
+networks:
+  default:
+    driver: "overlay"
+
+secrets:
+  tls_fullchain:
+    file: ~/fullchain.pem
+  tls_privkey:
+    file: ~/privkey.pem
+  cassandra_password:
+    file: ~/cassandra_password

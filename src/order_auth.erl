@@ -1,4 +1,4 @@
--module(auth).
+-module(order_auth).
 -author("Order").
 -license("MPL-2.0").
 -description("Handles access tokens").
