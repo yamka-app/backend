@@ -40,6 +40,7 @@ Three secrets are required:
     - [x] Profile picture
   - [x] User relations
     - [x] Friend requests
+    - [ ] Blocking
   - [x] Chatting
     - [x] Direct messages
     - [x] Multiple message sections and types
@@ -54,8 +55,11 @@ Three secrets are required:
     - [ ] Access control
   - [x] Realtime communication
     - [x] Voice
+      - [ ] "on the fly" voice server selection
     - [ ] Video
+  - [ ] User walls
   - [ ] Drop Cassandra in favor of Mnesia
+    - [ ] Learn Mnesia
   - [ ] Make code ready for distribution
     - [ ] Use Mnesia instead of ets for "awareness" storage
     - [ ] Fix `tasty:server_name/0` LMAO
