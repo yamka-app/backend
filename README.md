@@ -26,6 +26,12 @@ Three secrets are required:
 
 :construction: Your server instance is going to redirect your voice clients to our server because the domain names are hard coded in (at the moment). We're working on that. _While_ we're working on that, feel free to change the return value of `server_name/0` in `src/tasty/tasty.erl`.
 
+## Development and testing
+You don't want to rebuild the whole project every time you've made a small change to the source tree, then restart all three main containers. Me too. To develop locally,
+  - Add `127.0.0.1 cassandra` to `/etc/hosts`
+  - Start the Cassandra and Gluster containers up
+  - Run `launch.sh`
+
 ## 1.0 release checklist
   - [x] Learn Erlang
   - [x] Basic authentication
