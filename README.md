@@ -3,7 +3,7 @@
 ## Structure
 This project consists of three main parts, all of which are open-source, distributed and horizontally scalable:
   - Custom code (business logic) in the Erlang programming language
-  - Database storage managed by Apache Cassandra (thinking about getting rid of it and using Mnesia instead)
+  - Database storage managed by Apache Cassandra
   - User-uploaded file storage managed by GlusterFS
 
 ## Running
@@ -67,9 +67,8 @@ You don't want to rebuild the whole project every time you've made a small chang
       - [ ] "on the fly" voice server selection
     - [ ] Video
   - [ ] User walls
-  - [ ] Drop Cassandra in favor of Mnesia
-    - [ ] Learn Mnesia
   - [ ] Make code ready for distribution
     - [ ] Use Mnesia instead of ets for "awareness" storage
+    - [ ] Rewrite with Riak Core for true distribution
     - [ ] Fix `tasty:server_name/0` LMAO
   - [ ] Extensive testing and bugfixing
