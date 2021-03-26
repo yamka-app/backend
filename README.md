@@ -48,6 +48,9 @@ Three secrets are required:
       - [x] Replies
       - [ ] Group invites
       - [ ] User contacts
+    - [x] Editing
+      - [x] Edit history
+    - [x] Deletion
   - [x] Groups
     - [x] Multiple channels
     - [ ] Roles and administration
