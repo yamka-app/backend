@@ -1,4 +1,4 @@
-# Erlang Yamks backend
+# Erlang Yamka backend
 
 ## Structure
 This project consists of three main parts, all of which are open-source, distributed and horizontally scalable:
@@ -16,7 +16,7 @@ docker-compose up
 ```
 
 Some Cassandra configuration is required:
-  - Set up authentication: create a user named `yamkadb` with a custom password
+  - Set up authentication: create a user named `yamkadb` with a custom password ([this](https://docs.datastax.com/en/cassandra-oss/3.0/cassandra/configuration/secureConfigNativeAuth.html) tutorial might be helpful)
   - Execute the commands in `db_structure.sql`
 
 Three secrets are required:
