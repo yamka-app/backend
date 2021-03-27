@@ -3,7 +3,7 @@
 %%% file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 -module(file_e). % the _e is here because the "file" exists in OTP
--author("Order").
+-author("Yamka").
 -license("MPL-2.0").
 -description("The file entity").
 

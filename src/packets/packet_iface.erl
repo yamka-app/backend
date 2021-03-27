@@ -3,7 +3,7 @@
 %%% file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 -module(packet_iface).
--author("Order").
+-author("Yamka").
 -license("MPL-2.0").
 -description("Packet encoding and decoding").
 

@@ -1,4 +1,4 @@
-# Erlang Order backend
+# Erlang Yamks backend
 
 ## Structure
 This project consists of three main parts, all of which are open-source, distributed and horizontally scalable:
@@ -9,14 +9,14 @@ This project consists of three main parts, all of which are open-source, distrib
 ## Running
 The entire project is containerized. Execute three commands to run it on your own machine:
 ```
-git clone https://github.com/ordermsg/backend.git
+git clone https://github.com/yamka-app/backend.git
 cd backend
 docker-compose build
 docker-compose up
 ```
 
 Some Cassandra configuration is required:
-  - Set up authentication: create a user named `orderdb` with a custom password
+  - Set up authentication: create a user named `yamkadb` with a custom password
   - Execute the commands in `db_structure.sql`
 
 Three secrets are required:

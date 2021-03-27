@@ -4,7 +4,7 @@
 
 -module(tasty).
 -behaviour(gen_server).
--author("Order").
+-author("Yamka").
 -license("MPL-2.0").
 -description("The Tasty (voice protocol) gen_server").
 
@@ -18,7 +18,7 @@
 -record(state, {}).
 
 %% TODO: buy a second server and make this function not static
-server_name() -> "voice-hel1.ordermsg.tk".
+server_name() -> "voice-hel1.yamka.app".
 
 create_session(K, U, C)  -> gen_server:call(?MODULE, {create_session, K, U, C}).
 get_users_and_states(C)  -> gen_server:call(?MODULE, {get_users_and_states, C}).

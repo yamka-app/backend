@@ -2,8 +2,8 @@
 %%% License, v. 2.0. If a copy of the MPL was not distributed with this
 %%% file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
--module(order_auth).
--author("Order").
+-module(yamka_auth).
+-author("Yamka").
 -license("MPL-2.0").
 -description("Handles access tokens").
 

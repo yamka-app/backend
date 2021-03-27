@@ -3,7 +3,7 @@
 %%% file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 -module(group_e).
--author("Order").
+-author("Yamka").
 -license("MPL-2.0").
 -description("The group entity").
 

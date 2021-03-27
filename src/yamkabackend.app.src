@@ -2,11 +2,11 @@
 %%% License, v. 2.0. If a copy of the MPL was not distributed with this
 %%% file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-{application, orderbackend,
- [{description, "Erlang Order backend rewrite"},
+{application, yamkabackend,
+ [{description, "Erlang Yamka backend"},
   {vsn, "0.0.1"},
   {registered, []},
-  {mod, {orderbackend_app, []}},
+  {mod, {yamkabackend_app, []}},
   {applications,
    [kernel,
     stdlib,

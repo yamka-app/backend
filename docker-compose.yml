@@ -28,8 +28,8 @@ services:
       - /dev/:/dev
       - /data/brick1/gv0:/data/brick1/gv0
 
-  order:
-    image: ordermsg/backend:latest
+  yamka:
+    image: yamka/backend:latest
     build:
       context: .
       dockerfile: ./Dockerfile
@@ -40,7 +40,7 @@ services:
       - cassandra
     restart: unless-stopped
     volumes:
-      - /var/log/order:/var/log/order
+      - /var/log/yamka:/var/log/yamka
       - /data/brick1/gv0/file_storage:/data/brick1/gv0/file_storage
     depends_on:
       - cassandra

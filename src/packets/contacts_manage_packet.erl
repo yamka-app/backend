@@ -3,7 +3,7 @@
 %%% file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 -module(contacts_manage_packet).
--author("Order").
+-author("Yamka").
 -license("MPL-2.0").
 
 -include("packet.hrl").

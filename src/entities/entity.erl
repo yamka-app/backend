@@ -3,7 +3,7 @@
 %%% file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 -module(entity).
--author("Order").
+-author("Yamka").
 -license("MPL-2.0").
 
 -include("../packets/packet.hrl").
@@ -172,7 +172,7 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
         {ok, DmId} -> #{dm_channel => DmId}
     end,
 
-    true = order_auth:has_permission(see_profile),
+    true = yamka_auth:has_permission(see_profile),
     IsSelf = Id == get(id), Online = user_e:online(Id),
     Self = user_e:get(get(id)),
     Unfiltered = user_e:get(Id),
@@ -187,12 +187,12 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
             status          -> true;
             status_text     -> true;
             ava_file        -> true;
-            friends         -> order_auth:has_permission(see_relationships);
-            blocked         -> order_auth:has_permission(see_relationships) and IsSelf;
-            pending_in      -> order_auth:has_permission(see_relationships) and IsSelf;
-            pending_out     -> order_auth:has_permission(see_relationships) and IsSelf;
-            dm_channel      -> order_auth:has_permission(see_direct_messages);
-            groups          -> order_auth:has_permission(see_groups);
+            friends         -> yamka_auth:has_permission(see_relationships);
+            blocked         -> yamka_auth:has_permission(see_relationships) and IsSelf;
+            pending_in      -> yamka_auth:has_permission(see_relationships) and IsSelf;
+            pending_out     -> yamka_auth:has_permission(see_relationships) and IsSelf;
+            dm_channel      -> yamka_auth:has_permission(see_direct_messages);
+            groups          -> yamka_auth:has_permission(see_groups);
             badges          -> true;
             bot_owner       -> true;
             wall            -> maps:get(bot_owner, Unfiltered) == 0;

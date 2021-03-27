@@ -2,9 +2,9 @@
 %%% License, v. 2.0. If a copy of the MPL was not distributed with this
 %%% file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
--module(orderbackend_app).
+-module(yamkabackend_app).
 -behaviour(application).
--author("Order").
+-author("Yamka").
 -license("MPL-2.0").
 -description("The main file").
 
@@ -20,7 +20,7 @@ app_worker() ->
     % connect to the Cassandra cluster
     {ok, Password} = file:read_file("/run/secrets/cassandra_password"),
     {ok, Cassandra} = cqerl:get_client({?CASSANDRA_IP, ?CASSANDRA_PORT}, [
-        {auth, {cqerl_auth_plain_handler, [{"orderdb", Password}]}},
+        {auth, {cqerl_auth_plain_handler, [{"yamkadb", Password}]}},
         {keyspace, "orderdb"}
        ]),
     logging:log("Connected to the Cassandra node at ~s:~p", [?CASSANDRA_IP, ?CASSANDRA_PORT]),

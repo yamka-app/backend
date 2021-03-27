@@ -3,7 +3,7 @@
 %%% file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 -module(normal_client).
--author("Order").
+-author("Yamka").
 -license("MPL-2.0").
 -description("\"Normal protocol\" client process").
 
@@ -60,7 +60,7 @@ handle_packet(#packet{type=login, seq=Seq,
     {_, Password} = {{ScopeRef, status_packet:make(login_error, "Invalid password", Seq)}, utils:hash_password(SentPass, Salt)},
     % generate the token depending on whether the client has 2FA enabled or not
     case MfaSecret of
-        null -> access_token_packet:make(order_auth:create_token(Permissions, Id), Seq);
+        null -> access_token_packet:make(yamka_auth:create_token(Permissions, Id), Seq);
         Secret ->
             put(mfa_secret, Secret),
             status_packet:make(mfa_required, "2FA is enabled on this account", Seq)
@@ -85,7 +85,7 @@ handle_packet(#packet{type=signup, seq=Seq,
     {_, false} = {{ScopeRef, status_packet:make(signup_error, "E-Mail is already in use", Seq)},
         user_e:email_in_use(EMail)},
     Id = user_e:create(Name, EMail, SentPass),
-    access_token_packet:make(order_auth:create_token(?ALL_PERMISSIONS_EXCEPT_BOT, Id), Seq);
+    access_token_packet:make(yamka_auth:create_token(?ALL_PERMISSIONS_EXCEPT_BOT, Id), Seq);
 
 %% access token packet (to identify the user and permissions)
 handle_packet(#packet{type=access_token, seq=Seq,
@@ -93,7 +93,7 @@ handle_packet(#packet{type=access_token, seq=Seq,
     % ensure proper connection state
     {_, awaiting_login} = {{ScopeRef, status_packet:make_invalid_state(awaiting_login, Seq)}, get(state)},
     % get the token
-    {_, {Id, Perms}} = {{ScopeRef, status_packet:make(invalid_access_token, "Invalid token")}, order_auth:get_token(Token)},
+    {_, {Id, Perms}} = {{ScopeRef, status_packet:make(invalid_access_token, "Invalid token")}, yamka_auth:get_token(Token)},
     % create an ICPC process
     spawn_link(?MODULE, icpc_init, [self(), get(socket), {Id, Perms, get(protocol), get(supports_comp)}]),
     % save state
