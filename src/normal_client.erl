@@ -205,7 +205,9 @@ handle_packet(#packet{type=invite_resolve, seq=Seq,
 handle_packet(#packet{type=voice_join, seq=Seq,
                       fields=#{channel:=Chan, crypto:=Key}}, _ScopeRef) ->
     Session = tasty:create_session(Key, get(id), Chan),
-    voice_join_packet:make(Session, tasty:server_name(), Seq);
+    Server = tasty:server_name(),
+    logging:log("Redirecting voice client to ~p", [Server]),
+    voice_join_packet:make(Session, Server, Seq);
 
 %% ping packet (to signal to the server that the connection is alive)
 handle_packet(#packet{type=ping, seq=Seq,
