@@ -49,6 +49,7 @@ services:
       - tls_fullchain
       - tls_privkey
       - cassandra_password
+      - smtp_password
 
 networks:
   default:
@@ -61,3 +62,5 @@ secrets:
     file: ~/privkey.pem
   cassandra_password:
     file: ~/cassandra_password
+  smtp_password:
+    file: ~/smtp_pass
