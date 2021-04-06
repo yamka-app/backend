@@ -67,6 +67,7 @@ You don't want to rebuild the whole project every time you've made a small chang
       - [ ] "on the fly" voice server selection
     - [ ] Video
   - [ ] User walls
+  - [ ] Emergency notifications
   - [ ] Make code ready for distribution
     - [ ] Use Mnesia instead of ets for "awareness" storage
     - [ ] Rewrite with Riak Core for true distribution
