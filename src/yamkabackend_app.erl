@@ -16,6 +16,7 @@
 app_worker() ->
     {ok, _} = logging:start(),
     {ok, _} = tasty_sup:start_link(),
+    {ok, _} = email:start(),
 
     % connect to the Cassandra cluster
     {ok, Password} = file:read_file("/run/secrets/cassandra_password"),
