@@ -37,7 +37,7 @@ You don't want to rebuild the whole project every time you've made a small chang
   - [x] Basic authentication
     - [ ] 2FA
   - [x] User account creation
-    - [ ] E-Mail verification
+    - [x] E-Mail confirmation
   - [x] Protocol parsing
   - [x] File up-/downloading
   - [x] Account management
@@ -68,6 +68,7 @@ You don't want to rebuild the whole project every time you've made a small chang
     - [ ] Video
   - [ ] User walls
   - [ ] Emergency notifications
+  - [ ] Bots
   - [ ] Make code ready for distribution
     - [ ] Use Mnesia instead of ets for "awareness" storage
     - [ ] Rewrite with Riak Core for true distribution

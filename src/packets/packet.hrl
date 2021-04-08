@@ -24,7 +24,8 @@
     17 => bot_invite,
     18 => identification,
     19 => client_identity,
-    20 => voice_join
+    20 => voice_join,
+    21 => email_confirmation
 }).
 
 -define(REVERSE_STATUS_CODE_MAP, utils:swap_map(?STATUS_CODE_MAP)).
@@ -52,7 +53,8 @@
     21 => packet_parsing_error,
     22 => start_uploading,
     23 => stream_end,
-    24 => one_upload_only
+    24 => one_upload_only,
+    25 => invalid_confirmation_code
 }).
 
 -define(REVERSE_TOKEN_PERMISSION_MAP, utils:swap_map(?TOKEN_PERMISSION_MAP)).

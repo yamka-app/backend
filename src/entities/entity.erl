@@ -18,16 +18,27 @@ handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, ScopeRef) ->
     % a user can only change info about themselves
     {_, Id} = {{ScopeRef, status_packet:make(invalid_id, "You can only change info about yourself", Seq)}, get(id)},
     % only allow allowed fields (wow thx captain obvious)
-    AllowedFields = maps:filter(fun(K, _) -> lists:member(K, [
-        email, name, status, status_text, ava_file
-    ]) end, F),
+    BroadcastFields = [name, status, status_text, ava_file],
+    AllowedFields = maps:filter(fun(K, _) -> lists:member(K, [email|BroadcastFields]) end, F),
     % change the DB record
     user_e:update(Id, AllowedFields),
     % broadcast the changes
-    normal_client:icpc_broadcast_to_aware(#entity{type=user,
-        fields=maps:merge(AllowedFields, #{id=>Id})},
-        maps:keys(AllowedFields)),
-    none;
+    Entity = #entity{type=user, fields=maps:merge(AllowedFields, #{id=>Id})},
+    normal_client:icpc_broadcast_to_aware(Entity, BroadcastFields),
+    % if the email was changed, un-confirm it and send a confirmation request to the user
+    EmailChanged = maps:is_key(email, F),
+    if
+        EmailChanged ->
+            Email = maps:get(email, F),
+            user_e:update(Id, #{email_confirmed => false}),
+            user_e:start_email_confirmation(Id, Email),
+            NewEntity = #entity{type=user, fields=#{
+                id => Id,
+                email => Email,
+                email_confirmed => false}},
+            entities_packet:make([NewEntity]);
+        true -> none
+    end;
 
 %% puts a file
 handle_entity(#entity{type=file, fields=#{name:=Name, length:=Length}}, Seq, ScopeRef) ->
@@ -206,7 +217,6 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
                     end;
                 groups          -> utils:intersect_lists([V, maps:get(groups,  Self)]);
                 friends         -> utils:intersect_lists([V, maps:get(friends, Self)]);
-                email_confirmed -> true; % for now
                 _ -> V
             end
         end, Unfiltered)),

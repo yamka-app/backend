@@ -8,13 +8,13 @@
 -description("The user entity").
 
 -include("entity.hrl").
--include("../packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
 -export([get/1, search/1, update/2, email_in_use/1, create/4, create/3, online/1]).
 -export([broadcast_status/1, broadcast_status/2]).
 -export([manage_contact/3, opposite_type/1, contact_field/1]).
 -export([add_dm_channel/2]).
+-export([start_email_confirmation/2, finish_email_confirmation/2]).
 
 %% returns true if the user is currently connected
 online(Id) -> length(ets:lookup(icpc_processes, Id)) > 0.
@@ -109,6 +109,35 @@ update(Id, Fields) ->
         statement = Statement,
         values    = [{id, Id}|Vals]
     }).
+
+%% starts email confirmation
+start_email_confirmation(Id, Addr) ->
+    % 8 char long code
+    Code = base64:encode(crypto:strong_rand_bytes(6)),
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "INSERT INTO email_conf (code, user) VALUES (?, ?)",
+        values = [{code, Code}, {user, Id}]
+    }),
+    email:send_confirmation(Addr, Code),
+    none.
+
+%% starts email confirmation
+finish_email_confirmation(Id, Code) ->
+    Values = [{user, Id}, {code, Code}],
+    {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "SELECT * FROM email_conf WHERE user=? AND code=?",
+        values = Values
+    }),
+    case cqerl:head(Rows) of
+        empty_dataset -> badcode;
+        _ ->
+            cqerl:run_query(erlang:get(cassandra), #cql_query{
+                statement = "DELETE FROM email_conf WHERE user=? AND code=?",
+                values = Values
+            }),
+            update(Id, #{email_confirmed => true}),
+            ok
+    end.
 
 %% adds a contact
 add_contact(Id, {friend, Tid})      -> add_contacts(Id, "friends",     [Tid]);

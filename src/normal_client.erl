@@ -209,6 +209,14 @@ handle_packet(#packet{type=voice_join, seq=Seq,
     logging:log("Redirecting voice client to ~p", [Server]),
     voice_join_packet:make(Session, Server, Seq);
 
+%% email confirmation packet
+handle_packet(#packet{type=email_confirmation, seq=Seq,
+                      fields=#{code:=Code}}, ScopeRef) ->
+    {_, ok} = {{ScopeRef, status_packet:make(invalid_confirmation_code,
+                          "Invalid email address confirmation code", Seq)},
+        user_e:finish_email_confirmation(get(id), Code)},
+    entities_packet:make([#entity{type=user, fields=#{id => get(id), email_confirmed => true}}]);
+
 %% ping packet (to signal to the server that the connection is alive)
 handle_packet(#packet{type=ping, seq=Seq,
                       fields=#{echo := Echo}}, _ScopeRef) ->

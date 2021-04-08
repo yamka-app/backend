@@ -33,12 +33,12 @@ handle_call(_Request, _From, State) -> {reply, badrq, State}.
 
 handle_cast({send_confirmation, To, Code}, State=#state{password=Pass, confirmation_template=Template}) ->
     Formatted = lists:flatten(io_lib:format(Template, [Code])),
-    send_html(Formatted, To, Pass),
+    send_html({Formatted, "Confirm your email address"}, To, Pass),
     {noreply, State};
 
 handle_cast({send_emergency, To, User, Message, Location}, State=#state{password=Pass, emergency_template=Template}) ->
     Formatted = lists:flatten(io_lib:format(Template, [User, Message, Location])),
-    send_html(Formatted, To, Pass),
+    send_html({Formatted, "Emergency notification"}, To, Pass),
     {noreply, State};
 
 handle_cast(_Msg, State) -> {noreply, State}.
@@ -46,9 +46,9 @@ handle_cast(_Msg, State) -> {noreply, State}.
 terminate(_Reason, _State) -> ok.
 code_change(_OldVsn, State, _Extra) -> {ok, State}.
 
-send_html(Text, To, Pass) ->
+send_html({Text, Subj}, To, Pass) ->
     gen_smtp_client:send({"noreply@" ++ ?RELAY, [To],
-        "Subject: Confirm your E-Mail address\r\n"
+        "Subject: " ++ Subj ++ "\r\n"
         "Content-Type: text/html;\r\n"
         "\tcharset=UTF-8\r\n\r\n"
         ++ unicode:characters_to_binary(Text)},
