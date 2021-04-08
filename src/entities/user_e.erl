@@ -61,6 +61,8 @@ create(Name, EMail, Password, BotOwner) ->
             {wall, channel:create(wall)}
         ]
     }),
+    % send the confirmation code
+    start_email_confirmation(Id, EMail),
     Id.
 
 create(Name, EMail, Password) -> create(Name, EMail, Password, 0).
