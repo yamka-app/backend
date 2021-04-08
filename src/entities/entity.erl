@@ -20,11 +20,15 @@ handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, ScopeRef) ->
     % only allow allowed fields (wow thx captain obvious)
     BroadcastFields = [name, status, status_text, ava_file],
     AllowedFields = maps:filter(fun(K, _) -> lists:member(K, [email|BroadcastFields]) end, F),
-    % change the DB record
-    user_e:update(Id, AllowedFields),
-    % broadcast the changes
-    Entity = #entity{type=user, fields=maps:merge(AllowedFields, #{id=>Id})},
-    normal_client:icpc_broadcast_to_aware(Entity, BroadcastFields),
+    case maps:size(AllowedFields) of
+        0 -> ok;
+        _ ->
+            % change the DB record
+            user_e:update(Id, AllowedFields),
+            % broadcast the changes
+            Entity = #entity{type=user, fields=maps:merge(AllowedFields, #{id=>Id})},
+            normal_client:icpc_broadcast_to_aware(Entity, BroadcastFields)
+    end,
     % if the email was changed, un-confirm it and send a confirmation request to the user
     EmailChanged = maps:is_key(email, F),
     if
@@ -36,8 +40,26 @@ handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, ScopeRef) ->
                 id => Id,
                 email => Email,
                 email_confirmed => false}},
-            entities_packet:make([NewEntity]);
-        true -> none
+            normal_client:icpc_broadcast_entity(Id, NewEntity);
+        true -> ok
+    end,
+    % if the 2FA setting has changed, update the auth
+    MfaChanged = maps:is_key(mfa_enabled, F),
+    MfaEnabled = maps:get(mfa_enabled, F),
+    if
+        MfaChanged ->
+            normal_client:icpc_broadcast_entity(Id, #entity{type=user,
+                fields=#{id => Id, mfa_enabled => MfaEnabled}}),
+            if
+                MfaEnabled ->
+                    Secret = yamka_auth:totp_secret(),
+                    user_e:update(Id, #{mfa_secret => Secret}),
+                    mfa_secret_packet:make(Secret, Seq);
+                true ->
+                    user_e:update(Id, #{mfa_secret => null})
+            end;
+        true ->
+            none
     end;
 
 %% puts a file

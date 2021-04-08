@@ -14,6 +14,7 @@
 
 -export([create_token/2, get_token/1, token_get_worker/3,
          has_permission/1]).
+-export([totp_secret/0, totp_verify/2]).
 
 %% creates a token
 -spec create_token(Permissions::[any()], UserId::number()) -> binary().
@@ -60,3 +61,11 @@ get_token(Token) ->
 
 %% checks whether the client has a permission
 has_permission(Perm) -> lists:member(Perm, get(perms)).
+
+%% creates a TOTP secret
+-spec totp_secret() -> binary().
+totp_secret() -> pot_base32:encode(crypto:strong_rand_bytes(10)).
+
+%% verifies a TOTP token
+-spec totp_verify(Secret::binary(), Token::binary()) -> boolean().
+totp_verify(Secret, Token) -> pot:valid_totp(Token, Secret, [{window, 1}]).

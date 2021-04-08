@@ -41,6 +41,7 @@ decode(Data, ProtocolVersion) ->
             entities              -> fun entities_packet             :decode/2;
             file_download_request -> fun file_download_request_packet:decode/2;
             file_data_chunk       -> fun file_data_chunk_packet      :decode/2;
+            mfa_secret            -> fun mfa_secret_packet           :decode/2;
             user_search           -> fun user_search_packet          :decode/2;
             invite_resolve        -> fun invite_resolve_packet       :decode/2;
             voice_join            -> fun voice_join_packet           :decode/2;
@@ -61,13 +62,14 @@ decode(Data, ProtocolVersion) ->
 encode(Packet, ProtocolVersion) ->
     Fields = Packet#packet.fields,
     Payload = case Packet#packet.type of
-        status          -> fun status_packet:encode/2;
+        status          -> fun status_packet         :encode/2;
         client_identity -> fun client_identity_packet:encode/2;
-        pong            -> fun pong_packet:encode/2;
-        access_token    -> fun access_token_packet:encode/2;
-        entities        -> fun entities_packet:encode/2;
+        pong            -> fun pong_packet           :encode/2;
+        access_token    -> fun access_token_packet   :encode/2;
+        entities        -> fun entities_packet       :encode/2;
         file_data_chunk -> fun file_data_chunk_packet:encode/2;
-        voice_join      -> fun voice_join_packet:encode/2
+        mfa_secret      -> fun mfa_secret_packet     :encode/2;
+        voice_join      -> fun voice_join_packet     :encode/2
     end(Fields, ProtocolVersion),
     
     Type     = datatypes:enc_num(maps:get(Packet#packet.type, ?REVERSE_PACKET_TYPE_MAP), 1),

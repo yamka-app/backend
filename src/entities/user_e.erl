@@ -42,7 +42,7 @@ create(Name, EMail, Password, BotOwner) ->
     PasswordHash = utils:hash_password(Password, Salt),
     % execute the CQL query
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "INSERT INTO users (id,name,tag,email,salt,password,status,status_text, "
+        statement = "INSERT INTO users (id,name,tag,email,salt,password,status,status_text,"
                     "ava_file,badges,bot_owner,wall,email_confirmed) "
                     "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,false)",
         values = [

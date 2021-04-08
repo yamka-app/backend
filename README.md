@@ -65,7 +65,6 @@ You don't want to rebuild the whole project every time you've made a small chang
   - [x] Realtime communication
     - [x] Voice
       - [ ] "on the fly" voice server selection
-    - [ ] Video
   - [ ] User walls
   - [ ] Emergency notifications
   - [ ] Bots
@@ -74,3 +73,6 @@ You don't want to rebuild the whole project every time you've made a small chang
     - [ ] Rewrite with Riak Core for true distribution
     - [ ] Fix `tasty:server_name/0` LMAO
   - [ ] Extensive testing and bugfixing
+
+## features planned after the 1.0 release
+  - [ ] Video calling
