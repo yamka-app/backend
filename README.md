@@ -35,7 +35,7 @@ You don't want to rebuild the whole project every time you've made a small chang
 ## 1.0 release checklist
   - [x] Learn Erlang
   - [x] Basic authentication
-    - [ ] 2FA
+    - [x] 2FA
   - [x] User account creation
     - [x] E-Mail confirmation
   - [x] Protocol parsing
