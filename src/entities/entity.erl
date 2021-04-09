@@ -43,20 +43,21 @@ handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, ScopeRef) ->
             normal_client:icpc_broadcast_entity(Id, NewEntity);
         true -> ok
     end,
-    % if the 2FA setting has changed, update the auth
+    % if the 2FA setting has changed, update auth settings
     MfaChanged = maps:is_key(mfa_enabled, F),
     MfaEnabled = maps:get(mfa_enabled, F),
     if
         MfaChanged ->
             normal_client:icpc_broadcast_entity(Id, #entity{type=user,
-                fields=#{id => Id, mfa_enabled => MfaEnabled}}),
+                fields=#{id => Id, mfa_enabled => MfaEnabled}}, [mfa_enabled]),
             if
                 MfaEnabled ->
                     Secret = yamka_auth:totp_secret(),
                     user_e:update(Id, #{mfa_secret => Secret}),
                     mfa_secret_packet:make(Secret, Seq);
                 true ->
-                    user_e:update(Id, #{mfa_secret => null})
+                    user_e:update(Id, #{mfa_secret => null}),
+                    none
             end;
         true ->
             none
@@ -64,7 +65,8 @@ handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, ScopeRef) ->
 
 %% puts a file
 handle_entity(#entity{type=file, fields=#{name:=Name, length:=Length}}, Seq, ScopeRef) ->
-    {_, none} = {{ScopeRef, status_packet:make(one_upload_only, "Only one concurrent upload is allowed", Seq)}, get(file_recv_pid)},
+    {_, none} = {{ScopeRef, status_packet:make(one_upload_only,
+            "Only one concurrent upload is allowed", Seq)}, get(file_recv_pid)},
     put(file_recv_pid, file_storage:recv_file(Seq,
         {get(socket), get(protocol), self(), get(cassandra)},
         {Length, Name})),
@@ -200,21 +202,25 @@ handle_entity(#entity{type=group, fields=#{id:=Id, invites:=Invites}}, Seq, Scop
 handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=none}) ->
     ets:insert(user_awareness, {Id, {get(id), self()}}),
 
+    true = yamka_auth:has_permission(see_profile),
+    Self = user_e:get(get(id)),
+    IsSelf = Id == get(id),
+    Online = user_e:online(Id),
+    Unfiltered = user_e:get(Id),
+
     Dm = case utils:safe_call(fun channel:get_dm/1, [[get(id), Id]], [{cassandra, get(cassandra)}]) of
         {error, _} -> #{};
         {ok, DmId} -> #{dm_channel => DmId}
     end,
 
-    true = yamka_auth:has_permission(see_profile),
-    IsSelf = Id == get(id), Online = user_e:online(Id),
-    Self = user_e:get(get(id)),
-    Unfiltered = user_e:get(Id),
+    Mfa = maps:merge(Dm, #{mfa_enabled => maps:get(mfa_secret, Unfiltered) =/= null}),
     
     FilteredFields = maps:filter(fun(K, _) ->
         case K of
             id              -> true;
             email           -> IsSelf;
             email_confirmed -> IsSelf;
+            mfa_enabled     -> IsSelf;
             name            -> true;
             tag             -> true;
             status          -> true;
@@ -237,12 +243,12 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
                         (V /= offline) and not Online -> offline;
                         true -> V
                     end;
-                groups          -> utils:intersect_lists([V, maps:get(groups,  Self)]);
-                friends         -> utils:intersect_lists([V, maps:get(friends, Self)]);
+                groups  -> utils:intersect_lists([V, maps:get(groups,  Self)]);
+                friends -> utils:intersect_lists([V, maps:get(friends, Self)]);
                 _ -> V
             end
         end, Unfiltered)),
-    #entity{type=user, fields=maps:merge(FilteredFields, Dm)};
+    #entity{type=user, fields=maps:merge(FilteredFields, Mfa)};
 
 %% gets a user in context of a group
 handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=

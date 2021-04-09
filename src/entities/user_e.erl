@@ -82,7 +82,8 @@ get(Id) ->
         pending_in  => [],
         pending_out => [],
         groups      => [],
-        badges      => []
+        badges      => [],
+        mfa_secret  => null
     }, maps:filter(fun(_, V) -> V /= null end, Row)),
     % convert the status into its atomic representation
     #{status := StatusNum} = Vals,
