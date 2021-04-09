@@ -49,7 +49,7 @@ handle_packet(#packet{type=login, seq=Seq,
     {ok, User} = cqerl:run_query(get(cassandra), #cql_query{
         statement = "SELECT salt, password, mfa_secret, id FROM users WHERE email=?",
         values    = [{email, Email}]
-   }),
+    }),
     {_, 1} = {{ScopeRef, status_packet:make(login_error, "Invalid E-Mail", Seq)}, cqerl:size(User)},
     Row = cqerl:head(User),
     % check the password the user sent us
@@ -62,9 +62,26 @@ handle_packet(#packet{type=login, seq=Seq,
     case MfaSecret of
         null -> access_token_packet:make(yamka_auth:create_token(Permissions, Id), Seq);
         Secret ->
+            put(mfa_id, Id),
+            put(mfa_perms, Permissions),
             put(mfa_secret, Secret),
+            put(state, awaiting_mfa),
             status_packet:make(mfa_required, "2FA is enabled on this account", Seq)
     end;
+
+%% MFA "secret" packet (to finish 2FA authentication)
+handle_packet(#packet{type=mfa_secret, seq=Seq,
+                      fields=#{secret:=Token}}, ScopeRef) ->
+    % ensure proper connection state
+    {_, awaiting_mfa} = {{ScopeRef, status_packet:make_invalid_state(awaiting_login, Seq)}, get(state)},
+    % rate limiting
+    {_, 1} = {{ScopeRef, status_packet:make(rate_limiting, "Please try again in a minute", Seq)}, ratelimit:hit(login)},
+    % verify 2FA token
+    {_, true} = {{ScopeRef, status_packet:make(login_error, "Invalid 2FA token", Seq)},
+            yamka_auth:totp_verify(get(mfa_secret), Token)},
+    put(mfa_secret, none),
+    put(state, awaiting_login),
+    access_token_packet:make(yamka_auth:create_token(get(mfa_perms), get(mfa_id)), Seq);
 
 %% signup packet (to create an account)
 handle_packet(#packet{type=signup, seq=Seq,

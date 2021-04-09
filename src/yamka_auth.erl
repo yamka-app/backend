@@ -67,5 +67,6 @@ has_permission(Perm) -> lists:member(Perm, get(perms)).
 totp_secret() -> pot_base32:encode(crypto:strong_rand_bytes(10)).
 
 %% verifies a TOTP token
--spec totp_verify(Secret::binary(), Token::binary()) -> boolean().
+-spec totp_verify(Secret::binary()|string(), Token::binary()) -> boolean().
+totp_verify(Secret, Token) when is_list(Token) -> totp_verify(Secret, list_to_binary(Token));
 totp_verify(Secret, Token) -> pot:valid_totp(Token, Secret, [{window, 1}]).
