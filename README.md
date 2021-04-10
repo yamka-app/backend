@@ -52,8 +52,8 @@ You don't want to rebuild the whole project every time you've made a small chang
     - [x] Multiple message sections and types
       - [x] Text, files, code
       - [x] Replies
-      - [ ] Group invites
-      - [ ] User contacts
+      - [x] Group invites
+      - [x] User contacts
     - [x] Editing
       - [x] Edit history
     - [x] Deletion

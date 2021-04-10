@@ -50,9 +50,8 @@ create(MsgId, Sections) ->
 % limit text type sections to 4096 chars
 filter_section({T, Text, _}) when T =:= text; T =:= code ->
     #message_section{type=T, text=string:trim(string:slice(Text, 0, 4096), both, "\r\n\t "), blob=0};
-filter_section({quote, Text, Q}) ->
-    Filtered = filter_section({text, Text, 0}),
-    Filtered#message_section{type=quote, blob=Q};
+filter_section({quote, _, Q}) ->
+    #message_section{type=quote, blob=Q};
 % filter out text in files
 filter_section({file, _, F})   -> #message_section{type=file,   text="", blob=F};
 % invites are no more than 12 chars long
@@ -71,6 +70,6 @@ filter_sections([#message_section{type=T, text=Te, blob=B}|Tail]) ->
     Rest = filter_sections(Tail),
     Let = let_through({FT, FTe, FB}),
     if
-        Let -> [Filtered | Rest];
+        Let -> [Filtered|Rest];
         true -> Rest
     end.
