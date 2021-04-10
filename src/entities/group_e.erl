@@ -11,7 +11,7 @@
 -include("../packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
--export([get_channels/1, get_roles/1, get/1, create/2]).
+-export([get_channels/1, get_roles/1, get/1, get/2, create/2]).
 -export([get_invites/1, add_invite/1, remove_invite/2, resolve_invite/1]).
 
 get_channels(Id) ->
@@ -32,14 +32,29 @@ get_invites(Id) ->
         values    = [{group, Id}]
     }),
     [C || [{code, C}] <- cqerl:all_rows(Rows)].
-get(Id) ->
+
+is_field_public(id)   -> true;
+is_field_public(name) -> true;
+is_field_public(icon) -> true;
+is_field_public(_)    -> false.
+
+get(Id) -> get(Id, true).
+get(Id, IncludeExtra) ->
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = "SELECT * FROM groups WHERE id=?",
         values    = [{id, Id}]
     }),
     1 = cqerl:size(Rows),
-    maps:merge(maps:from_list(cqerl:head(Rows)),
-        #{channels => get_channels(Id), roles => get_roles(Id), invites => get_invites(Id)}).
+    Map = maps:from_list(cqerl:head(Rows)),
+    if
+        not IncludeExtra ->
+            maps:filter(fun(K, _) -> is_field_public(K) end, Map);
+        true ->
+            maps:merge(Map, #{
+                channels => get_channels(Id),
+                roles => get_roles(Id),
+                invites => get_invites(Id)})
+    end.
 
 create(Name, Owner) ->
     Id = utils:gen_snowflake(),

@@ -207,10 +207,10 @@ handle_packet(#packet{type=invite_resolve, seq=Seq,
                       fields=#{code:=Code, add:=Add}}, ScopeRef) ->
     {_, {ok, Id}} = {{ScopeRef, status_packet:make(invalid_invite, "Invalid invite", Seq)},
         group_e:resolve_invite(Code)},
-    Fields=#{everyone_role := Everyone} = group_e:get(Id),
     case Add of
-        false -> entities_packet:make([#entity{type=group, fields=Fields}]);
+        false -> entities_packet:make([#entity{type=group, fields=group_e:get(Id, false)}], Seq);
         true ->
+            #{everyone_role := Everyone} = group_e:get(Id),
             role:add(Everyone, get(id)),
             user_e:manage_contact(get(id), add, {group, Id}),
             icpc_broadcast_entity(get(id),
