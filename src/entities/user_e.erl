@@ -177,6 +177,7 @@ opposite_type(group)       -> none.
 
 %% determines the field that contains contacts of type
 contact_field(friend) -> friends;
+contact_field(group)  -> groups;
 contact_field(F)      -> F.
 
 %% adds/removes a contact to/from both the object and the subject

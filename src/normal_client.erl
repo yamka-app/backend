@@ -187,7 +187,10 @@ handle_packet(#packet{type=contacts_manage, seq=Seq,
     % broadcast the changes to each of both users' devices
     icpc_broadcast_entity(get(id), #entity{type=user, fields=user_e:get(get(id))}, [user_e:contact_field(Type)]),
     Opposite = user_e:opposite_type(Type),
-    icpc_broadcast_entity(Id, #entity{type=user, fields=user_e:get(Id)}, [user_e:contact_field(Opposite)]),
+    if Opposite =/= none ->
+        icpc_broadcast_entity(Id, #entity{type=user, fields=user_e:get(Id)}, [user_e:contact_field(Opposite)]);
+       true -> ok
+    end,
     none;
 
 %% user search packet (send a friend request using their name and tag)
