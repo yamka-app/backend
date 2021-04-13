@@ -3,7 +3,7 @@
 ## Structure
 This project consists of three main parts, all of which are open-source, distributed and horizontally scalable:
   - Custom code (business logic) in the Erlang programming language
-  - Database storage managed by Apache Cassandra
+  - Database storage and search managed by Elassandra (a merge of Apache Cassandra and Elasticsearch)
   - User-uploaded file storage managed by GlusterFS
 
 ## Running
@@ -15,21 +15,21 @@ docker-compose build
 docker-compose up
 ```
 
-Some Cassandra configuration is required:
+Some Elassandra configuration is required:
   - Set up authentication: create a user named `yamkadb` with a custom password ([this](https://docs.datastax.com/en/cassandra-oss/3.0/cassandra/configuration/secureConfigNativeAuth.html) tutorial might be helpful)
   - Execute the commands in `db_structure.sql`
 
 Three secrets are required:
   - `tls_fullchain` - full TLS certificate chain (`.pem`)
   - `tls_privkey` - TLS certificate private key (`.pem`)
-  - `cassandra_password` - Cassandra password
+  - `cassandra_password` - Elassandra password
 
 :construction: Your server instance is going to redirect your voice clients to our server because the domain names are hard coded in (at the moment). We're working on that. _While_ we're working on that, feel free to change the return value of `server_name/0` in `src/tasty/tasty.erl`.
 
 ## Development and testing
 You don't want to rebuild the whole project every time you've made a small change to the source tree, then restart all three main containers. Me too. To develop locally,
-  - Add `127.0.0.1 cassandra` to `/etc/hosts`
-  - Start the Cassandra and Gluster containers up
+  - Add `127.0.0.1 elassandra` to `/etc/hosts`
+  - Start the Elassandra and Gluster containers up
   - Run `launch.sh`
 
 ## 1.0 release checklist

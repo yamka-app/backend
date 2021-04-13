@@ -1,13 +1,22 @@
 version: '3.7'
 
 services:
-  cassandra:
-    image: cassandra:3.11.10
+  elassandra:
+    image: strapdata/elassandra:6.8.4.3
+    environment:
+      - "JVM_OPTS=-Dcassandra.custom_query_handler_class=org.elassandra.index.ElasticQueryHandler"
+      - "MAX_HEAP_SIZE=1200m"
+      - "HEAP_NEWSIZE=300m"
+      - "CASSANDRA_CGROUP_MEMORY_LIMIT=true"
+      - "DEBUG=true"
+    cap_add:
+      - IPC_LOCK
+    ulimits:
+      memlock: -1
+    mem_limit: 2000m
     ports:
       - "9042:9042"
-    expose:
-      - "9042"
-    restart: unless-stopped
+      - "9200:9200"
     volumes:
       - /var/lib/cassandra/data:/var/lib/cassandra/data
       - /etc/cassandra/conf:/etc/cassandra
@@ -37,13 +46,13 @@ services:
       - "1746:1746"
       - "1747:1747/udp"
     links:
-      - cassandra
+      - elassandra
     restart: unless-stopped
     volumes:
       - /var/log/yamka:/var/log/yamka
       - /data/brick1/gv0/file_storage:/data/brick1/gv0/file_storage
     depends_on:
-      - cassandra
+      - elassandra
       - gluster
     secrets:
       - tls_fullchain

@@ -1,12 +1,12 @@
-CREATE KEYSPACE orderdb WITH replication = {'class': 'SimpleStrategy', 'replication_factor': '3'}  AND durable_writes = true;
+CREATE KEYSPACE yamkadb WITH replication = {'class': 'SimpleStrategy', 'replication_factor': '3'}  AND durable_writes = true;
 
-CREATE TYPE orderdb.message_section (
+CREATE TYPE yamkadb.message_section (
     type smallint,
     txt text,
     blob bigint
 );
 
-CREATE TABLE orderdb.tokens (
+CREATE TABLE yamkadb.tokens (
     hash blob PRIMARY KEY,
     id bigint,
     permissions set<int>
@@ -25,7 +25,7 @@ CREATE TABLE orderdb.tokens (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE orderdb.message_states (
+CREATE TABLE yamkadb.message_states (
     id bigint PRIMARY KEY,
     msg_id bigint,
     sections list<frozen<message_section>>
@@ -43,9 +43,9 @@ CREATE TABLE orderdb.message_states (
     AND min_index_interval = 128
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
-CREATE INDEX message_state_idx ON orderdb.message_states (msg_id);
+CREATE INDEX message_state_idx ON yamkadb.message_states (msg_id);
 
-CREATE TABLE orderdb.users_by_role (
+CREATE TABLE yamkadb.users_by_role (
     role bigint,
     user bigint,
     PRIMARY KEY (role, user)
@@ -65,7 +65,7 @@ CREATE TABLE orderdb.users_by_role (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE orderdb.message_ids_by_chan_reverse (
+CREATE TABLE yamkadb.message_ids_by_chan_reverse (
     channel bigint,
     id bigint,
     PRIMARY KEY (channel, id)
@@ -85,7 +85,7 @@ CREATE TABLE orderdb.message_ids_by_chan_reverse (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE orderdb.roles (
+CREATE TABLE yamkadb.roles (
     id bigint,
     group bigint,
     color int,
@@ -108,9 +108,9 @@ CREATE TABLE orderdb.roles (
     AND min_index_interval = 128
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
-CREATE INDEX role_group_idx ON orderdb.roles (group);
+CREATE INDEX role_group_idx ON yamkadb.roles (group);
 
-CREATE TABLE orderdb.roles_by_user (
+CREATE TABLE yamkadb.roles_by_user (
     group bigint,
     user bigint,
     role bigint,
@@ -130,9 +130,9 @@ CREATE TABLE orderdb.roles_by_user (
     AND min_index_interval = 128
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
-CREATE INDEX members_idx ON orderdb.roles_by_user (role);
+CREATE INDEX members_idx ON yamkadb.roles_by_user (role);
 
-CREATE TABLE orderdb.messages (
+CREATE TABLE yamkadb.messages (
     id bigint PRIMARY KEY,
     channel bigint,
     lcid bigint,
@@ -152,7 +152,7 @@ CREATE TABLE orderdb.messages (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE orderdb.blob_store (
+CREATE TABLE yamkadb.blob_store (
     id bigint PRIMARY KEY,
     length int,
     name text,
@@ -173,7 +173,7 @@ CREATE TABLE orderdb.blob_store (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE orderdb.channels (
+CREATE TABLE yamkadb.channels (
     id bigint PRIMARY KEY,
     group bigint,
     lcid bigint,
@@ -195,9 +195,9 @@ CREATE TABLE orderdb.channels (
     AND min_index_interval = 128
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
-CREATE INDEX chan_group_idx ON orderdb.channels (group);
+CREATE INDEX chan_group_idx ON yamkadb.channels (group);
 
-CREATE TABLE orderdb.users (
+CREATE TABLE yamkadb.users (
     id bigint PRIMARY KEY,
     ava_file bigint,
     badges set<int>,
@@ -231,12 +231,12 @@ CREATE TABLE orderdb.users (
     AND min_index_interval = 128
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
-CREATE INDEX email_idx ON orderdb.users (email);
-CREATE INDEX bot_owner_idx ON orderdb.users (bot_owner);
-CREATE INDEX bot_token_idx ON orderdb.users (password);
-CREATE INDEX username_idx ON orderdb.users (name);
+CREATE INDEX email_idx ON yamkadb.users (email);
+CREATE INDEX bot_owner_idx ON yamkadb.users (bot_owner);
+CREATE INDEX bot_token_idx ON yamkadb.users (password);
+CREATE INDEX username_idx ON yamkadb.users (name);
 
-CREATE TABLE orderdb.groups (
+CREATE TABLE yamkadb.groups (
     id bigint PRIMARY KEY,
     everyone_role bigint,
     icon bigint,
@@ -257,7 +257,7 @@ CREATE TABLE orderdb.groups (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE orderdb.message_ids_by_chan (
+CREATE TABLE yamkadb.message_ids_by_chan (
     channel bigint,
     id bigint,
     PRIMARY KEY (channel, id)
@@ -277,7 +277,7 @@ CREATE TABLE orderdb.message_ids_by_chan (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE orderdb.unread (
+CREATE TABLE yamkadb.unread (
     channel bigint,
     user bigint,
     lcid bigint,
@@ -298,7 +298,7 @@ CREATE TABLE orderdb.unread (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE orderdb.invites (
+CREATE TABLE yamkadb.invites (
     code text PRIMARY KEY,
     group bigint
 ) WITH bloom_filter_fp_chance = 0.01
@@ -315,9 +315,9 @@ CREATE TABLE orderdb.invites (
     AND min_index_interval = 128
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
-CREATE INDEX invite_idx ON orderdb.invites (group);
+CREATE INDEX invite_idx ON yamkadb.invites (group);
 
-CREATE TABLE orderdb.dm_channels (
+CREATE TABLE yamkadb.dm_channels (
     users frozen<set<bigint>> PRIMARY KEY,
     channel bigint
 ) WITH bloom_filter_fp_chance = 0.01
