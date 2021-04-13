@@ -1,4 +1,4 @@
-CREATE KEYSPACE yamkadb WITH replication = {'class': 'SimpleStrategy', 'replication_factor': '3'}  AND durable_writes = true;
+CREATE KEYSPACE yamkadb WITH replication = {'class': 'SimpleStrategy', 'replication_factor': '3'} AND durable_writes = true;
 
 CREATE TYPE yamkadb.message_section (
     type smallint,
