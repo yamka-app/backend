@@ -15,6 +15,7 @@
 -export([manage_contact/3, opposite_type/1, contact_field/1]).
 -export([add_dm_channel/2]).
 -export([start_email_confirmation/2, finish_email_confirmation/2]).
+-export([find/2, cache_name/2]).
 
 %% returns true if the user is currently connected
 online(Id) -> length(ets:lookup(icpc_processes, Id)) > 0.
@@ -43,8 +44,8 @@ create(Name, EMail, Password, BotOwner) ->
     % execute the CQL query
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = "INSERT INTO users (id,name,tag,email,salt,password,status,status_text,"
-                    "ava_file,badges,bot_owner,wall,email_confirmed) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,false)",
+                    "ava_file,badges,bot_owner,wall,email_confirmed,public) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,false,false)",
         values = [
             {id, Id},
             {name, Name},
@@ -61,7 +62,7 @@ create(Name, EMail, Password, BotOwner) ->
             {wall, channel:create(wall)}
         ]
     }),
-    % send the confirmation code
+    % confirm email
     start_email_confirmation(Id, EMail),
     Id.
 
@@ -94,7 +95,7 @@ search(NameTag) ->
     [Name, TagStr] = string:tokens(NameTag, "#"),
     Tag = list_to_integer(TagStr),
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        % ALLOW FILTERING should be fine, we're guaranteed to have <=1k users with the same tag
+        % ALLOW FILTERING should be fine, we're guaranteed to have <=1k users with the same name
         statement = "SELECT id FROM users WHERE name=? AND tag=? ALLOW FILTERING",
         values    = [{name, Name}, {tag, Tag}]
     }),
@@ -111,7 +112,19 @@ update(Id, Fields) ->
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = Statement,
         values    = [{id, Id}|Vals]
-    }).
+    }),
+    % cache the name if it got updated
+    NameUpdated = maps:is_key(name, Fields),
+    if NameUpdated ->
+        Name = maps:get(name, Fields),
+        #{groups := Groups, public := IsPublic} = user_e:get(Id),
+        [group_e:cache_user_name(Group, Id, Name) || Group <- Groups],
+        if IsPublic ->
+            cache_name(Id, Name);
+           true -> ok
+        end;
+       true -> ok
+    end.
 
 %% starts email confirmation
 start_email_confirmation(Id, Addr) ->
@@ -195,3 +208,28 @@ add_dm_channel(Peers=[_,_], Channel) ->
         statement = "INSERT INTO dm_channels (users, channel) VALUES (?, ?)",
         values    = [{users, Peers}, {channel, Channel}]
     }).
+
+find(Name, Max) when is_list(Name) ->
+    find(list_to_binary(Name), Max);
+find(Name, Max) when Max > 5 ->
+    find(Name, 5);
+find(Name, Max) ->
+    {ok, Response} = erlastic_search:search(<<"usernames">>, <<"global">>,
+      [{<<"query">>,
+        [{<<"bool">>, [
+          {<<"should">>, [
+           [{<<"query_string">>, [{<<"query">>, <<Name/binary, "*">>}]}]]},
+          {<<"minimum_should_match">>, 2}]}]},
+       {<<"size">>, Max}]),
+    
+    Hits = proplists:get_value(<<"hits">>, proplists:get_value(<<"hits">>, Response)),
+    [binary_to_integer(proplists:get_value(<<"_id">>, Hit)) || Hit <- Hits].
+    
+cache_name(User, Name) when is_list(Name) ->
+    cache_name(User, list_to_binary(Name));
+cache_name(User, Name) ->
+    % Elassandra uses "upsert" operations for indexations,
+    % so we don't need to explicitly update/delete anything,
+    % just provide a new document with the same ID
+    erlastic_search:index_doc_with_id(<<"usernames">>, <<"group_local">>,
+        integer_to_binary(User), [{<<"name">>, Name}]).

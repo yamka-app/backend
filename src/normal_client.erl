@@ -213,9 +213,11 @@ handle_packet(#packet{type=invite_resolve, seq=Seq,
     case Add of
         false -> entities_packet:make([#entity{type=group, fields=group_e:get(Id, false)}], Seq);
         true ->
+            #{name := SelfName} = user_e:get(get(id)),
             #{everyone_role := Everyone} = group_e:get(Id),
             role:add(Everyone, get(id)),
             user_e:manage_contact(get(id), add, {group, Id}),
+            group_e:cache_user_name(Id, get(id), SelfName),
             icpc_broadcast_entity(get(id),
                 #entity{type=user, fields=user_e:get(get(id))}, [groups]),
             none

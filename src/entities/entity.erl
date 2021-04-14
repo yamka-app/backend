@@ -45,9 +45,9 @@ handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, ScopeRef) ->
     end,
     % if the 2FA setting has changed, update auth settings
     MfaChanged = maps:is_key(mfa_enabled, F),
-    MfaEnabled = maps:get(mfa_enabled, F),
     if
         MfaChanged ->
+            MfaEnabled = maps:get(mfa_enabled, F),
             normal_client:icpc_broadcast_entity(Id, #entity{type=user,
                 fields=#{id => Id, mfa_enabled => MfaEnabled}}, [mfa_enabled]),
             if

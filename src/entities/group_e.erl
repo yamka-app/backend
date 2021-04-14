@@ -115,8 +115,8 @@ find_users(Id, Name, Max) ->
           {<<"minimum_should_match">>, 2}]}]},
        {<<"size">>, Max}]),
     
-    Hits = proplists:get(<<"hits">>, proplists:get(<<"hits">>, Response)),
-    [binary_to_integer(proplists:get(<<"_id">>, Hit)) || Hit <- Hits].
+    Hits = proplists:get_value(<<"hits">>, proplists:get_value(<<"hits">>, Response)),
+    [binary_to_integer(proplists:get_value(<<"_id">>, Hit)) || Hit <- Hits].
 
 cache_user_name(Id, User, Name) when is_list(Name) ->
     cache_user_name(Id, User, list_to_binary(Name));
