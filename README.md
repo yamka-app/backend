@@ -17,7 +17,7 @@ docker-compose up
 
 Some Elassandra configuration is required:
   - Set up authentication: create a user named `yamkadb` with a custom password ([this](https://docs.datastax.com/en/cassandra-oss/3.0/cassandra/configuration/secureConfigNativeAuth.html) tutorial might be helpful)
-  - Execute the commands in `db_structure.sql`
+  - Execute the commands in `db_structure.cql`
 
 Three secrets are required:
   - `tls_fullchain` - full TLS certificate chain (`.pem`)

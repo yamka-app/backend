@@ -7,12 +7,11 @@
 -license("MPL-2.0").
 -description("The group entity").
 
--include("entity.hrl").
--include("../packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
 -export([get_channels/1, get_roles/1, get/1, get/2, create/2]).
 -export([get_invites/1, add_invite/1, remove_invite/2, resolve_invite/1]).
+-export([find_users/3, cache_user_name/3]).
 
 get_channels(Id) ->
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
@@ -20,6 +19,7 @@ get_channels(Id) ->
         values    = [{group, Id}]
     }),
     [C || [{id, C}] <- cqerl:all_rows(Rows)].
+
 get_roles(Id) ->
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = "SELECT id FROM roles WHERE group=?",
@@ -90,3 +90,41 @@ resolve_invite(Code) ->
         empty_dataset -> error;
         [{group, Id}] -> {ok, Id}
     end.
+
+find_users(Id, Name, Max) when is_list(Name) ->
+    find_users(Id, list_to_binary(Name), Max);
+find_users(Id, Name, Max) when Max > 5 ->
+    find_users(Id, Name, 5);
+find_users(Id, Name, Max) ->
+    IdStr = integer_to_binary(Id),
+    % don't be afraid, come here...
+    % it's not actually that complicated,
+    % we ask Elasticsearch (or rather Elassandra in our case)
+    % to find user IDs that belong to the group with ID `Id`
+    % and whose names start with `Name`
+    %
+    % the problem is that Elastic, despite being attached
+    % to Cassandra in our case, stores data separately from
+    % the main DB, so we have to make sure our past selves cache it
+    {ok, Response} = erlastic_search:search(<<"usernames">>, <<"group_local">>,
+      [{<<"query">>,
+        [{<<"bool">>, [
+          {<<"should">>, [
+           [{<<"term">>, [{<<"group">>, IdStr}]}],
+           [{<<"query_string">>, [{<<"query">>, <<Name/binary, "*">>}]}]]},
+          {<<"minimum_should_match">>, 2}]}]},
+       {<<"size">>, Max}]),
+    
+    Hits = proplists:get(<<"hits">>, proplists:get(<<"hits">>, Response)),
+    [binary_to_integer(proplists:get(<<"_id">>, Hit)) || Hit <- Hits].
+
+cache_user_name(Id, User, Name) when is_list(Name) ->
+    cache_user_name(Id, User, list_to_binary(Name));
+cache_user_name(Id, User, Name) ->
+    % Elassandra uses "upsert" operations for indexations,
+    % so we don't need to explicitly update/delete anything,
+    % just provide a new document with the same ID
+    erlastic_search:index_doc_with_id(<<"usernames">>, <<"group_local">>,
+      integer_to_binary(User),
+      [{<<"name">>, Name},
+       {<<"group">>, integer_to_binary(Id)}]).
