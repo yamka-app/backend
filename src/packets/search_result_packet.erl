@@ -2,12 +2,14 @@
 %%% License, v. 2.0. If a copy of the MPL was not distributed with this
 %%% file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
--module(user_search_packet).
+-module(search_result_packet).
 -author("Yamka").
 -license("MPL-2.0").
 
 -include("packet.hrl").
--export([decode/2]).
+-export([encode/2, make/2]).
 
-decode(Name, ProtocolVersion) when ProtocolVersion >= 5 ->
-    #{ name => datatypes:dec_str(Name) }.
+encode(#{list := List}, Proto) when Proto >= 5 ->
+    datatypes:enc_num_list(List, 8).
+
+make(L, R) -> #packet{type = search_result, reply = R, fields = #{list => L}}.

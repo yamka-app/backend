@@ -42,7 +42,7 @@ decode(Data, ProtocolVersion) ->
             file_download_request -> fun file_download_request_packet:decode/2;
             file_data_chunk       -> fun file_data_chunk_packet      :decode/2;
             mfa_secret            -> fun mfa_secret_packet           :decode/2;
-            user_search           -> fun user_search_packet          :decode/2;
+            search                -> fun search_packet               :decode/2;
             invite_resolve        -> fun invite_resolve_packet       :decode/2;
             voice_join            -> fun voice_join_packet           :decode/2;
             email_confirmation    -> fun email_confirmation_packet   :decode/2;
@@ -69,7 +69,8 @@ encode(Packet, ProtocolVersion) ->
         entities        -> fun entities_packet       :encode/2;
         file_data_chunk -> fun file_data_chunk_packet:encode/2;
         mfa_secret      -> fun mfa_secret_packet     :encode/2;
-        voice_join      -> fun voice_join_packet     :encode/2
+        voice_join      -> fun voice_join_packet     :encode/2;
+        search_result   -> fun search_result_packet  :encode/2
     end(Fields, ProtocolVersion),
     
     Type     = datatypes:enc_num(maps:get(Packet#packet.type, ?REVERSE_PACKET_TYPE_MAP), 1),

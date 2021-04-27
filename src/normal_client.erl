@@ -196,8 +196,8 @@ handle_packet(#packet{type=contacts_manage, seq=Seq,
     none;
 
 %% user search packet (send a friend request using their name and tag)
-handle_packet(#packet{type=user_search, seq=Seq,
-                      fields=#{name:=Name}}, ScopeRef) ->
+handle_packet(#packet{type=search, seq=Seq,
+                      fields=#{type:=user, name:=Name}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
     yamka_auth:assert_permission(edit_relationships, {ScopeRef, Seq}),
     {_, {ok, Id}} = {{ScopeRef, status_packet:make(invalid_username, "Invalid username", Seq)},
@@ -207,6 +207,14 @@ handle_packet(#packet{type=user_search, seq=Seq,
     icpc_broadcast_entity(get(id), #entity{type=user, fields=user_e:get(get(id))}, [pending_out]),
     icpc_broadcast_entity(Id,      #entity{type=user, fields=user_e:get(Id)},      [pending_in]),
     status_packet:make(friend_request_sent, "Friend request sent", Seq);
+
+%% group member search
+handle_packet(#packet{type=search, seq=Seq,
+                      fields=#{type:=group_member, name:=Name, ref:=Id}}, ScopeRef) ->
+    {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
+    yamka_auth:assert_permission(see_groups, {ScopeRef, Seq}),
+    Users = group_e:find_users(Id, Name, 5),
+    search_result_packet:make(Users, Seq);
 
 %% invite resolution packet (to get the group by one of its invites)
 handle_packet(#packet{type=invite_resolve, seq=Seq,

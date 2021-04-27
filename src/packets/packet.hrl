@@ -16,9 +16,10 @@
     8  => file_download_request,
     9  => file_data_chunk,
     10 => mfa_secret,
+    11 => search_result,
     12 => access_token,
     13 => contacts_manage,
-    14 => user_search,
+    14 => search,
     15 => invite_resolve,
     16 => bot_create,
     17 => bot_invite,
@@ -89,4 +90,10 @@
     23 => none, 24 => none, 25 => none,
 
     26 => bot
+}).
+
+-define(SEARCH_TARGET_MAP, #{
+    0 => user,
+    1 => group,
+    2 => group_member
 }).

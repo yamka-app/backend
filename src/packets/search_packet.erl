@@ -2,14 +2,13 @@
 %%% License, v. 2.0. If a copy of the MPL was not distributed with this
 %%% file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
--module(identification_packet).
+-module(search_packet).
 -author("Yamka").
 -license("MPL-2.0").
 
+-include("packet.hrl").
 -export([decode/2]).
 
-decode(<<Protocol:32/unsigned-integer, Comp:8/integer>>, _Proto) ->
-    #{
-        protocol      => Protocol,
-        supports_comp => Comp > 0
-    }.
+decode(<<Type:8/integer, Name/binary>>, ProtocolVersion) when ProtocolVersion >= 5 ->
+    #{type => maps:get(Type, ?SEARCH_TARGET_MAP),
+      name => datatypes:dec_str(Name)}.
