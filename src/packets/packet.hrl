@@ -86,5 +86,7 @@
     21 => manage_roles,
     22 => delete_others_messages,
 
+    23 => none, 24 => none, 25 => none,
+
     26 => bot
 }).
