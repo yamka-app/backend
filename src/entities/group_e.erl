@@ -9,7 +9,7 @@
 
 -include_lib("cqerl/include/cqerl.hrl").
 
--export([get_channels/1, get_roles/1, get/1, get/2, create/2]).
+-export([get_channels/1, get_roles/1, get/1, get/2, create/2, delete/1]).
 -export([get_invites/1, add_invite/1, remove_invite/2, resolve_invite/1]).
 -export([find_users/3, cache_user_name/3]).
 
@@ -70,6 +70,12 @@ create(Name, Owner) ->
     % create a default channel
     channel:create("Text 1", Id, [], false),
     {Id, Everyone}.
+
+delete(Id) ->
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "DELETE FROM groups WHERE id=?",
+        values = [{id, Id}]
+    }).
 
 add_invite(Id) ->
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{

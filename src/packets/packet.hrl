@@ -58,7 +58,7 @@
 }).
 
 -define(REVERSE_TOKEN_PERMISSION_MAP, utils:swap_map(?TOKEN_PERMISSION_MAP)).
--define(ALL_PERMISSIONS_EXCEPT_BOT, [maps:get(C, ?TOKEN_PERMISSION_MAP) || C <- lists:seq(0, 25)]).
+-define(ALL_PERMISSIONS_EXCEPT_BOT, [maps:get(C, ?TOKEN_PERMISSION_MAP) || C <- lists:seq(0, 22)]).
 -define(TOKEN_PERMISSION_MAP, #{
     0  => see_profile,
     1  => see_relationships, % friends, blocked users, etc.

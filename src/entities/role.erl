@@ -11,7 +11,7 @@
 -include("../packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
--export([get/1, create/5]).
+-export([get/1, create/5, delete/1]).
 -export([get_members/4, add/2]).
 
 get(Id) ->
@@ -32,6 +32,12 @@ create(Group, Name, Color, Priority, Perms) ->
         ]
     }),
     Id.
+
+delete(Id) ->
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "DELETE FROM roles WHERE id=?",
+        values    = [{id, Id}]
+    }).
 
 add(Id, User) ->
     #{group := Group} = role:get(Id),

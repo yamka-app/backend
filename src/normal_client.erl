@@ -125,7 +125,7 @@ handle_packet(#packet{type=access_token, seq=Seq,
 handle_packet(#packet{type=entity_get, seq=Seq,
                       fields=#{entities := Entities}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
-    entities_packet:make([entity:handle_get_request(R) || R <- Entities], Seq);
+    entities_packet:make([entity:handle_get_request(R, {ScopeRef, Seq}) || R <- Entities], Seq);
 
 %% entity packet (to put a set of entities)
 handle_packet(#packet{type=entities, seq=Seq,
@@ -152,6 +152,7 @@ handle_packet(#packet{type=file_data_chunk, seq=Seq,
 handle_packet(#packet{type=contacts_manage, seq=Seq,
                       fields=#{type:=Type, action:=add, id:=Id}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
+    yamka_auth:assert_permission(edit_relationships, {ScopeRef, Seq}),
     Self = user_e:get(get(id)),
     {_, true} = {{ScopeRef, status_packet:make(contact_action_not_applicable, "Contact action not applicable")},
         (Type == blocked) or ((Type == friend) and lists:member(Id, maps:get(pending_in, Self))) },
@@ -182,6 +183,7 @@ handle_packet(#packet{type=contacts_manage, seq=Seq,
 handle_packet(#packet{type=contacts_manage, seq=Seq,
                       fields=#{type:=Type, action:=remove, id:=Id}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
+    yamka_auth:assert_permission(edit_relationships, {ScopeRef, Seq}),
     % write changes to the DB
     user_e:manage_contact(get(id), remove, {Type, Id}),
     % broadcast the changes to each of both users' devices
@@ -197,6 +199,7 @@ handle_packet(#packet{type=contacts_manage, seq=Seq,
 handle_packet(#packet{type=user_search, seq=Seq,
                       fields=#{name:=Name}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
+    yamka_auth:assert_permission(edit_relationships, {ScopeRef, Seq}),
     {_, {ok, Id}} = {{ScopeRef, status_packet:make(invalid_username, "Invalid username", Seq)},
         utils:safe_call(fun user_e:search/1, [Name], [{cassandra, get(cassandra)}])},
     % write and broadcast changes
@@ -208,6 +211,8 @@ handle_packet(#packet{type=user_search, seq=Seq,
 %% invite resolution packet (to get the group by one of its invites)
 handle_packet(#packet{type=invite_resolve, seq=Seq,
                       fields=#{code:=Code, add:=Add}}, ScopeRef) ->
+    {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
+    yamka_auth:assert_permission(join_groups, {ScopeRef, Seq}),
     {_, {ok, Id}} = {{ScopeRef, status_packet:make(invalid_invite, "Invalid invite", Seq)},
         group_e:resolve_invite(Code)},
     case Add of
@@ -225,7 +230,8 @@ handle_packet(#packet{type=invite_resolve, seq=Seq,
 
 %% voice join packet
 handle_packet(#packet{type=voice_join, seq=Seq,
-                      fields=#{channel:=Chan, crypto:=Key}}, _ScopeRef) ->
+                      fields=#{channel:=Chan, crypto:=Key}}, ScopeRef) ->
+    {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
     Session = tasty:create_session(Key, get(id), Chan),
     Server = tasty:server_name(),
     logging:log("Redirecting voice client to ~p", [Server]),
@@ -234,6 +240,7 @@ handle_packet(#packet{type=voice_join, seq=Seq,
 %% email confirmation packet
 handle_packet(#packet{type=email_confirmation, seq=Seq,
                       fields=#{code:=Code}}, ScopeRef) ->
+    {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
     {_, ok} = {{ScopeRef, status_packet:make(invalid_confirmation_code,
                           "Invalid email address confirmation code", Seq)},
         user_e:finish_email_confirmation(get(id), Code)},

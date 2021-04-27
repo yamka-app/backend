@@ -12,8 +12,8 @@
 -include("packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
--export([create_token/2, get_token/1, token_get_worker/3,
-         has_permission/1]).
+-export([create_token/2, get_token/1, token_get_worker/3]).
+-export([has_permission/1, assert_permission/2]).
 -export([totp_secret/0, totp_verify/2]).
 
 %% creates a token
@@ -59,8 +59,14 @@ get_token(Token) ->
         {ok, {Id, Perms}} -> {Id, [maps:get(C, ?TOKEN_PERMISSION_MAP) || C <- Perms]}
     end.
 
-%% checks whether the client has a permission
+%% checks whether the client has a permission flag set
 has_permission(Perm) -> lists:member(Perm, get(perms)).
+
+%% "asserts" a permission
+assert_permission(Perm, {ScopeRef, Seq}) ->
+    {_, true} = {{ScopeRef,
+        status_packet:make(permission_denied, "Missing token permissions", Seq)},
+        has_permission(Perm)}.
 
 %% creates a TOTP secret
 -spec totp_secret() -> binary().
