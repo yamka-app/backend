@@ -34,7 +34,7 @@ handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, ScopeRef) ->
     if
         EmailChanged ->
             Email = maps:get(email, F),
-            user_e:update(Id, #{email_confirmed => false}),
+            user_e:update(Id, #{email => Email, email_confirmed => false}),
             user_e:start_email_confirmation(Id, Email),
             NewEntity = #entity{type=user, fields=#{
                 id => Id,
@@ -105,7 +105,7 @@ handle_entity(#entity{type=channel, fields=#{id:=Id, unread:=0}}, _Seq, _ScopeRe
 handle_entity(#entity{type=channel, fields=#{id:=0, group:=Group, name:=Name}}, Seq, ScopeRef) ->
     #{owner := Owner} = group_e:get(Group),
     {_, Owner} = {{ScopeRef, status_packet:make(permission_denied, "No administrative permission", Seq)}, get(id)},
-    channel:create(normal, Name, Group, [], false),
+    channel:create(Name, Group, [], false),
     normal_client:icpc_broadcast_to_aware(group_awareness, #entity{
         type=group, fields=group_e:get(Group)}, [id, channels]),
     none;
@@ -234,7 +234,6 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
             groups          -> yamka_auth:has_permission(see_groups);
             badges          -> true;
             bot_owner       -> true;
-            wall            -> maps:get(bot_owner, Unfiltered) == 0;
             _ -> false
         end
     end, maps:map(fun(K, V) ->

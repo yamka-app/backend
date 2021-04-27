@@ -31,7 +31,6 @@
 }).
 
 -define(USER_STATUS_MAP, #{0=>offline, 1=>online, 2=>idle, 3=>dnd}).
--define(CHANNEL_TYPE_MAP, #{0=>normal, 1=>wall}).
 -define(ENTITY_STRUCTURE, #{
     user => #{
             id              => {0,  number,   {8}},
@@ -53,7 +52,6 @@
             badges          => {17, num_list, {1}},
             bot_owner       => {18, number,   {8}},
             owned_bots      => {19, num_list, {8}},
-            wall            => {20, number,   {8}},
             email_confirmed => {21, bool,     {}}
         },
     channel => #{
@@ -63,7 +61,6 @@
             group        => {3,  number,   {8}},
             messages     => {4,  num_list, {8}},
             typing       => {5,  num_list, {8}},
-            type         => {6,  atom,     {1, ?CHANNEL_TYPE_MAP}},
             unread       => {7,  number,   {4}},
             first_unread => {8,  number,   {8}},
             voice        => {9,  bool,     {}},

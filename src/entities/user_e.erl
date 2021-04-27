@@ -44,8 +44,8 @@ create(Name, EMail, Password, BotOwner) ->
     % execute the CQL query
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = "INSERT INTO users (id,name,tag,email,salt,password,status,status_text,"
-                    "ava_file,badges,bot_owner,wall,email_confirmed,public) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,false,false)",
+                    "ava_file,badges,bot_owner,email_confirmed,public) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,false,false)",
         values = [
             {id, Id},
             {name, Name},
@@ -58,8 +58,7 @@ create(Name, EMail, Password, BotOwner) ->
             % generate a random avatar
             {ava_file, file_storage:register_file(utils:gen_avatar(), "user_avatar.png")},
             {badges, if BotOwner > 0 -> [3]; true -> [] end},
-            {bot_owner, BotOwner},
-            {wall, channel:create(wall)}
+            {bot_owner, BotOwner}
         ]
     }),
     % confirm email

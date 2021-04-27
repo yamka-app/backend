@@ -10,7 +10,7 @@
 -include("entity.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
--export([get/1, create/1, create/5, update/2, delete/1]).
+-export([get/1, create/4, update/2, delete/1]).
 -export([get_dm/1, get_messages/4]).
 -export([set_unread/3, get_unread/2, reg_msg/2, unreg_msg/2]).
 -export([get_typing/1, set_typing/2, reset_typing/2]).
@@ -27,7 +27,6 @@ get(Id) ->
     Voice = tasty:get_users_and_states(Id),
     maps:map(fun(K, V) ->
         case K of
-            type -> maps:get(V, ?CHANNEL_TYPE_MAP); % convert the type from numeric val
             voice when V =:= null -> false; % the new "voice" field is null by default
             _ -> V
         end
@@ -36,18 +35,15 @@ get(Id) ->
           voice_status => [Status || {_, Status} <- Voice]})).
 
 %% creates a channel
-create(wall)                              -> create(1, "Wall", 0, [], false).
-create(normal, Name, Group, Perms, Voice) -> create(0, Name, Group, Perms, Voice);
-create(Type, Name, Group, Perms, Voice) when is_integer(Type) ->
+create(Name, Group, Perms, Voice) ->
     Id = utils:gen_snowflake(),
     % execute the CQL query
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "INSERT INTO channels (id, name, group, lcid, type, perms, voice) VALUES (?,?,?,0,?,?,?)",
+        statement = "INSERT INTO channels (id, name, group, lcid, perms, voice) VALUES (?,?,?,0,?,?)",
         values = [
             {id,    Id},
             {name,  Name},
             {group, Group},
-            {type,  Type},
             {perms, Perms},
             {voice, Voice}
         ]

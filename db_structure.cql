@@ -198,7 +198,6 @@ CREATE TABLE yamkadb.channels (
     lcid bigint,
     name text,
     perms map<bigint, blob>,
-    type smallint,
     voice boolean
 ) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
@@ -235,8 +234,7 @@ CREATE TABLE yamkadb.users (
     salt blob,
     status int,
     status_text text,
-    tag int,
-    wall bigint
+    tag int
 ) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
     AND comment = ''

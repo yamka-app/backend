@@ -162,7 +162,7 @@ handle_packet(#packet{type=contacts_manage, seq=Seq,
     if  Type == friend ->
             user_e:manage_contact(get(id), remove, {pending_in,  Id}),
             user_e:manage_contact(Id,      remove, {pending_out, get(id)}),
-            DM = channel:create(normal, "DM", 0, [], true),
+            DM = channel:create("DM", 0, [], true),
             user_e:add_dm_channel([Id, get(id)], DM);
         true -> ok
     end,

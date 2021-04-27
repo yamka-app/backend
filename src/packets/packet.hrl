@@ -86,9 +86,5 @@
     21 => manage_roles,
     22 => delete_others_messages,
 
-    23 => read_own_wall,
-    24 => read_others_walls,
-    25 => post_on_own_wall,
-
     26 => bot
 }).

@@ -68,7 +68,7 @@ create(Name, Owner) ->
         ]
     }),
     % create a default channel
-    channel:create(normal, "Text 1", Id, [], false),
+    channel:create("Text 1", Id, [], false),
     {Id, Everyone}.
 
 add_invite(Id) ->
