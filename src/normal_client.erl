@@ -213,7 +213,7 @@ handle_packet(#packet{type=search, seq=Seq,
                       fields=#{type:=group_member, name:=Name, ref:=Id}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
     yamka_auth:assert_permission(see_groups, {ScopeRef, Seq}),
-    Users = group_e:find_users(Id, Name, 5),
+    Users = group_e:find_users(Id, Name, 10),
     search_result_packet:make(Users, Seq);
 
 %% invite resolution packet (to get the group by one of its invites)
