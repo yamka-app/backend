@@ -197,8 +197,10 @@ handle_entity(M=#entity{type=message, fields=#{id:=Id, sender:=0}}, Seq, ScopeRe
 %% creates a group
 handle_entity(#entity{type=group, fields=#{id:=0, name:=Name}}, Seq, ScopeRef) ->
     yamka_auth:assert_permission(create_groups, {ScopeRef, Seq}),
+    #{name := Username} = user_e:get(get(id)),
     {Id, Everyone} = group_e:create(Name, get(id)),
     role:add(Everyone, get(id)),
+    group_e:cache_user_name(Id, get(id), Username),
     user_e:manage_contact(get(id), add, {group, Id}),
     normal_client:icpc_broadcast_entity(get(id),
         #entity{type=user, fields=user_e:get(get(id))}, [groups]),
@@ -210,13 +212,17 @@ handle_entity(#entity{type=group, fields=#{id:=Id, owner:=0}}, Seq, ScopeRef) ->
     #{owner := Owner,
       channels := Channels,
       roles := Roles,
-      invites := Invites} = group_e:get(Id),
+      invites := Invites,
+      everyone_role := Everyone} = group_e:get(Id),
     {_, Owner} = {{ScopeRef, status_packet:make(permission_denied, "No administrative permission", Seq)}, get(id)},
     % nuke everything!
     lists:foreach(fun(R) -> group_e:remove_invite(Id, R) end, Invites),
     group_e:delete(Id),
     lists:foreach(fun channel:delete/1, Channels),
-    lists:foreach(fun role:delete/1, Roles),
+    lists:foreach(fun role:nuke/1, lists:delete(Everyone, Roles)),
+    role:nuke(Everyone, true),
+    normal_client:icpc_broadcast_to_aware(group_awareness,
+        #entity{type=group, fields=#{id => Id, owner => 0}}, [id, owner]),
     none;
 
 %% manages invites

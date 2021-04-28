@@ -11,8 +11,8 @@
 -include("../packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
--export([get/1, create/5, delete/1]).
--export([get_members/4, add/2]).
+-export([get/1, create/5, delete/1, nuke/1, nuke/2]).
+-export([get_members/4, add/2, remove/2]).
 
 get(Id) ->
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
@@ -39,6 +39,25 @@ delete(Id) ->
         values    = [{id, Id}]
     }).
 
+%% deletes all member records in addition to the role itself
+nuke(Id) -> nuke(Id, false).
+nuke(Id, RemGroup) ->
+    delete(Id),
+    #{group := Group} = role:get(Id),
+    nuke(Id, Group, 0, 1000, RemGroup).
+nuke(Id, Group, From, Batch, RemGroup) ->
+    Members = get_members(Id, From, Batch, up),
+    lists:foreach(fun(User) ->
+        remove(Id, Group, User),
+        if RemGroup -> user_e:manage_contact(User, remove, {group, Group});
+           true -> ok
+        end
+      end, Members),
+    case length(Members) of
+        Batch -> nuke(Id, Group, From, Batch, RemGroup);
+        _     -> ok
+    end.
+
 add(Id, User) ->
     #{group := Group} = role:get(Id),
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
@@ -47,6 +66,19 @@ add(Id, User) ->
     }),
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = "INSERT INTO users_by_role (user, role) VALUES (?,?)",
+        values = [{user, User}, {role, Id}]
+    }).
+
+remove(Id, User) ->
+    #{group := Group} = role:get(Id),
+    remove(Id, Group, User).
+remove(Id, Group, User) ->
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "DELETE FROM roles_by_user WHERE group=? AND role=? AND user=?",
+        values = [{group, Group}, {user, User}, {role, Id}]
+    }),
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "DELETE FROM users_by_role WHERE role=? AND user=?",
         values = [{user, User}, {role, Id}]
     }).
 
