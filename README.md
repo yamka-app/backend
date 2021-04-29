@@ -60,7 +60,7 @@ You don't want to rebuild the whole project every time you've made a small chang
   - [x] Groups
     - [x] Multiple channels
     - [ ] Roles and administration
-    - [ ] Mentions
+    - [x] Mentions
     - [ ] Access control
   - [x] Realtime communication
     - [x] Voice

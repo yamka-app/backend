@@ -10,8 +10,12 @@
 -include("entity.hrl").
 
 -export([handle_get_request/2, handle_entity/3]).
--export([encode_field/1, encode/1, len_decode/1]).
+-export([encode_field/2, encode/2, len_decode/2]).
 -export([construct_kv_str/1, filter/2]).
+
+structure(Proto, EntityType) ->
+    #{Proto := #{EntityType := Structure}} = ?ENTITY_STRUCTURE,
+    Structure.
 
 %% updates a user
 handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, ScopeRef) ->
@@ -151,10 +155,15 @@ handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, la
         Group =/= 0 -> send_group_messages;
         true -> send_direct_messages
     end, {ScopeRef, Seq}),
+    % parse mentions
+    Filtered = message_state:filter_sections(Sections),
+    Mentions = message_state:parse_mentions(Filtered),
     % create entities
-    MsgId = message:create(Channel, get(id)),
-    StateId = message_state:create(MsgId, message_state:filter_sections(Sections)),
+    {MsgId, MsgLcid} = message:create(Channel, get(id)),
+    StateId = message_state:create(MsgId, Filtered),
     channel:reg_msg(Channel, MsgId),
+    % register mentions
+    [channel:set_mention(Channel, User, {MsgLcid, MsgId}) || User <- Mentions],
     % broadcast the message
     normal_client:icpc_broadcast_to_aware(chan_awareness, Channel,
         M#entity{fields=maps:merge(message:get(MsgId), #{states => message:get_states(MsgId), latest =>
@@ -307,6 +316,7 @@ handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=none, context=
 
     Unfiltered = channel:get(Id),
     {UnreadLcid, UnreadId} = channel:get_unread(Id, get(id)),
+    {MentionLcid, MentionId} = channel:get_mention(Id, get(id)),
     Filtered = maps:filter(fun(K, _) ->
             case K of
                 lcid  -> false;
@@ -316,10 +326,17 @@ handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=none, context=
         end, Unfiltered),
     UnreadCnt = maps:get(lcid, Unfiltered) - UnreadLcid,
     AddMap = case UnreadCnt of
-            0 -> #{typing => channel:get_typing(Id), unread => UnreadCnt};
-            _ -> #{typing => channel:get_typing(Id), unread => UnreadCnt, first_unread => UnreadId}
+            0 -> #{unread => 0};
+            _ -> #{unread => UnreadCnt, first_unread => UnreadId}
         end,
-    #entity{type=channel, fields=maps:merge(maps:merge(Filtered, AddMap), #{typing => []})};
+    MentionCnt = maps:get(lcid, Unfiltered) - MentionLcid,
+    AddMap2 = case MentionCnt of
+            0 -> #{mentions => 0};
+            _ -> #{mentions => MentionCnt, first_mention => MentionId}
+        end,
+    #entity{type=channel, fields=maps:merge(
+        maps:merge(Filtered, maps:merge(AddMap, AddMap2)),
+        #{typing => channel:get_typing(Id)})};
 
 %% gets channel messages
 handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=#entity_pagination{
@@ -357,27 +374,28 @@ handle_get_request(#entity_get_rq{type=role, id=Id, pagination=#entity_paginatio
     #entity{type=role, fields=#{id => Id, members => role:get_members(Id, From, Cnt, Dir)}}.
 
 %% encodes entities
-encode_field(number,   V, {Size})       -> datatypes:enc_num(V, Size);
-encode_field(string,   V, {})           -> datatypes:enc_str(V);
-encode_field(atom,     V, {Size, Map})  -> datatypes:enc_num(maps:get(V, utils:swap_map(Map)), Size);
-encode_field(bool,     V, {})           -> datatypes:enc_bool(V);
-encode_field(num_list, V, {Size})       -> datatypes:enc_num_list(V, Size);
-encode_field(str_list, V, {})           -> datatypes:enc_list(V, fun datatypes:enc_str/1, 2);
-encode_field(list,     V, {LS, EF, _})  -> datatypes:enc_list(V, EF, LS);
-encode_field(entity,   V, {})           -> entity:encode(V).
-encode_field({{Id, Type, Args}, Value}) ->
-    Repr = encode_field(Type, Value, Args),
+encode_field(_Proto, number,   V, {Size})       -> datatypes:enc_num(V, Size);
+encode_field(_Proto, string,   V, {})           -> datatypes:enc_str(V);
+encode_field(_Proto, atom,     V, {Size, Map})  -> datatypes:enc_num(maps:get(V, utils:swap_map(Map)), Size);
+encode_field(_Proto, bool,     V, {})           -> datatypes:enc_bool(V);
+encode_field(_Proto, num_list, V, {Size})       -> datatypes:enc_num_list(V, Size);
+encode_field(_Proto, str_list, V, {})           -> datatypes:enc_list(V, fun datatypes:enc_str/1, 2);
+encode_field(_Proto, list,     V, {LS, EF, _})  -> datatypes:enc_list(V, EF, LS);
+encode_field( Proto, entity,   V, {})           -> entity:encode(V, Proto).
+encode_field({{Id, Type, Args}, Value}, Proto) ->
+    Repr = encode_field(Proto, Type, Value, Args),
     IdBin = datatypes:enc_num(Id, 1),
     <<IdBin/binary, Repr/binary>>.
 
-encode(#entity{type=Type, fields=Fields}) ->
+encode(#entity{type=Type, fields=Fields}, Proto) ->
     TypeBin        = datatypes:enc_num(maps:get(Type, ?REVERSE_ENTITY_MAP), 1),
-    Structure      = maps:get(Type, ?ENTITY_STRUCTURE),
+    Structure      = structure(Proto, Type),
 
     FieldsToEncode = utils:intersect_lists([maps:keys(Fields), maps:keys(Structure)]),
     FieldValues    = [{maps:get(K, Structure), maps:get(K, Fields)} || K <- FieldsToEncode],
 
-    BinaryRepr     = datatypes:enc_list(FieldValues, fun encode_field/1, 1),
+    BinaryRepr = datatypes:enc_list(FieldValues,
+        fun(F) -> encode_field(F, Proto) end, 1),
     <<TypeBin/binary, BinaryRepr/binary>>.
 
 %% filters entity fields
@@ -394,26 +412,27 @@ find_desc(RevS, Id) ->
     {Name, Desc}.
 
 %% decodes entities
-len_decode_field(number,   V, {Size})       -> {datatypes:dec_num(V, Size), Size};
-len_decode_field(string,   V, {})           -> {datatypes:dec_str(V), datatypes:len_str(V)};
-len_decode_field(atom,     V, {Size, Map})  -> {maps:get(datatypes:dec_num(V, Size), Map), Size};
-len_decode_field(bool,     V, {})           -> {datatypes:dec_bool(V), 1};
-len_decode_field(num_list, V, {Size})       -> R=datatypes:dec_num_list(V, Size), {R, 2+(length(R)*Size)};
-len_decode_field(str_list, V, {})           -> datatypes:len_dec_list(V, fun datatypes:len_dec_str/1, 2);
-len_decode_field(list,     V, {LS, _, LDF}) -> datatypes:len_dec_list(V, LDF, LS);
-len_decode_field(entity,   V, {})           -> entity:len_decode(V).
-len_decode_field(RevStructure, Bin) ->
+len_decode_field(_Proto, number,   V, {Size})       -> {datatypes:dec_num(V, Size), Size};
+len_decode_field(_Proto, string,   V, {})           -> {datatypes:dec_str(V), datatypes:len_str(V)};
+len_decode_field(_Proto, atom,     V, {Size, Map})  -> {maps:get(datatypes:dec_num(V, Size), Map), Size};
+len_decode_field(_Proto, bool,     V, {})           -> {datatypes:dec_bool(V), 1};
+len_decode_field(_Proto, num_list, V, {Size})       -> R=datatypes:dec_num_list(V, Size), {R, 2+(length(R)*Size)};
+len_decode_field(_Proto, str_list, V, {})           -> datatypes:len_dec_list(V, fun datatypes:len_dec_str/1, 2);
+len_decode_field(_Proto, list,     V, {LS, _, LDF}) -> datatypes:len_dec_list(V, LDF, LS);
+len_decode_field( Proto, entity,   V, {})           -> entity:len_decode(V, Proto).
+len_decode_field(RevStructure, Bin, Proto) ->
     <<Id:8/unsigned-integer, Repr/binary>> = Bin,
     % find the descriptor
     {Name, {Id, Type, Args}} = find_desc(RevStructure, Id),
-    {FieldVal, Len} = len_decode_field(Type, Repr, Args),
+    {FieldVal, Len} = len_decode_field(Proto, Type, Repr, Args),
     {{Name, FieldVal}, Len + 1}. % +1 because we have a one byte field ID
 
-len_decode(Bin) ->
+len_decode(Bin, Proto) ->
     <<TypeNum:8/unsigned-integer, FieldsBin/binary>> = Bin,
     Type = maps:get(TypeNum, ?ENTITY_TYPE_MAP),
-    RevStructure = utils:swap_map(maps:get(Type, ?ENTITY_STRUCTURE)),
-    {FieldProplist, Len} = datatypes:len_dec_list(FieldsBin, fun(B) -> len_decode_field(RevStructure, B) end, 1),
+    RevStructure = utils:swap_map(structure(Proto, Type)),
+    {FieldProplist, Len} = datatypes:len_dec_list(FieldsBin,
+        fun(B) -> len_decode_field(RevStructure, B, Proto) end, 1),
     Fields = maps:from_list(FieldProplist),
 
     {#entity{type=Type, fields=Fields}, Len}.

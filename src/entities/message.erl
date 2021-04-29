@@ -40,7 +40,7 @@ create(Channel, Sender) ->
     }),
     % update the channel's LCID
     channel:update(Channel, #{lcid => Lcid + 1}),
-    Id.
+    {Id, Lcid + 1}.
 
 delete(Id) ->
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{

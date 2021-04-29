@@ -11,7 +11,8 @@
 -include("../packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
--export([get/1, create/2, filter_sections/1]).
+-export([get/1, create/2]).
+-export([filter_sections/1, parse_mentions/1]).
 
 %% gets a message state by ID
 get(Id) ->
@@ -77,3 +78,19 @@ filter_sections([#message_section{type=T, text=Te, blob=B}|Tail]) ->
         Let -> [Filtered|Rest];
         true -> Rest
     end.
+
+parse_mention_matches(Str, [[{Idx, Len}]|Tail]) ->
+    IdStr = string:slice(Str, Idx + 1, Len - 1),
+    [list_to_integer(IdStr)|parse_mention_matches(Str, Tail)];
+parse_mention_matches(_, []) -> [].
+
+parse_mentions([#message_section{type=text, text=Text, blob=0}|Tail]) ->
+    % a number preceded by an at sign but not a backslash
+    ReResult = re:run(Text, "(?<!\\\\)@[0-9]+", [global]),
+    case ReResult of
+        nomatch          -> parse_mentions(Tail);
+        {match, Matches} ->
+            parse_mention_matches(Text, Matches) ++ parse_mentions(Tail)
+    end;
+parse_mentions([_|Tail]) -> parse_mentions(Tail);
+parse_mentions([]) -> [].
