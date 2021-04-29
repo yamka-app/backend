@@ -22,8 +22,8 @@ start()          -> start_link(?MODULE).
 start_link(Name) -> gen_server:start_link({local, Name}, ?MODULE, [], []).
 init(_Args) ->
     logging:log("Email gen_server running (node ~p)", [node()]),
-    {ok, Confirm}   = file:read_file("email/email_confirmation.html"),
-    {ok, Emergency} = file:read_file("email/emergency.html"),
+    {ok, Confirm}   = file:read_file("/run/email_templates/email_confirmation.html"),
+    {ok, Emergency} = file:read_file("/run/email_templates/emergency.html"),
     {ok, Password}  = file:read_file("/run/secrets/smtp_pass"),
     {ok, #state{password=Password, confirmation_template=Confirm, emergency_template=Emergency}}.
 
