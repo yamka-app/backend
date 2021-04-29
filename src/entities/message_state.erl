@@ -66,6 +66,7 @@ filter_section({user, I, _})   -> #message_section{type=user,   text=string:slic
 % I don't really think your bot needs more than 8k characters for its UI
 filter_section({bot_ui, I, _}) -> #message_section{type=bot_ui, text=string:slice(I, 0, 8192), blob=0}.
 
+let_through({quote, Text, B}) -> (length(Text) > 0) or (B > 0);
 let_through({T, Text, _B}) when T =/= file -> length(Text) > 0;
 let_through({T, _Text, B}) when T =:= file -> B > 0.
 
@@ -86,7 +87,7 @@ parse_mention_matches(_, []) -> [].
 
 parse_mentions([#message_section{type=text, text=Text, blob=0}|Tail]) ->
     % a number preceded by an at sign but not a backslash
-    ReResult = re:run(Text, "(?<!\\\\)@[0-9]+", [global]),
+    ReResult = re:run(Text, "(?<!\\\\)@[0-9]+", [global, unicode]),
     case ReResult of
         nomatch          -> parse_mentions(Tail);
         {match, Matches} ->
