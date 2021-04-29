@@ -102,7 +102,8 @@ handle_entity(#entity{type=channel, fields=#{id:=Id, unread:=0}}, _Seq, _ScopeRe
         [] -> ok;
         [LastMsg] ->
             #{lcid := Lcid} = message:get(LastMsg),
-            channel:set_unread(Id, get(id), {Lcid, LastMsg})
+            channel:set_unread(Id, get(id), {Lcid, LastMsg}),
+            channel:forget_mentions(Id, get(id))
     end,
     none;
 
@@ -159,11 +160,11 @@ handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, la
     Filtered = message_state:filter_sections(Sections),
     Mentions = message_state:parse_mentions(Filtered),
     % create entities
-    {MsgId, MsgLcid} = message:create(Channel, get(id)),
+    {MsgId, _} = message:create(Channel, get(id)),
     StateId = message_state:create(MsgId, Filtered),
     channel:reg_msg(Channel, MsgId),
     % register mentions
-    [channel:set_mention(Channel, User, {MsgLcid, MsgId}) || User <- Mentions],
+    [channel:add_mention(Channel, User, MsgId) || User <- Mentions],
     % broadcast the message
     normal_client:icpc_broadcast_to_aware(chan_awareness, Channel,
         M#entity{fields=maps:merge(message:get(MsgId), #{states => message:get_states(MsgId), latest =>
@@ -316,7 +317,7 @@ handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=none, context=
 
     Unfiltered = channel:get(Id),
     {UnreadLcid, UnreadId} = channel:get_unread(Id, get(id)),
-    {MentionLcid, MentionId} = channel:get_mention(Id, get(id)),
+    Mentions = channel:get_mentions(Id, get(id)),
     Filtered = maps:filter(fun(K, _) ->
             case K of
                 lcid  -> false;
@@ -329,14 +330,10 @@ handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=none, context=
             0 -> #{unread => 0};
             _ -> #{unread => UnreadCnt, first_unread => UnreadId}
         end,
-    MentionCnt = maps:get(lcid, Unfiltered) - MentionLcid,
-    AddMap2 = case MentionCnt of
-            0 -> #{mentions => 0};
-            _ -> #{mentions => MentionCnt, first_mention => MentionId}
-        end,
     #entity{type=channel, fields=maps:merge(
-        maps:merge(Filtered, maps:merge(AddMap, AddMap2)),
-        #{typing => channel:get_typing(Id)})};
+        maps:merge(Filtered, AddMap),
+        #{typing   => channel:get_typing(Id),
+          mentions => Mentions})};
 
 %% gets channel messages
 handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=#entity_pagination{

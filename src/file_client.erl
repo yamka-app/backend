@@ -7,7 +7,7 @@
 -license("MPL-2.0").
 -description("File process. Sends and receives files. Depends on a \"normal client\" process. In fact, it's using").
 
--define(CHUNK_SIZE, 1024*10). % bytes
+-define(CHUNK_SIZE, 1024*5). % bytes
 -include("packets/packet.hrl").
 -include("entities/entity.hrl").
 -include_lib("cqerl/include/cqerl.hrl").

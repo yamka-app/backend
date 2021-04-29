@@ -12,7 +12,8 @@
 
 -export([get/1, create/4, update/2, delete/1]).
 -export([get_dm/1, get_messages/4]).
--export([set_unread/3, get_unread/2, set_mention/3, get_mention/2, reg_msg/2, unreg_msg/2]).
+-export([set_unread/3, get_unread/2, reg_msg/2, unreg_msg/2]).
+-export([add_mention/3, forget_mentions/2, get_mentions/2]).
 -export([get_typing/1, set_typing/2, reset_typing/2]).
 
 -define(TYPING_RESET_THRESHOLD, 15000).
@@ -77,32 +78,27 @@ get_unread(Id, User) ->
             {Lcid, Msg}
     end.
 
-%% sets {MentionLcid, MentionId}
-set_mention(Id, User, {Lcid, Msg}) ->
+%% adds mention
+add_mention(Id, User, Msg) ->
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "UPDATE mentions SET lcid=?, msg=? WHERE channel=? and user=?",
-        values    = [{channel, Id}, {user, User}, {lcid, Lcid}, {msg, Msg}]
+        statement = "INSERT INTO mentions (channel, user, msg) VALUES (?,?,?)",
+        values    = [{channel, Id}, {user, User}, {msg, Msg}]
     }).
 
-%% gets {MentionLcid, MentionId} 
-get_mention(Id, User) ->
+%% forgets mentions before msg
+forget_mentions(Id, User) ->
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "DELETE FROM mentions WHERE channel=? AND user=?",
+        values    = [{channel, Id}, {user, User}]
+    }).
+
+%% gets mentions
+get_mentions(Id, User) ->
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "SELECT lcid, msg FROM mentions WHERE channel=? and user=?",
+        statement = "SELECT msg FROM mentions WHERE channel=? AND user=?",
         values    = [{channel, Id}, {user, User}]
     }),
-    case cqerl:head(Rows) of
-        [{lcid, Lcid}, {msg, 0}] ->
-            case get_messages(Id, 0, 1, up) of
-                [FirstMsg] -> {Lcid, FirstMsg};
-                [] -> {Lcid, 0}
-            end;
-        [{lcid, Lcid}, {msg, Msg}] -> {Lcid, Msg};
-        empty_dataset ->
-            Lcid = maps:get(lcid, channel:get(Id)),
-            [Msg|_] = if Lcid==0->[0];true->get_messages(Id, 9223372036854775807, 1, down)end, % gets the last message
-            set_unread(Id, User, {Lcid, Msg}),
-            {Lcid, Msg}
-    end.
+    [MId || [{msg, MId}] <- cqerl:all_rows(Rows)].
 
 %% gets messages IDs (with pagination)
 get_messages(Id, StartId, Limit, down) -> get_messages(Id, StartId, Limit, "message_ids_by_chan", "<");

@@ -146,8 +146,7 @@
                 voice_users   => {10, num_list, {8}},
                 voice_status  => {11, list,     {2, fun datatypes:enc_chan_voice_status/1,
                                                     fun datatypes:len_dec_chan_voice_status/1}},
-                mentions      => {12, number,   {4}},
-                first_mention => {13, number,   {8}}
+                mentions      => {12, num_list, {8}}
             },
         group => #{
                 id            => {0, number,   {8}},

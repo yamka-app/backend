@@ -319,7 +319,6 @@ CREATE TABLE yamkadb.unread (
 CREATE TABLE yamkadb.mentions (
     channel bigint,
     user bigint,
-    lcid bigint,
     msg bigint,
     PRIMARY KEY ((channel, user))
 ) WITH bloom_filter_fp_chance = 0.01
