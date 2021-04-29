@@ -221,7 +221,7 @@ handle_packet(#packet{type=invite_resolve, seq=Seq,
     {_, {ok, Id}} = {{ScopeRef, status_packet:make(invalid_invite, "Invalid invite", Seq)},
         group_e:resolve_invite(Code)},
     case Add of
-        false -> entities_packet:make([#entity{type=group, fields=group_e:get(Id, false)}], Seq);
+        false -> ok;
         true ->
             #{name := SelfName} = user_e:get(get(id)),
             #{everyone_role := Everyone} = group_e:get(Id),
@@ -229,9 +229,9 @@ handle_packet(#packet{type=invite_resolve, seq=Seq,
             user_e:manage_contact(get(id), add, {group, Id}),
             group_e:cache_user_name(Id, get(id), SelfName),
             icpc_broadcast_entity(get(id),
-                #entity{type=user, fields=user_e:get(get(id))}, [groups]),
-            none
-    end;
+                #entity{type=user, fields=user_e:get(get(id))}, [groups])
+    end,
+    entities_packet:make([#entity{type=group, fields=group_e:get(Id, false)}], Seq);
 
 %% voice join packet
 handle_packet(#packet{type=voice_join, seq=Seq,
