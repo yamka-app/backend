@@ -120,8 +120,10 @@ get_dm([_,_]=Users) ->
         statement = "SELECT channel FROM dm_channels WHERE users=?",
         values    = [{users, Users}]
     }),
-    [{channel, Id}] = cqerl:head(Rows),
-    Id.
+    case cqerl:head(Rows) of
+        empty_dataset   -> nodm;
+        [{channel, Id}] -> Id
+    end.
 
 %% updates a channel record
 update(Id, Fields) ->

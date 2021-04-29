@@ -258,9 +258,9 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
     Online = user_e:online(Id),
     Unfiltered = user_e:get(Id),
 
-    Dm = case utils:safe_call(fun channel:get_dm/1, [[get(id), Id]], [{cassandra, get(cassandra)}]) of
-        {error, _} -> #{};
-        {ok, DmId} -> #{dm_channel => DmId}
+    Dm = case channel:get_dm([get(id), Id]) of
+        nodm -> #{};
+        DmId -> #{dm_channel => DmId}
     end,
 
     Mfa = maps:merge(Dm, #{mfa_enabled => maps:get(mfa_secret, Unfiltered) =/= null}),
