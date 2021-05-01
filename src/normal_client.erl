@@ -8,8 +8,8 @@
 -description("\"Normal protocol\" client process").
 
 -define(TIMEOUT, 30*1000).
--define(MIN_PROTO, 6).
--define(MAX_PROTO, 7).
+-define(MIN_PROTO, 7).
+-define(MAX_PROTO, 8).
 -include("entities/entity.hrl").
 -include("packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
