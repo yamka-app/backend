@@ -13,7 +13,8 @@
          temp_file_name/0]).
 -export([broadcast/2, safe_call/2, safe_call/3]).
 -export([ms_since/1]).
--export([list_diff/2]).
+-export([list_diff/2, list_set/3]).
+-export([filter_text/1]).
 
 %% broadcasts some value to a list of processes
 broadcast(_, []) -> ok;
@@ -136,3 +137,9 @@ list_diff(L1, L2) ->
         lists:filter(fun(V) -> not lists:member(V, L2) end, L1),
         lists:filter(fun(V) -> not lists:member(V, L1) end, L2)
     }.
+
+list_set(List, Where, What) ->
+    {Before, [_|After]} = lists:split(Where, List),
+    Before ++ [What] ++ After.
+
+filter_text(Text) -> string:trim(string:slice(Text, 0, 4096), both, "\r\n\t ").

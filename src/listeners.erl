@@ -16,6 +16,7 @@ cleanup(Pid) ->
     ets:match_delete(icpc_processes,  {Id, '_'}),
     ets:match_delete(user_awareness,  {'_', {Id, Pid}}),
     ets:match_delete(chan_awareness,  {'_', {Id, Pid}}),
+    ets:match_delete(poll_awareness,  {'_', {Id, Pid}}),
     ets:match_delete(group_awareness, {'_', {Id, Pid}}),
     ets:match_delete(typing,          {'_', {Id, '_'}}),
     user_e:broadcast_status(Id, offline).
@@ -43,6 +44,7 @@ normal_listener(Cassandra, CertPath, KeyPath) ->
     ets:new(icpc_processes,  [bag, public, named_table]),
     ets:new(user_awareness,  [bag, public, named_table]),
     ets:new(chan_awareness,  [bag, public, named_table]),
+    ets:new(poll_awareness,  [bag, public, named_table]),
     ets:new(group_awareness, [bag, public, named_table]),
     ets:new(typing,          [bag, public, named_table]),
     % listen for new clients

@@ -55,7 +55,8 @@
     22 => start_uploading,
     23 => stream_end,
     24 => one_upload_only,
-    25 => invalid_confirmation_code
+    25 => invalid_confirmation_code,
+    26 => poll_error
 }).
 
 -define(REVERSE_TOKEN_PERMISSION_MAP, utils:swap_map(?TOKEN_PERMISSION_MAP)).
@@ -87,7 +88,10 @@
     21 => manage_roles,
     22 => delete_others_messages,
 
-    23 => none, 24 => none, 25 => none,
+    23 => create_polls,
+    24 => vote_in_polls,
+    
+    25 => none,
 
     26 => bot
 }).

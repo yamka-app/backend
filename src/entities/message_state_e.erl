@@ -47,14 +47,12 @@ create(MsgId, Sections) ->
     }),
     Id.
 
-filter_text(Text) -> string:trim(string:slice(Text, 0, 4096), both, "\r\n\t ").
-
 % limit text type sections to 4096 chars
 filter_section({T, Text, _}) when T =:= text; T =:= code ->
-    #message_section{type=T, text=filter_text(Text), blob=0};
+    #message_section{type=T, text=utils:filter_text(Text), blob=0};
 % if the quote has no reference ID, it's text
 % otherwise it's a reply
-filter_section({quote, T, 0})  -> #message_section{type=quote,  text=filter_text(T)};
+filter_section({quote, T, 0})  -> #message_section{type=quote,  text=utils:filter_text(T)};
 filter_section({quote, _, Q})  -> #message_section{type=quote,  text="", blob=Q};
 % filter out text in files
 filter_section({file, _, F})   -> #message_section{type=file,   text="", blob=F};

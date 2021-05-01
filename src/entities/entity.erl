@@ -245,8 +245,28 @@ handle_entity(#entity{type=group, fields=#{id:=Id, invites:=Invites}}, Seq, Scop
     lists:foreach(fun(_) -> group_e:add_invite(Id) end, lists:seq(1, length(Added))),
     lists:foreach(fun(I) -> group_e:remove_invite(Id, I) end, Removed),
     #{invites := NewInvites} = group_e:get(Id),
-    #packet{type=entities, fields=#{entities => [#entity{type=group, fields=#{id => Id, invites => NewInvites}}]}, reply=Seq}.
-    
+    entities_packet:make([#entity{type=group, fields=#{id => Id, invites => NewInvites}}], Seq);
+
+%% creates a poll
+handle_entity(#entity{type=poll, fields=#{id:=0, options:=Options}}, Seq, ScopeRef) ->
+    yamka_auth:assert_permission(create_polls, {ScopeRef, Seq}),
+    {_, false} = {{ScopeRef, status_packet:make(poll_error, "Zero or too many options", Seq)},
+        (length(Options) > 10) or (length(Options) == 0)},
+    Id = poll_e:create(Options),
+    ets:insert(poll_awareness, {Id, {get(id), self()}}),
+    entities_packet:make([#entity{type=poll, fields=#{
+        id => Id, options => Options, total_votes => 0,
+        option_votes => [0 || _ <- Options]}}], Seq);
+
+%% votes in a poll
+handle_entity(#entity{type=poll, fields=#{id:=Id, self_vote:=Option}}, Seq, ScopeRef) ->
+    yamka_auth:assert_permission(vote_in_polls, {ScopeRef, Seq}),
+    {_, ok} = {status_packet:make(poll_error, "Invalid option", Seq), poll_e:vote(Id, get(id), Option)},
+    normal_client:icpc_broadcast_to_aware(poll_awareness,
+        #entity{type=poll, fields=poll_e:get(Id)}, [id, total_votes, option_votes]).
+
+
+
 
 
 %% gets a user
@@ -368,7 +388,20 @@ handle_get_request(#entity_get_rq{type=role, id=Id, pagination=none, context=non
 %% gets role members
 handle_get_request(#entity_get_rq{type=role, id=Id, pagination=#entity_pagination{
         field=6, dir=Dir, from=From, cnt=Cnt}, context=none}, _Ref) ->
-    #entity{type=role, fields=#{id => Id, members => role_e:get_members(Id, From, Cnt, Dir)}}.
+    #entity{type=role, fields=#{id => Id, members => role_e:get_members(Id, From, Cnt, Dir)}};
+
+%% gets a poll by id
+handle_get_request(#entity_get_rq{type=poll, id=Id, pagination=none, context=none}, _Ref) ->
+    Main = poll_e:get(Id),
+    Fields = case poll_e:get_vote(Id, get(id)) of
+        {error, novote} -> Main;
+        {ok, Option}    -> maps:merge(Main, #{self_vote => Option})
+    end,
+    #entity{type=role, fields=Fields}.
+
+
+
+
 
 %% encodes entities
 encode_field(_Proto, number,   V, {Size})       -> datatypes:enc_num(V, Size);

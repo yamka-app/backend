@@ -40,12 +40,12 @@ vote(Id, User, Option) ->
     #{total_votes := TotalVotes, option_votes := OptionVotes} = poll_e:get(Id),
     if  Option > length(OptionVotes) -> {error, badopt};
         true ->
-            {Before, [_|After]} = lists:split(Option, OptionVotes),
-            UpdOptionVotes = Before ++ [lists:nth(Option, OptionVotes) + 1] ++ After,
+            UpdOptionVotes = utils:list_set(OptionVotes, Option,
+                lists:nth(Option, OptionVotes) + 1),
             {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
                 statement = "BEGIN BATCH "
-                    "UPDATE polls SET total_votes=?, option_votes=? WHERE id=?;"
-                    "INSERT INTO poll_votes(poll, user, option) VALUES(?,?,?);"
+                    "UPDATE polls SET total_votes=?, option_votes=? WHERE id=?; "
+                    "INSERT INTO poll_votes(poll, user, option) VALUES(?,?,?); "
                     "APPLY BATCH",
                 values = [
                     {id, Id}, {total_votes, TotalVotes + 1}, {option_votes, UpdOptionVotes},
