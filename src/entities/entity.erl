@@ -148,7 +148,7 @@ handle_entity(#entity{type=channel, fields=Fields=#{id:=Id}}, Seq, ScopeRef) ->
     none;
 
 %% sends a message
-handle_entity(M=#entity{type=message,       fields=#{id:=0, channel_e:=Channel, latest:=
+handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, latest:=
               L=#entity{type=message_state, fields=#{id:=0, sections:=Sections}}}}, Seq, ScopeRef) ->
     % cheeck token permissions
     #{group := Group} = channel_e:get(Channel),

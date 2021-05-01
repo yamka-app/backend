@@ -235,7 +235,7 @@ handle_packet(#packet{type=invite_resolve, seq=Seq,
 
 %% voice join packet
 handle_packet(#packet{type=voice_join, seq=Seq,
-                      fields=#{channel_e:=Chan, crypto:=Key}}, ScopeRef) ->
+                      fields=#{channel:=Chan, crypto:=Key}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
     Session = tasty:create_session(Key, get(id), Chan),
     Server = tasty:server_name(),
