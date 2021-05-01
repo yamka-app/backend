@@ -7,8 +7,6 @@
 -license("MPL-2.0").
 -description("The poll entity").
 
--include("entity.hrl").
--include("../packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
 -export([get/1, create/1]).
@@ -42,7 +40,7 @@ vote(Id, User, Option) ->
     #{total_votes := TotalVotes, option_votes := OptionVotes} = poll_e:get(Id),
     if  Option > length(OptionVotes) -> {error, badopt};
         true ->
-            {Before, [_|After]} = lists:split(Option),
+            {Before, [_|After]} = lists:split(Option, OptionVotes),
             UpdOptionVotes = Before ++ [lists:nth(Option, OptionVotes) + 1] ++ After,
             {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
                 statement = "BEGIN BATCH "
@@ -63,6 +61,6 @@ get_vote(Id, User) ->
         values    = [{id, Id}, {user, User}]
     }),
     case cqerl:head(Rows) of
-        empty_dataset -> {error, novote};
+        empty_dataset      -> {error, novote};
         [{option, Option}] -> {ok, Option}
     end.

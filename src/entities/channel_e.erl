@@ -7,7 +7,6 @@
 -license("MPL-2.0").
 -description("The channel entity").
 
--include("entity.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
 -export([get/1, create/4, update/2, delete/1]).

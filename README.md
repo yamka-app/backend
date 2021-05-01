@@ -65,6 +65,7 @@ You don't want to rebuild the whole project every time you've made a small chang
   - [x] Realtime communication
     - [x] Voice
       - [ ] "on the fly" voice server selection
+  - [ ] Polls
   - [ ] Emergency notifications
   - [ ] Bots
   - [ ] Make code ready for distribution
