@@ -78,9 +78,9 @@ gen_avatar() ->
     Filename = temp_file_name(),
     {ok, File} = file:open(Filename, [write]),
     % create the image
-    Png = png:create(#{size    => {Width, Height},
-                        mode    => {rgba, 8},
-                        file    => File}),
+    Png = png:create(#{size  => {Width, Height},
+                        mode => {rgba, 8},
+                        file => File}),
     
     % make the image
     Pair = lists:nth(rand:uniform(7), Palette),

@@ -192,7 +192,7 @@
                 options      => {1, str_list, {}},
                 option_votes => {2, num_list, {3}},
                 self_vote    => {3, number,   {1}},
-                total_voted  => {4, number,   {3}}
+                total_votes  => {4, number,   {3}}
             }
     }
 }).
