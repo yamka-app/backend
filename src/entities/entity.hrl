@@ -16,7 +16,8 @@
     3 => quote,
     4 => invite,
     5 => user,
-    6 => bot_ui
+    6 => bot_ui,
+    7 => poll
 }).
 
 -define(REVERSE_ENTITY_MAP, utils:swap_map(?ENTITY_TYPE_MAP)).
@@ -27,12 +28,14 @@
     4 => message,
     5 => role,
     6 => file,
-    7 => message_state
+    7 => message_state,
+    8 => poll
 }).
 
 -define(USER_STATUS_MAP, #{0=>offline, 1=>online, 2=>idle, 3=>dnd}).
+
 -define(ENTITY_STRUCTURE, #{
-    6 => #{
+    7 => #{
         user => #{
                 id              => {0,  number,   {8}},
                 email           => {1,  string,   {}},
@@ -56,18 +59,19 @@
                 email_confirmed => {21, bool,     {}}
             },
         channel => #{
-                id           => {0,  number,   {8}},
-                name         => {1,  string,   {}},
-                members      => {2,  num_list, {8}},
-                group        => {3,  number,   {8}},
-                messages     => {4,  num_list, {8}},
-                typing       => {5,  num_list, {8}},
-                unread       => {7,  number,   {4}},
-                first_unread => {8,  number,   {8}},
-                voice        => {9,  bool,     {}},
-                voice_users  => {10, num_list, {8}},
-                voice_status => {11, list,     {2, fun datatypes:enc_chan_voice_status/1,
-                                                   fun datatypes:len_dec_chan_voice_status/1}}
+                id            => {0,  number,   {8}},
+                name          => {1,  string,   {}},
+                members       => {2,  num_list, {8}},
+                group         => {3,  number,   {8}},
+                messages      => {4,  num_list, {8}},
+                typing        => {5,  num_list, {8}},
+                unread        => {7,  number,   {4}},
+                first_unread  => {8,  number,   {8}},
+                voice         => {9,  bool,     {}},
+                voice_users   => {10, num_list, {8}},
+                voice_status  => {11, list,     {2, fun datatypes:enc_chan_voice_status/1,
+                                                    fun datatypes:len_dec_chan_voice_status/1}},
+                mentions      => {12, num_list, {8}}
             },
         group => #{
                 id            => {0, number,   {8}},
@@ -110,7 +114,7 @@
             }
     },
 
-    7 => #{
+    8 => #{
         user => #{
                 id              => {0,  number,   {8}},
                 email           => {1,  string,   {}},

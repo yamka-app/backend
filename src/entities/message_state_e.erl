@@ -54,8 +54,9 @@ filter_section({T, Text, _}) when T =:= text; T =:= code ->
 % otherwise it's a reply
 filter_section({quote, T, 0})  -> #message_section{type=quote,  text=utils:filter_text(T)};
 filter_section({quote, _, Q})  -> #message_section{type=quote,  text="", blob=Q};
-% filter out text in files
+% filter out text in files and polls
 filter_section({file, _, F})   -> #message_section{type=file,   text="", blob=F};
+filter_section({poll, _, F})   -> #message_section{type=poll,   text="", blob=F};
 % invites are no more than 12 chars long
 filter_section({invite, I, _}) -> #message_section{type=invite, text=string:slice(I, 0, 12), blob=0};
 % usernames are no more than 96 chars long
@@ -64,8 +65,8 @@ filter_section({user, I, _})   -> #message_section{type=user,   text=string:slic
 filter_section({bot_ui, I, _}) -> #message_section{type=bot_ui, text=string:slice(I, 0, 8192), blob=0}.
 
 let_through({quote, Text, B}) -> (length(Text) > 0) or (B > 0);
-let_through({T, Text, _B}) when T =/= file -> length(Text) > 0;
-let_through({T, _Text, B}) when T =:= file -> B > 0.
+let_through({T, _Text, B}) when T =:= file; T =:= poll -> B > 0;
+let_through({_, Text, _B}) -> length(Text) > 0.
 
 filter_sections([]) -> [];
 filter_sections([#message_section{type=T, text=Te, blob=B}|Tail]) ->
