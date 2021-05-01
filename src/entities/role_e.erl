@@ -2,7 +2,7 @@
 %%% License, v. 2.0. If a copy of the MPL was not distributed with this
 %%% file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
--module(role).
+-module(role_e).
 -author("Yamka").
 -license("MPL-2.0").
 -description("The role entity").
@@ -43,7 +43,7 @@ delete(Id) ->
 nuke(Id) -> nuke(Id, false).
 nuke(Id, RemGroup) ->
     delete(Id),
-    #{group := Group} = role:get(Id),
+    #{group := Group} = role_e:get(Id),
     nuke(Id, Group, 0, 1000, RemGroup).
 nuke(Id, Group, From, Batch, RemGroup) ->
     Members = get_members(Id, From, Batch, up),
@@ -59,7 +59,7 @@ nuke(Id, Group, From, Batch, RemGroup) ->
     end.
 
 add(Id, User) ->
-    #{group := Group} = role:get(Id),
+    #{group := Group} = role_e:get(Id),
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = "INSERT INTO roles_by_user (group, user, role) VALUES (?,?,?)",
         values = [{group, Group}, {user, User}, {role, Id}]
@@ -70,7 +70,7 @@ add(Id, User) ->
     }).
 
 remove(Id, User) ->
-    #{group := Group} = role:get(Id),
+    #{group := Group} = role_e:get(Id),
     remove(Id, Group, User).
 remove(Id, Group, User) ->
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{

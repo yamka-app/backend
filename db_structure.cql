@@ -151,6 +151,26 @@ CREATE TABLE yamkadb.roles_by_user (
     AND speculative_retry = '99PERCENTILE';
 CREATE INDEX members_idx ON yamkadb.roles_by_user (role);
 
+CREATE TABLE yamkadb.polls (
+    id bigint PRIMARY KEY,
+    option_votes list<int>,
+    options list<text>,
+    total_votes int
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
+
 CREATE TABLE yamkadb.messages (
     id bigint PRIMARY KEY,
     channel bigint,
@@ -215,6 +235,26 @@ CREATE TABLE yamkadb.channels (
     AND speculative_retry = '99PERCENTILE';
 CREATE INDEX chan_group_idx ON yamkadb.channels (group);
 
+CREATE TABLE yamkadb.poll_votes (
+    poll bigint,
+    user bigint,
+    option int,
+    PRIMARY KEY ((poll, user))
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
+
 CREATE TABLE yamkadb.users (
     id bigint PRIMARY KEY,
     ava_file bigint,
@@ -275,6 +315,27 @@ CREATE TABLE yamkadb.groups (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
+CREATE TABLE yamkadb.mentions (
+    channel bigint,
+    user bigint,
+    lcid bigint,
+    msg bigint,
+    PRIMARY KEY ((channel, user))
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
+
 CREATE TABLE yamkadb.message_ids_by_chan (
     channel bigint,
     id bigint,
@@ -299,26 +360,6 @@ CREATE TABLE yamkadb.unread (
     channel bigint,
     user bigint,
     lcid bigint,
-    msg bigint,
-    PRIMARY KEY ((channel, user))
-) WITH bloom_filter_fp_chance = 0.01
-    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
-    AND comment = ''
-    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
-    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
-    AND crc_check_chance = 1.0
-    AND dclocal_read_repair_chance = 0.1
-    AND default_time_to_live = 0
-    AND gc_grace_seconds = 864000
-    AND max_index_interval = 2048
-    AND memtable_flush_period_in_ms = 0
-    AND min_index_interval = 128
-    AND read_repair_chance = 0.0
-    AND speculative_retry = '99PERCENTILE';
-
-CREATE TABLE yamkadb.mentions (
-    channel bigint,
-    user bigint,
     msg bigint,
     PRIMARY KEY ((channel, user))
 ) WITH bloom_filter_fp_chance = 0.01

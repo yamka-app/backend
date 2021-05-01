@@ -58,7 +58,7 @@ get(Id, IncludeExtra) ->
 
 create(Name, Owner) ->
     Id = utils:gen_snowflake(),
-    Everyone = role:create(Id, "everyone", 0, 1, 0),
+    Everyone = role_e:create(Id, "everyone", 0, 1, 0),
     Icon = file_storage:register_file(utils:gen_avatar(), "group_icon.png"),
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = "INSERT INTO groups (id, name, icon, owner, everyone_role) VALUES (?,?,?,?,?)",
@@ -68,7 +68,7 @@ create(Name, Owner) ->
         ]
     }),
     % create a default channel
-    channel:create("Text 1", Id, [], false),
+    channel_e:create("Text 1", Id, [], false),
     {Id, Everyone}.
 
 delete(Id) ->

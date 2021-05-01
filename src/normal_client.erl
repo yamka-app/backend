@@ -160,7 +160,7 @@ handle_packet(#packet{type=contacts_manage, seq=Seq,
     if  Type == friend ->
             user_e:manage_contact(get(id), remove, {pending_in,  Id}),
             user_e:manage_contact(Id,      remove, {pending_out, get(id)}),
-            DM = channel:create("DM", 0, [], true),
+            DM = channel_e:create("DM", 0, [], true),
             user_e:add_dm_channel([Id, get(id)], DM);
         true -> ok
     end,
@@ -225,7 +225,7 @@ handle_packet(#packet{type=invite_resolve, seq=Seq,
         true ->
             #{name := SelfName} = user_e:get(get(id)),
             #{everyone_role := Everyone} = group_e:get(Id),
-            role:add(Everyone, get(id)),
+            role_e:add(Everyone, get(id)),
             user_e:manage_contact(get(id), add, {group, Id}),
             group_e:cache_user_name(Id, get(id), SelfName),
             icpc_broadcast_entity(get(id),
@@ -235,7 +235,7 @@ handle_packet(#packet{type=invite_resolve, seq=Seq,
 
 %% voice join packet
 handle_packet(#packet{type=voice_join, seq=Seq,
-                      fields=#{channel:=Chan, crypto:=Key}}, ScopeRef) ->
+                      fields=#{channel_e:=Chan, crypto:=Key}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
     Session = tasty:create_session(Key, get(id), Chan),
     Server = tasty:server_name(),

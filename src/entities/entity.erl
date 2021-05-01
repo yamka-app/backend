@@ -79,31 +79,31 @@ handle_entity(#entity{type=file, fields=#{name:=Name, length:=Length}}, Seq, Sco
 
 %% (re-)sets the typing status
 handle_entity(#entity{type=channel, fields=#{id:=Id, typing:=[0]}}, _Seq, _ScopeRef) ->
-    channel:set_typing(Id, get(id)),
+    channel_e:set_typing(Id, get(id)),
     normal_client:icpc_broadcast_to_aware(chan_awareness,
-        #entity{type=channel, fields=#{id=>Id, typing=>channel:get_typing(Id)}}, [id, typing]),
+        #entity{type=channel, fields=#{id=>Id, typing=>channel_e:get_typing(Id)}}, [id, typing]),
     none;
 handle_entity(#entity{type=channel, fields=#{id:=Id, typing:=[]}}, _Seq, _ScopeRef) ->
-    channel:reset_typing(Id, get(id)), 
+    channel_e:reset_typing(Id, get(id)), 
     normal_client:icpc_broadcast_to_aware(chan_awareness,
-        #entity{type=channel, fields=#{id=>Id, typing=>channel:get_typing(Id)}}, [id, typing]),
+        #entity{type=channel, fields=#{id=>Id, typing=>channel_e:get_typing(Id)}}, [id, typing]),
     none;
 
 %% sets the unread message
 handle_entity(#entity{type=channel, fields=#{id:=Id, first_unread:=FirstUnread}}, _Seq, _ScopeRef) ->
     % get the message and its LCID
-    #{lcid := Lcid} = message:get(FirstUnread),
-    channel:set_unread(Id, get(id), {Lcid, FirstUnread}),
+    #{lcid := Lcid} = message_e:get(FirstUnread),
+    channel_e:set_unread(Id, get(id), {Lcid, FirstUnread}),
     none;
 %% marks the channel as read
 handle_entity(#entity{type=channel, fields=#{id:=Id, unread:=0}}, _Seq, _ScopeRef) ->
     % get the last message and its LCID
-    case channel:get_messages(Id, 9223372036854775807, 1, down) of
+    case channel_e:get_messages(Id, 9223372036854775807, 1, down) of
         [] -> ok;
         [LastMsg] ->
-            #{lcid := Lcid} = message:get(LastMsg),
-            channel:set_unread(Id, get(id), {Lcid, LastMsg}),
-            channel:forget_mentions(Id, get(id))
+            #{lcid := Lcid} = message_e:get(LastMsg),
+            channel_e:set_unread(Id, get(id), {Lcid, LastMsg}),
+            channel_e:forget_mentions(Id, get(id))
     end,
     none;
 
@@ -112,7 +112,7 @@ handle_entity(#entity{type=channel, fields=#{id:=0, group:=Group, name:=Name}}, 
     yamka_auth:assert_permission(edit_groups, {ScopeRef, Seq}),
     #{owner := Owner} = group_e:get(Group),
     {_, Owner} = {{ScopeRef, status_packet:make(permission_denied, "No administrative permission", Seq)}, get(id)},
-    channel:create(Name, Group, [], false),
+    channel_e:create(Name, Group, [], false),
     normal_client:icpc_broadcast_to_aware(group_awareness, #entity{
         type=group, fields=group_e:get(Group)}, [id, channels]),
     none;
@@ -121,12 +121,12 @@ handle_entity(#entity{type=channel, fields=#{id:=0, group:=Group, name:=Name}}, 
 handle_entity(#entity{type=channel, fields=#{id:=Id, group:=0}}, Seq, ScopeRef) ->
     yamka_auth:assert_permission(edit_groups, {ScopeRef, Seq}),
     % get existing channel's group
-    #{group := Group} = channel:get(Id),
+    #{group := Group} = channel_e:get(Id),
     % check group ownership
     #{owner := Owner} = group_e:get(Group),
     {_, Owner} = {{ScopeRef, status_packet:make(permission_denied, "No administrative permission", Seq)}, get(id)},
     % modify channel
-    channel:delete(Id),
+    channel_e:delete(Id),
     % broadcast updates
     normal_client:icpc_broadcast_to_aware(group_awareness, #entity{
         type=group, fields=group_e:get(Group)}, [id, channels]),
@@ -136,68 +136,68 @@ handle_entity(#entity{type=channel, fields=#{id:=Id, group:=0}}, Seq, ScopeRef) 
 handle_entity(#entity{type=channel, fields=Fields=#{id:=Id}}, Seq, ScopeRef) ->
     yamka_auth:assert_permission(edit_groups, {ScopeRef, Seq}),
     % get existing channel's group
-    #{group := Group} = channel:get(Id),
+    #{group := Group} = channel_e:get(Id),
     % check group ownership
     #{owner := Owner} = group_e:get(Group),
     {_, Owner} = {{ScopeRef, status_packet:make(permission_denied, "No administrative permission", Seq)}, get(id)},
     % modify channel
-    channel:update(Id, maps:filter(fun(K, _) -> K =/= id end, Fields)),
+    channel_e:update(Id, maps:filter(fun(K, _) -> K =/= id end, Fields)),
     % broadcast updates
     normal_client:icpc_broadcast_to_aware(chan_awareness,
         #entity{type=channel, fields=Fields}, maps:keys(Fields)),
     none;
 
 %% sends a message
-handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, latest:=
+handle_entity(M=#entity{type=message,       fields=#{id:=0, channel_e:=Channel, latest:=
               L=#entity{type=message_state, fields=#{id:=0, sections:=Sections}}}}, Seq, ScopeRef) ->
     % cheeck token permissions
-    #{group := Group} = channel:get(Channel),
+    #{group := Group} = channel_e:get(Channel),
     yamka_auth:assert_permission(if
         Group =/= 0 -> send_group_messages;
         true -> send_direct_messages
     end, {ScopeRef, Seq}),
     % parse mentions
-    Filtered = message_state:filter_sections(Sections),
-    Mentions = message_state:parse_mentions(Filtered),
+    Filtered = message_state_e:filter_sections(Sections),
+    Mentions = message_state_e:parse_mentions(Filtered),
     % create entities
-    {MsgId, _} = message:create(Channel, get(id)),
-    StateId = message_state:create(MsgId, Filtered),
-    channel:reg_msg(Channel, MsgId),
+    {MsgId, _} = message_e:create(Channel, get(id)),
+    StateId = message_state_e:create(MsgId, Filtered),
+    channel_e:reg_msg(Channel, MsgId),
     % register mentions
-    [channel:add_mention(Channel, User, MsgId) || User <- Mentions],
+    [channel_e:add_mention(Channel, User, MsgId) || User <- Mentions],
     % broadcast the message
     normal_client:icpc_broadcast_to_aware(chan_awareness, Channel,
-        M#entity{fields=maps:merge(message:get(MsgId), #{states => message:get_states(MsgId), latest =>
-            L#entity{fields=message_state:get(StateId)}})}, [id, states, channel, sender, latest]),
+        M#entity{fields=maps:merge(message_e:get(MsgId), #{states => message_e:get_states(MsgId), latest =>
+            L#entity{fields=message_state_e:get(StateId)}})}, [id, states, channel, sender, latest]),
     none;
 
 %% edits a message
 handle_entity(M=#entity{type=message,       fields=#{id:=Id, latest:=
               L=#entity{type=message_state, fields=#{id:=0, sections:=Sections}}}}, Seq, ScopeRef) ->
-    Existing = message:get(Id),
+    Existing = message_e:get(Id),
     {_, true} = {{ScopeRef, status_packet:make(permission_denied, "This message was sent by another user", Seq)},
         maps:get(sender, Existing) =:= get(id)},
-    StateId = message_state:create(Id, message_state:filter_sections(Sections)),
+    StateId = message_state_e:create(Id, message_state_e:filter_sections(Sections)),
     % broadcast the message
     normal_client:icpc_broadcast_to_aware(chan_awareness, maps:get(channel, Existing),
-        M#entity{fields=maps:merge(message:get(Id), #{states => message:get_states(Id), latest =>
-            L#entity{fields=message_state:get(StateId)}})}, [id, states, channel, sender, latest]),
+        M#entity{fields=maps:merge(message_e:get(Id), #{states => message_e:get_states(Id), latest =>
+            L#entity{fields=message_state_e:get(StateId)}})}, [id, states, channel, sender, latest]),
     none;
 
 %% deletes a message
 handle_entity(M=#entity{type=message, fields=#{id:=Id, sender:=0}}, Seq, ScopeRef) ->
-    #{channel := Channel, sender := Sender} = message:get(Id),
+    #{channel := Channel, sender := Sender} = message_e:get(Id),
     {_, true} = {{ScopeRef, status_packet:make(permission_denied, "This message was sent by another user", Seq)},
         Sender =:= get(id)},
     % cheeck token permissions
-    #{group := Group} = channel:get(Channel),
+    #{group := Group} = channel_e:get(Channel),
     yamka_auth:assert_permission(if
         Group =/= 0 -> delete_group_messages;
         true -> delete_direct_messages
     end, {ScopeRef, Seq}),
     % delete message
-    channel:unreg_msg(Channel, Id),
-    message:delete(Id),
+    channel_e:unreg_msg(Channel, Id),
+    message_e:delete(Id),
     % broadcast the deletion notification
     normal_client:icpc_broadcast_to_aware(chan_awareness, Channel,
         M#entity{fields=#{id => Id, channel => Channel, sender => 0}},
@@ -209,7 +209,7 @@ handle_entity(#entity{type=group, fields=#{id:=0, name:=Name}}, Seq, ScopeRef) -
     yamka_auth:assert_permission(create_groups, {ScopeRef, Seq}),
     #{name := Username} = user_e:get(get(id)),
     {Id, Everyone} = group_e:create(Name, get(id)),
-    role:add(Everyone, get(id)),
+    role_e:add(Everyone, get(id)),
     group_e:cache_user_name(Id, get(id), Username),
     user_e:manage_contact(get(id), add, {group, Id}),
     normal_client:icpc_broadcast_entity(get(id),
@@ -228,9 +228,9 @@ handle_entity(#entity{type=group, fields=#{id:=Id, owner:=0}}, Seq, ScopeRef) ->
     % nuke everything!
     lists:foreach(fun(R) -> group_e:remove_invite(Id, R) end, Invites),
     group_e:delete(Id),
-    lists:foreach(fun channel:delete/1, Channels),
-    lists:foreach(fun role:nuke/1, lists:delete(Everyone, Roles)),
-    role:nuke(Everyone, true),
+    lists:foreach(fun channel_e:delete/1, Channels),
+    lists:foreach(fun role_e:nuke/1, lists:delete(Everyone, Roles)),
+    role_e:nuke(Everyone, true),
     normal_client:icpc_broadcast_to_aware(group_awareness,
         #entity{type=group, fields=#{id => Id, owner => 0}}, [id, owner]),
     none;
@@ -259,7 +259,7 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
     Online = user_e:online(Id),
     Unfiltered = user_e:get(Id),
 
-    Dm = case channel:get_dm([get(id), Id]) of
+    Dm = case channel_e:get_dm([get(id), Id]) of
         nodm -> #{};
         DmId -> #{dm_channel => DmId}
     end,
@@ -315,9 +315,9 @@ handle_get_request(#entity_get_rq{type=file, id=Id, pagination=none, context=non
 handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=none, context=none}, _Ref) ->
     ets:insert(chan_awareness, {Id, {get(id), self()}}),
 
-    Unfiltered = channel:get(Id),
-    {UnreadLcid, UnreadId} = channel:get_unread(Id, get(id)),
-    Mentions = channel:get_mentions(Id, get(id)),
+    Unfiltered = channel_e:get(Id),
+    {UnreadLcid, UnreadId} = channel_e:get_unread(Id, get(id)),
+    Mentions = channel_e:get_mentions(Id, get(id)),
     Filtered = maps:filter(fun(K, _) ->
             case K of
                 lcid  -> false;
@@ -332,29 +332,29 @@ handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=none, context=
         end,
     #entity{type=channel, fields=maps:merge(
         maps:merge(Filtered, AddMap),
-        #{typing   => channel:get_typing(Id),
+        #{typing   => channel_e:get_typing(Id),
           mentions => Mentions})};
 
 %% gets channel messages
 handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=#entity_pagination{
         field=4, dir=Dir, from=From, cnt=Cnt}, context=none}, Ref) ->
-    #{group := Group} = channel:get(Id),
+    #{group := Group} = channel_e:get(Id),
     yamka_auth:assert_permission(if
         Group =/= 0 -> read_group_message_history;
         true -> read_direct_message_history
     end, Ref),
-    #entity{type=channel, fields=#{id => Id, messages => channel:get_messages(Id, From, Cnt, Dir)}};
+    #entity{type=channel, fields=#{id => Id, messages => channel_e:get_messages(Id, From, Cnt, Dir)}};
 
 %% gets a message by id
 handle_get_request(#entity_get_rq{type=message, id=Id}, _Ref) ->
-    Filtered = maps:filter(fun(K, _) -> K /= lcid end, message:get(Id)),
-    StateMap = #{states => message:get_states(Id), latest => #entity{type=message_state, fields=
-        message_state:get(message:get_latest_state(Id))}},
+    Filtered = maps:filter(fun(K, _) -> K /= lcid end, message_e:get(Id)),
+    StateMap = #{states => message_e:get_states(Id), latest => #entity{type=message_state, fields=
+        message_state_e:get(message_e:get_latest_state(Id))}},
     #entity{type=message, fields=maps:merge(Filtered, StateMap)};
 
 %% gets a message state by id
 handle_get_request(#entity_get_rq{type=message_state, id=Id, pagination=none, context=none}, _Ref) ->
-    #entity{type=message_state, fields=message_state:get(Id)};
+    #entity{type=message_state, fields=message_state_e:get(Id)};
 
 %% gets a group by id
 handle_get_request(#entity_get_rq{type=group, id=Id, pagination=none, context=none}, _Ref) ->
@@ -363,12 +363,12 @@ handle_get_request(#entity_get_rq{type=group, id=Id, pagination=none, context=no
 
 %% gets a role by id
 handle_get_request(#entity_get_rq{type=role, id=Id, pagination=none, context=none}, _Ref) ->
-    #entity{type=role, fields=role:get(Id)};
+    #entity{type=role, fields=role_e:get(Id)};
 
 %% gets role members
 handle_get_request(#entity_get_rq{type=role, id=Id, pagination=#entity_pagination{
         field=6, dir=Dir, from=From, cnt=Cnt}, context=none}, _Ref) ->
-    #entity{type=role, fields=#{id => Id, members => role:get_members(Id, From, Cnt, Dir)}}.
+    #entity{type=role, fields=#{id => Id, members => role_e:get_members(Id, From, Cnt, Dir)}}.
 
 %% encodes entities
 encode_field(_Proto, number,   V, {Size})       -> datatypes:enc_num(V, Size);

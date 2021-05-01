@@ -186,6 +186,13 @@
                 msg_id   => {1, number, {8}},
                 sections => {2, list,   {1, fun datatypes:enc_msg_section/1,
                                             fun datatypes:len_dec_msg_section/1}}
+            },
+        poll => #{
+                id           => {0, number,   {8}},
+                options      => {1, str_list, {}},
+                option_votes => {2, num_list, {3}},
+                self_vote    => {3, number,   {1}},
+                total_voted  => {4, number,   {3}}
             }
     }
 }).

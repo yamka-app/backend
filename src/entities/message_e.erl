@@ -2,7 +2,7 @@
 %%% License, v. 2.0. If a copy of the MPL was not distributed with this
 %%% file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
--module(message).
+-module(message_e).
 -author("Yamka").
 -license("MPL-2.0").
 -description("The message entity").
@@ -27,7 +27,7 @@ get(Id) ->
 create(Channel, Sender) ->
     Id = utils:gen_snowflake(),
     % get the channel LCID
-    #{lcid := Lcid} = channel:get(Channel),
+    #{lcid := Lcid} = channel_e:get(Channel),
     % execute the CQL query
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = "INSERT INTO messages (id, channel, lcid, sender) VALUES (?,?,?,?)",
@@ -39,7 +39,7 @@ create(Channel, Sender) ->
         ]
     }),
     % update the channel's LCID
-    channel:update(Channel, #{lcid => Lcid + 1}),
+    channel_e:update(Channel, #{lcid => Lcid + 1}),
     {Id, Lcid + 1}.
 
 delete(Id) ->

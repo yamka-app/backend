@@ -2,7 +2,7 @@
 %%% License, v. 2.0. If a copy of the MPL was not distributed with this
 %%% file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
--module(channel).
+-module(channel_e).
 -author("Yamka").
 -license("MPL-2.0").
 -description("The channel entity").
@@ -72,7 +72,7 @@ get_unread(Id, User) ->
             end;
         [{lcid, Lcid}, {msg, Msg}] -> {Lcid, Msg};
         empty_dataset ->
-            Lcid = maps:get(lcid, channel:get(Id)),
+            Lcid = maps:get(lcid, channel_e:get(Id)),
             [Msg|_] = if Lcid==0->[0];true->get_messages(Id, 9223372036854775807, 1, down)end, % gets the last message
             set_unread(Id, User, {Lcid, Msg}),
             {Lcid, Msg}
