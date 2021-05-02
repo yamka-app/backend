@@ -40,8 +40,8 @@ vote(Id, User, Option) ->
     #{total_votes := TotalVotes, option_votes := OptionVotes} = poll_e:get(Id),
     if  Option > length(OptionVotes) -> {error, badopt};
         true ->
-            UpdOptionVotes = utils:list_set(OptionVotes, Option,
-                lists:nth(Option, OptionVotes) + 1),
+            UpdOptionVotes = utils:list_set(OptionVotes, Option + 1,
+                lists:nth(Option + 1, OptionVotes) + 1),
             {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
                 statement = "BEGIN BATCH "
                     "UPDATE polls SET total_votes=?, option_votes=? WHERE id=?; "
@@ -57,8 +57,8 @@ vote(Id, User, Option) ->
 
 get_vote(Id, User) ->
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "SELECT option FROM poll_votes WHERE id=? AND user=?",
-        values    = [{id, Id}, {user, User}]
+        statement = "SELECT option FROM poll_votes WHERE poll=? AND user=?",
+        values    = [{poll, Id}, {user, User}]
     }),
     case cqerl:head(Rows) of
         empty_dataset      -> {error, novote};

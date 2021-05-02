@@ -139,7 +139,7 @@ list_diff(L1, L2) ->
     }.
 
 list_set(List, Where, What) ->
-    {Before, [_|After]} = lists:split(Where, List),
+    {Before, [_|After]} = lists:split(Where - 1, List),
     Before ++ [What] ++ After.
 
 filter_text(Text) -> string:trim(string:slice(Text, 0, 4096), both, "\r\n\t ").

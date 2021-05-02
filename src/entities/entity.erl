@@ -261,9 +261,12 @@ handle_entity(#entity{type=poll, fields=#{id:=0, options:=Options}}, Seq, ScopeR
 %% votes in a poll
 handle_entity(#entity{type=poll, fields=#{id:=Id, self_vote:=Option}}, Seq, ScopeRef) ->
     yamka_auth:assert_permission(vote_in_polls, {ScopeRef, Seq}),
+    {_, {error, novote}} = {{ScopeRef, status_packet:make(poll_error, "Already voted", Seq)},
+        poll_e:get_vote(Id, get(id))},
     {_, ok} = {status_packet:make(poll_error, "Invalid option", Seq), poll_e:vote(Id, get(id), Option)},
     normal_client:icpc_broadcast_to_aware(poll_awareness,
-        #entity{type=poll, fields=poll_e:get(Id)}, [id, total_votes, option_votes]).
+        #entity{type=poll, fields=poll_e:get(Id)}, [id, total_votes, option_votes]),
+    none.
 
 
 
@@ -392,12 +395,13 @@ handle_get_request(#entity_get_rq{type=role, id=Id, pagination=#entity_paginatio
 
 %% gets a poll by id
 handle_get_request(#entity_get_rq{type=poll, id=Id, pagination=none, context=none}, _Ref) ->
+    ets:insert(poll_awareness, {Id, {get(id), self()}}),
     Main = poll_e:get(Id),
     Fields = case poll_e:get_vote(Id, get(id)) of
         {error, novote} -> Main;
         {ok, Option}    -> maps:merge(Main, #{self_vote => Option})
     end,
-    #entity{type=role, fields=Fields}.
+    #entity{type=poll, fields=Fields}.
 
 
 
