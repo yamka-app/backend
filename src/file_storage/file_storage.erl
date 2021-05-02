@@ -34,7 +34,7 @@ register_file(Path, Name) ->
             {name,       Name},
             {preview,    ""},
             {pixel_size, ""},
-            {length, FileSize}
+            {length,     FileSize}
         ]
     }),
     Id.

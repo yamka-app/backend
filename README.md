@@ -65,7 +65,7 @@ You don't want to rebuild the whole project every time you've made a small chang
   - [x] Realtime communication
     - [x] Voice
       - [ ] "on the fly" voice server selection
-  - [ ] Polls
+  - [x] Polls
   - [ ] Emergency notifications
   - [ ] Bots
   - [ ] Make code ready for distribution
@@ -76,3 +76,4 @@ You don't want to rebuild the whole project every time you've made a small chang
 
 ## features planned after the 1.0 release
   - [ ] Video calling
+  - [ ] Direct message end-to-end encryption

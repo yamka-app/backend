@@ -12,6 +12,7 @@
 -export([get_channels/1, get_roles/1, get/1, get/2, create/2, delete/1]).
 -export([get_invites/1, add_invite/1, remove_invite/2, resolve_invite/1]).
 -export([find_users/3, cache_user_name/3]).
+-export([assert_permission/3, has_permission/2]).
 
 get_channels(Id) ->
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
@@ -134,3 +135,15 @@ cache_user_name(Id, User, Name) ->
       integer_to_binary(User),
       [{<<"name">>, Name},
        {<<"group">>, integer_to_binary(Id)}]).
+
+has_permission(Id, Perm) ->
+    % group owners have every permission regardless of their roles
+    #{owner := Owner} = group_e:get(Id),
+    (erlang:get(id) =:= Owner)
+    or
+    role_e:perm_has(role_e:perm_waterfall(erlang:get(id), Id), Perm).
+
+assert_permission(Id, Perm, {ScopeRef, Seq}) ->
+    {_, true} = {{ScopeRef,
+        status_packet:make(permission_denied, "Missing " ++ atom_to_list(Perm) ++ " group permission", Seq)},
+            has_permission(Id, Perm)}.

@@ -18,10 +18,10 @@ structure(Proto, EntityType) ->
     Structure.
 
 %% updates a user
-handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, ScopeRef) ->
+handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, Ref) ->
     % a user can only change info about themselves
-    yamka_auth:assert_permission(edit_profile, {ScopeRef, Seq}),
-    {_, Id} = {{ScopeRef, status_packet:make(invalid_id, "You can only change info about yourself", Seq)}, get(id)},
+    yamka_auth:assert_permission(edit_profile, {Ref, Seq}),
+    {_, Id} = {{Ref, status_packet:make(invalid_id, "You can only change info about yourself", Seq)}, get(id)},
     % only allow allowed fields (wow thx captain obvious)
     BroadcastFields = [name, status, status_text, ava_file],
     AllowedFields = maps:filter(fun(K, _) -> lists:member(K, [email|BroadcastFields]) end, F),
@@ -68,9 +68,10 @@ handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, ScopeRef) ->
             none
     end;
 
+
 %% puts a file
-handle_entity(#entity{type=file, fields=#{name:=Name, length:=Length}}, Seq, ScopeRef) ->
-    {_, none} = {{ScopeRef, status_packet:make(one_upload_only,
+handle_entity(#entity{type=file, fields=#{name:=Name, length:=Length}}, Seq, Ref) ->
+    {_, none} = {{Ref, status_packet:make(one_upload_only,
             "Only one concurrent upload is allowed", Seq)}, get(file_recv_pid)},
     put(file_recv_pid, file_storage:recv_file(Seq,
         {get(socket), get(protocol), self(), get(cassandra)},
@@ -78,25 +79,26 @@ handle_entity(#entity{type=file, fields=#{name:=Name, length:=Length}}, Seq, Sco
     none;
 
 %% (re-)sets the typing status
-handle_entity(#entity{type=channel, fields=#{id:=Id, typing:=[0]}}, _Seq, _ScopeRef) ->
+handle_entity(#entity{type=channel, fields=#{id:=Id, typing:=[0]}}, _Seq, _Ref) ->
     channel_e:set_typing(Id, get(id)),
     normal_client:icpc_broadcast_to_aware(chan_awareness,
         #entity{type=channel, fields=#{id=>Id, typing=>channel_e:get_typing(Id)}}, [id, typing]),
     none;
-handle_entity(#entity{type=channel, fields=#{id:=Id, typing:=[]}}, _Seq, _ScopeRef) ->
+handle_entity(#entity{type=channel, fields=#{id:=Id, typing:=[]}}, _Seq, _Ref) ->
     channel_e:reset_typing(Id, get(id)), 
     normal_client:icpc_broadcast_to_aware(chan_awareness,
         #entity{type=channel, fields=#{id=>Id, typing=>channel_e:get_typing(Id)}}, [id, typing]),
     none;
 
+
 %% sets the unread message
-handle_entity(#entity{type=channel, fields=#{id:=Id, first_unread:=FirstUnread}}, _Seq, _ScopeRef) ->
+handle_entity(#entity{type=channel, fields=#{id:=Id, first_unread:=FirstUnread}}, _Seq, _Ref) ->
     % get the message and its LCID
     #{lcid := Lcid} = message_e:get(FirstUnread),
     channel_e:set_unread(Id, get(id), {Lcid, FirstUnread}),
     none;
 %% marks the channel as read
-handle_entity(#entity{type=channel, fields=#{id:=Id, unread:=0}}, _Seq, _ScopeRef) ->
+handle_entity(#entity{type=channel, fields=#{id:=Id, unread:=0}}, _Seq, _Ref) ->
     % get the last message and its LCID
     case channel_e:get_messages(Id, 9223372036854775807, 1, down) of
         [] -> ok;
@@ -107,55 +109,54 @@ handle_entity(#entity{type=channel, fields=#{id:=Id, unread:=0}}, _Seq, _ScopeRe
     end,
     none;
 
+
 %% creates a channel
-handle_entity(#entity{type=channel, fields=#{id:=0, group:=Group, name:=Name}}, Seq, ScopeRef) ->
-    yamka_auth:assert_permission(edit_groups, {ScopeRef, Seq}),
-    #{owner := Owner} = group_e:get(Group),
-    {_, Owner} = {{ScopeRef, status_packet:make(permission_denied, "No administrative permission", Seq)}, get(id)},
+handle_entity(#entity{type=channel, fields=#{id:=0, group:=Group, name:=Name}}, Seq, Ref) ->
+    yamka_auth:assert_permission(edit_groups, {Ref, Seq}),
+    group_e:assert_permission(Group, edit_channels, {Ref, Seq}),
+
     channel_e:create(Name, Group, [], false),
     normal_client:icpc_broadcast_to_aware(group_awareness, #entity{
         type=group, fields=group_e:get(Group)}, [id, channels]),
     none;
 
+
 %% deletes a channel
-handle_entity(#entity{type=channel, fields=#{id:=Id, group:=0}}, Seq, ScopeRef) ->
-    yamka_auth:assert_permission(edit_groups, {ScopeRef, Seq}),
-    % get existing channel's group
+handle_entity(#entity{type=channel, fields=#{id:=Id, group:=0}}, Seq, Ref) ->
+    yamka_auth:assert_permission(edit_groups, {Ref, Seq}),
     #{group := Group} = channel_e:get(Id),
-    % check group ownership
-    #{owner := Owner} = group_e:get(Group),
-    {_, Owner} = {{ScopeRef, status_packet:make(permission_denied, "No administrative permission", Seq)}, get(id)},
-    % modify channel
+    group_e:assert_permission(Group, edit_channels, {Ref, Seq}),
+
     channel_e:delete(Id),
-    % broadcast updates
     normal_client:icpc_broadcast_to_aware(group_awareness, #entity{
         type=group, fields=group_e:get(Group)}, [id, channels]),
     none;
 
+
 %% modifies a channel
-handle_entity(#entity{type=channel, fields=Fields=#{id:=Id}}, Seq, ScopeRef) ->
-    yamka_auth:assert_permission(edit_groups, {ScopeRef, Seq}),
-    % get existing channel's group
+handle_entity(#entity{type=channel, fields=Fields=#{id:=Id}}, Seq, Ref) ->
+    yamka_auth:assert_permission(edit_groups, {Ref, Seq}),
     #{group := Group} = channel_e:get(Id),
-    % check group ownership
-    #{owner := Owner} = group_e:get(Group),
-    {_, Owner} = {{ScopeRef, status_packet:make(permission_denied, "No administrative permission", Seq)}, get(id)},
-    % modify channel
+    group_e:assert_permission(Group, edit_channels, {Ref, Seq}),
+    
     channel_e:update(Id, maps:filter(fun(K, _) -> K =/= id end, Fields)),
-    % broadcast updates
     normal_client:icpc_broadcast_to_aware(chan_awareness,
         #entity{type=channel, fields=Fields}, maps:keys(Fields)),
     none;
 
+
 %% sends a message
 handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, latest:=
-              L=#entity{type=message_state, fields=#{id:=0, sections:=Sections}}}}, Seq, ScopeRef) ->
-    % cheeck token permissions
+              L=#entity{type=message_state, fields=#{id:=0, sections:=Sections}}}}, Seq, Ref) ->
+    % check token permissions
     #{group := Group} = channel_e:get(Channel),
     yamka_auth:assert_permission(if
-        Group =/= 0 -> send_group_messages;
+        Group =/= 0 ->
+            group_e:assert_permission(Group, send_messages, {Ref, Seq}),
+            send_group_messages;
         true -> send_direct_messages
-    end, {ScopeRef, Seq}),
+    end, {Ref, Seq}),
+
     % parse mentions
     Filtered = message_state_e:filter_sections(Sections),
     Mentions = message_state_e:parse_mentions(Filtered),
@@ -171,42 +172,47 @@ handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, la
             L#entity{fields=message_state_e:get(StateId)}})}, [id, states, channel, sender, latest]),
     none;
 
+
 %% edits a message
 handle_entity(M=#entity{type=message,       fields=#{id:=Id, latest:=
-              L=#entity{type=message_state, fields=#{id:=0, sections:=Sections}}}}, Seq, ScopeRef) ->
+              L=#entity{type=message_state, fields=#{id:=0, sections:=Sections}}}}, Seq, Ref) ->
     Existing = message_e:get(Id),
-    {_, true} = {{ScopeRef, status_packet:make(permission_denied, "This message was sent by another user", Seq)},
-        maps:get(sender, Existing) =:= get(id)},
+    SelfSent = maps:get(sender, Existing) =:= get(id),
+    {_, true} = {{Ref, status_packet:make(permission_denied, "This message was sent by another user", Seq)},
+        SelfSent},
+
     StateId = message_state_e:create(Id, message_state_e:filter_sections(Sections)),
-    % broadcast the message
     normal_client:icpc_broadcast_to_aware(chan_awareness, maps:get(channel, Existing),
         M#entity{fields=maps:merge(message_e:get(Id), #{states => message_e:get_states(Id), latest =>
             L#entity{fields=message_state_e:get(StateId)}})}, [id, states, channel, sender, latest]),
     none;
 
+
 %% deletes a message
-handle_entity(M=#entity{type=message, fields=#{id:=Id, sender:=0}}, Seq, ScopeRef) ->
+handle_entity(M=#entity{type=message, fields=#{id:=Id, sender:=0}}, Seq, Ref) ->
     #{channel := Channel, sender := Sender} = message_e:get(Id),
-    {_, true} = {{ScopeRef, status_packet:make(permission_denied, "This message was sent by another user", Seq)},
+    #{group := Group} = channel_e:get(Channel),
+    {_, true} = {{Ref, status_packet:make(permission_denied, "This message was sent by another user", Seq)},
         Sender =:= get(id)},
-    % cheeck token permissions
     #{group := Group} = channel_e:get(Channel),
     yamka_auth:assert_permission(if
-        Group =/= 0 -> delete_group_messages;
+        Group =/= 0 ->
+            group_e:assert_permission(Group, delete_others_messages, {Ref, Seq}),
+            delete_group_messages;
         true -> delete_direct_messages
-    end, {ScopeRef, Seq}),
-    % delete message
+    end, {Ref, Seq}),
+
     channel_e:unreg_msg(Channel, Id),
     message_e:delete(Id),
-    % broadcast the deletion notification
     normal_client:icpc_broadcast_to_aware(chan_awareness, Channel,
         M#entity{fields=#{id => Id, channel => Channel, sender => 0}},
             [id, channel, sender]),
     none;
 
+
 %% creates a group
-handle_entity(#entity{type=group, fields=#{id:=0, name:=Name}}, Seq, ScopeRef) ->
-    yamka_auth:assert_permission(create_groups, {ScopeRef, Seq}),
+handle_entity(#entity{type=group, fields=#{id:=0, name:=Name}}, Seq, Ref) ->
+    yamka_auth:assert_permission(create_groups, {Ref, Seq}),
     #{name := Username} = user_e:get(get(id)),
     {Id, Everyone} = group_e:create(Name, get(id)),
     role_e:add(Everyone, get(id)),
@@ -216,16 +222,17 @@ handle_entity(#entity{type=group, fields=#{id:=0, name:=Name}}, Seq, ScopeRef) -
         #entity{type=user, fields=user_e:get(get(id))}, [groups]),
     none;
 
+
 %% deletes a group
-handle_entity(#entity{type=group, fields=#{id:=Id, owner:=0}}, Seq, ScopeRef) ->
-    yamka_auth:assert_permission(delete_groups, {ScopeRef, Seq}),
+handle_entity(#entity{type=group, fields=#{id:=Id, owner:=0}}, Seq, Ref) ->
+    yamka_auth:assert_permission(delete_groups, {Ref, Seq}),
     #{owner := Owner,
       channels := Channels,
       roles := Roles,
       invites := Invites,
       everyone_role := Everyone} = group_e:get(Id),
-    {_, Owner} = {{ScopeRef, status_packet:make(permission_denied, "No administrative permission", Seq)}, get(id)},
-    % nuke everything!
+    {_, Owner} = {{Ref, status_packet:make(permission_denied, "Only the owner can do this", Seq)}, get(id)},
+
     lists:foreach(fun(R) -> group_e:remove_invite(Id, R) end, Invites),
     group_e:delete(Id),
     lists:foreach(fun channel_e:delete/1, Channels),
@@ -235,22 +242,25 @@ handle_entity(#entity{type=group, fields=#{id:=Id, owner:=0}}, Seq, ScopeRef) ->
         #entity{type=group, fields=#{id => Id, owner => 0}}, [id, owner]),
     none;
 
+
 %% manages invites
-handle_entity(#entity{type=group, fields=#{id:=Id, invites:=Invites}}, Seq, ScopeRef) ->
-    yamka_auth:assert_permission(edit_groups, {ScopeRef, Seq}),
-    #{owner := Owner, invites := ExInvites} = group_e:get(Id),
-    {_, Owner} = {{ScopeRef, status_packet:make(permission_denied, "No administrative permission", Seq)}, get(id)},
-    % calculate the list difference
+handle_entity(#entity{type=group, fields=#{id:=Id, invites:=Invites}}, Seq, Ref) ->
+    yamka_auth:assert_permission(edit_groups, {Ref, Seq}),
+    group_e:assert_permission(Id, edit_invites, {Ref, Seq}),
+
+    #{invites := ExInvites} = group_e:get(Id),
     {Added, Removed} = utils:list_diff(Invites, ExInvites),
     lists:foreach(fun(_) -> group_e:add_invite(Id) end, lists:seq(1, length(Added))),
     lists:foreach(fun(I) -> group_e:remove_invite(Id, I) end, Removed),
     #{invites := NewInvites} = group_e:get(Id),
     entities_packet:make([#entity{type=group, fields=#{id => Id, invites => NewInvites}}], Seq);
 
+
 %% creates a poll
-handle_entity(#entity{type=poll, fields=#{id:=0, options:=Options}}, Seq, ScopeRef) ->
-    yamka_auth:assert_permission(create_polls, {ScopeRef, Seq}),
-    {_, false} = {{ScopeRef, status_packet:make(poll_error, "Zero or too many options", Seq)},
+handle_entity(#entity{type=poll, fields=#{id:=0, options:=Options}}, Seq, Ref) ->
+    yamka_auth:assert_permission(create_polls, {Ref, Seq}),
+
+    {_, false} = {{Ref, status_packet:make(poll_error, "Zero or too many options", Seq)},
         (length(Options) > 10) or (length(Options) == 0)},
     Id = poll_e:create(Options),
     ets:insert(poll_awareness, {Id, {get(id), self()}}),
@@ -258,10 +268,12 @@ handle_entity(#entity{type=poll, fields=#{id:=0, options:=Options}}, Seq, ScopeR
         id => Id, options => Options, total_votes => 0,
         option_votes => [0 || _ <- Options]}}], Seq);
 
+
 %% votes in a poll
-handle_entity(#entity{type=poll, fields=#{id:=Id, self_vote:=Option}}, Seq, ScopeRef) ->
-    yamka_auth:assert_permission(vote_in_polls, {ScopeRef, Seq}),
-    {_, {error, novote}} = {{ScopeRef, status_packet:make(poll_error, "Already voted", Seq)},
+handle_entity(#entity{type=poll, fields=#{id:=Id, self_vote:=Option}}, Seq, Ref) ->
+    yamka_auth:assert_permission(vote_in_polls, {Ref, Seq}),
+
+    {_, {error, novote}} = {{Ref, status_packet:make(poll_error, "Already voted", Seq)},
         poll_e:get_vote(Id, get(id))},
     {_, ok} = {status_packet:make(poll_error, "Invalid option", Seq), poll_e:vote(Id, get(id), Option)},
     normal_client:icpc_broadcast_to_aware(poll_awareness,
@@ -323,16 +335,19 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
         end, Unfiltered)),
     #entity{type=user, fields=maps:merge(FilteredFields, Mfa)};
 
+
 %% gets a user in context of a group
 handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=
         #entity_context{type=group, id=_Group}}, _Ref) ->
     % TODO
     #entity{type=user, fields=#{id => Id, color => 0}};
 
+
 %% gets a file
 handle_get_request(#entity_get_rq{type=file, id=Id, pagination=none, context=none}, _Ref) ->
     % there are no permission restrictions on file accesses
     #entity{type=file, fields=file_e:get(Id)};
+
 
 %% gets a channel
 handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=none, context=none}, _Ref) ->
@@ -358,15 +373,19 @@ handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=none, context=
         #{typing   => channel_e:get_typing(Id),
           mentions => Mentions})};
 
+
 %% gets channel messages
 handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=#entity_pagination{
         field=4, dir=Dir, from=From, cnt=Cnt}, context=none}, Ref) ->
     #{group := Group} = channel_e:get(Id),
     yamka_auth:assert_permission(if
-        Group =/= 0 -> read_group_message_history;
+        Group =/= 0 ->
+            group_e:assert_permission(Group, read_messages, Ref),
+            read_group_message_history;
         true -> read_direct_message_history
     end, Ref),
     #entity{type=channel, fields=#{id => Id, messages => channel_e:get_messages(Id, From, Cnt, Dir)}};
+
 
 %% gets a message by id
 handle_get_request(#entity_get_rq{type=message, id=Id}, _Ref) ->
@@ -375,23 +394,30 @@ handle_get_request(#entity_get_rq{type=message, id=Id}, _Ref) ->
         message_state_e:get(message_e:get_latest_state(Id))}},
     #entity{type=message, fields=maps:merge(Filtered, StateMap)};
 
+
 %% gets a message state by id
 handle_get_request(#entity_get_rq{type=message_state, id=Id, pagination=none, context=none}, _Ref) ->
     #entity{type=message_state, fields=message_state_e:get(Id)};
+
 
 %% gets a group by id
 handle_get_request(#entity_get_rq{type=group, id=Id, pagination=none, context=none}, _Ref) ->
     ets:insert(group_awareness, {Id, {get(id), self()}}),
     #entity{type=group, fields=group_e:get(Id)};
 
+
 %% gets a role by id
 handle_get_request(#entity_get_rq{type=role, id=Id, pagination=none, context=none}, _Ref) ->
     #entity{type=role, fields=role_e:get(Id)};
 
+
 %% gets role members
 handle_get_request(#entity_get_rq{type=role, id=Id, pagination=#entity_pagination{
-        field=6, dir=Dir, from=From, cnt=Cnt}, context=none}, _Ref) ->
+        field=6, dir=Dir, from=From, cnt=Cnt}, context=none}, Ref) ->
+    #{group := Group} = role_e:get(Id),
+    group_e:assert_permission(Group, see_members, Ref),
     #entity{type=role, fields=#{id => Id, members => role_e:get_members(Id, From, Cnt, Dir)}};
+
 
 %% gets a poll by id
 handle_get_request(#entity_get_rq{type=poll, id=Id, pagination=none, context=none}, _Ref) ->

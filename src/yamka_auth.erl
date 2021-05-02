@@ -65,7 +65,7 @@ has_permission(Perm) -> lists:member(Perm, get(perms)).
 %% "asserts" a permission
 assert_permission(Perm, {ScopeRef, Seq}) ->
     {_, true} = {{ScopeRef,
-        status_packet:make(permission_denied, "Missing token permissions", Seq)},
+        status_packet:make(permission_denied, "Missing " ++ atom_to_list(Perm) ++ " token permission", Seq)},
         has_permission(Perm)}.
 
 %% creates a TOTP secret

@@ -7,10 +7,12 @@
 -license("MPL-2.0").
 -description("The role entity").
 
+-include("./entity.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
 -export([get/1, create/5, delete/1, nuke/1, nuke/2]).
--export([get_members/4, add/2, remove/2]).
+-export([get_members/4, get_roles/2, add/2, remove/2]).
+-export([perm_waterfall/1, perm_waterfall/2, perm_val/2, perm_set/3, perm_has/2, perm_atom/1]).
 
 get(Id) ->
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
@@ -18,7 +20,10 @@ get(Id) ->
         values    = [{id, Id}]
     }),
     1 = cqerl:size(Rows),
-    maps:filter(fun(K,_)->K/=permissions end, maps:from_list(cqerl:head(Rows))).
+    maps:map(fun(K, V) -> case K of
+        permissions -> conformant_perms(V);
+        _ -> V
+    end end, maps:from_list(cqerl:head(Rows))).
 
 create(Group, Name, Color, Priority, Perms) ->
     Id = utils:gen_snowflake(),
@@ -59,12 +64,11 @@ nuke(Id, Group, From, Batch, RemGroup) ->
 add(Id, User) ->
     #{group := Group} = role_e:get(Id),
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "INSERT INTO roles_by_user (group, user, role) VALUES (?,?,?)",
+        statement = "BEGIN BATCH;"
+            "INSERT INTO roles_by_user (group, user, role) VALUES (?,?,?);"
+            "INSERT INTO users_by_role (user, role) VALUES (?,?);"
+            "APPLY BATCH",
         values = [{group, Group}, {user, User}, {role, Id}]
-    }),
-    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "INSERT INTO users_by_role (user, role) VALUES (?,?)",
-        values = [{user, User}, {role, Id}]
     }).
 
 remove(Id, User) ->
@@ -72,12 +76,11 @@ remove(Id, User) ->
     remove(Id, Group, User).
 remove(Id, Group, User) ->
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "DELETE FROM roles_by_user WHERE group=? AND role=? AND user=?",
+        statement = "BEGIN BATCH;"
+            "DELETE FROM roles_by_user WHERE group=? AND role=? AND user=?;"
+            "DELETE FROM users_by_role WHERE role=? AND user=?;"
+            "APPLY BATCH",
         values = [{group, Group}, {user, User}, {role, Id}]
-    }),
-    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "DELETE FROM users_by_role WHERE role=? AND user=?",
-        values = [{user, User}, {role, Id}]
     }).
 
 get_members(_Id, _StartId, _Limit, down) -> not_implemented;
@@ -88,3 +91,60 @@ get_members_worker(Id, StartId, Limit, Tab, Operator) ->
         values    = [{role, Id}, {user, StartId}, {'[limit]', Limit}]
     }),
     [MId || [{role, _}, {user, MId}] <- cqerl:all_rows(Rows)].
+
+get_roles(User, Group) ->
+    {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "SELECT role FROM roles_by_user WHERE group=? AND user=?",
+        values = [{group, Group}, {user, User}]
+    }),
+    [Role || [{role, Role}] <- cqerl:all_rows(Rows)].
+
+
+
+perm_bit(Perm) -> maps:get(Perm, utils:swap_map(?ROLE_PERMISSION_BITS)).
+perm_atom(Bit) -> maps:get(Bit, ?ROLE_PERMISSION_BITS).
+perm_flag_val(Flag) -> maps:get(Flag, ?PERMISSION_FLAGS).
+perm_val_flag(Val)  -> maps:get(Val, utils:swap_map(?PERMISSION_FLAGS)).
+
+conformant_perms(<<Perms/bitstring>>) ->
+    Trailing = ?PERM_LEN - bit_size(Perms),
+    <<Perms/bitstring, 0:Trailing/unsigned-integer>>.
+perm_val(<<Perms/bitstring>>, Which) when is_atom(Which) -> perm_val(Perms, perm_bit(Which));
+perm_val(<<Perms/bitstring>>, Which) ->
+    Offset = Which * 2,
+    <<_:Offset/bitstring, Flag:2/bitstring, _/bitstring>> = Perms,
+    perm_flag_val(Flag).
+perm_set(<<Perms/bitstring>>, Which, What) when is_atom(Which) -> perm_set(Perms, perm_bit(Which), What);
+perm_set(<<Perms/bitstring>>, Which, What) ->
+    Offset = Which * 2,
+    <<Before:Offset/bitstring, _:2/bitstring, After/bitstring>> = Perms,
+    <<Before/bitstring, (perm_val_flag(What)):2/bitstring, After/bitstring>>.
+
+perm_all(Val) -> perm_all(perm_val_flag(Val), ?PERM_LEN).
+perm_all(_, 0) -> <<>>;
+perm_all(Flag, Offs) -> <<Flag:2/bitstring, (perm_all(Flag, Offs - 2))/bitstring>>.
+
+perm_combine(unset, B) -> B;
+perm_combine(yes,   _) -> yes;
+perm_combine(no,    _) -> no.
+
+perm_combine_sets(A, B) -> perm_combine_sets(A, B, 0).
+perm_combine_sets(_, _, Bit) when Bit =:= ?PERM_LEN div 2 -> <<>>;
+perm_combine_sets(A, B, Bit) ->
+    ValA = perm_val(A, Bit),
+    ValB = perm_val(B, Bit),
+    <<(perm_val_flag(perm_combine(ValA, ValB))):2/bitstring,
+      (perm_combine_sets(A, B, Bit + 1))/bitstring>>.
+
+perm_waterfall([])    -> perm_all(no);
+perm_waterfall([A|T]) -> perm_combine_sets(A, perm_waterfall(T)).
+
+order(Roles) ->
+    lists:sort(fun(#{priority := A}, #{priority := B}) -> A =< B end, Roles).
+
+perm_waterfall(User, Group) ->
+    RoleIds = role_e:get_roles(User, Group),
+    Roles = order([role_e:get(Id) || Id <- RoleIds]),
+    perm_waterfall([Perms || #{permissions := Perms} <- Roles]).
+
+perm_has(Set, Perm) -> perm_val(Set, Perm) =:= yes.

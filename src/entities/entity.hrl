@@ -32,7 +32,33 @@
     8 => poll
 }).
 
--define(USER_STATUS_MAP, #{0=>offline, 1=>online, 2=>idle, 3=>dnd}).
+-define(USER_STATUS_MAP, #{0 => offline, 1 => online, 2 => idle, 3 => dnd}).
+
+-define(PERM_LEN, 64).
+-define(PERMISSION_FLAGS, #{
+    <<0:2>> => unset,
+    <<1:2>> => no,
+    <<2:2>> => yes
+}).
+-define(ROLE_PERMISSION_BITS, #{
+    0  => read_messages,
+    1  => send_messages,
+    2  => see_members,
+    3  => edit_group,
+    4  => edit_channels,
+    5  => edit_invites,
+    6  => edit_roles,
+    7  => kick_members,
+    8  => ban_members,
+    9  => view_log,
+    10 => mention_higher_roles,
+    11 => mention_higher_users,
+    12 => delete_others_messages,
+    13 => connect_to_voice,
+    14 => speak_in_voice,
+    15 => mute_others,
+    16 => deafen_others
+}).
 
 -define(ENTITY_STRUCTURE, #{
     7 => #{
@@ -122,6 +148,7 @@
                 tag             => {3,  number,   {3}},
                 status          => {4,  atom,     {1, ?USER_STATUS_MAP}},
                 status_text     => {5,  string,   {}},
+                permissions     => {6,  number,   {8}},
                 ava_file        => {7,  number,   {8}},
                 mfa_enabled     => {8,  bool,     {}},
                 friends         => {9,  num_list, {8}},
@@ -175,7 +202,7 @@
                 color       => {2, number,   {4}},
                 group       => {3, number,   {8}},
                 priority    => {4, number,   {2}},
-                permissions => {5, number,   {6}},
+                permissions => {5, number,   {8}},
                 members     => {6, num_list, {8}}
             },
         file => #{
