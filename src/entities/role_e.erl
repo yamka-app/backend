@@ -64,9 +64,9 @@ nuke(Id, Group, From, Batch, RemGroup) ->
 add(Id, User) ->
     #{group := Group} = role_e:get(Id),
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "BEGIN BATCH;"
-            "INSERT INTO roles_by_user (group, user, role) VALUES (?,?,?);"
-            "INSERT INTO users_by_role (user, role) VALUES (?,?);"
+        statement = "BEGIN BATCH "
+            "INSERT INTO roles_by_user (group, user, role) VALUES (?,?,?); "
+            "INSERT INTO users_by_role (user, role) VALUES (?,?); "
             "APPLY BATCH",
         values = [{group, Group}, {user, User}, {role, Id}]
     }).
@@ -76,9 +76,9 @@ remove(Id, User) ->
     remove(Id, Group, User).
 remove(Id, Group, User) ->
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "BEGIN BATCH;"
-            "DELETE FROM roles_by_user WHERE group=? AND role=? AND user=?;"
-            "DELETE FROM users_by_role WHERE role=? AND user=?;"
+        statement = "BEGIN BATCH "
+            "DELETE FROM roles_by_user WHERE group=? AND role=? AND user=?; "
+            "DELETE FROM users_by_role WHERE role=? AND user=?; "
             "APPLY BATCH",
         values = [{group, Group}, {user, User}, {role, Id}]
     }).

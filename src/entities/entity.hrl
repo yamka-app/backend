@@ -148,7 +148,7 @@
                 tag             => {3,  number,   {3}},
                 status          => {4,  atom,     {1, ?USER_STATUS_MAP}},
                 status_text     => {5,  string,   {}},
-                permissions     => {6,  number,   {8}},
+                permissions     => {6,  bin,      {8}},
                 ava_file        => {7,  number,   {8}},
                 mfa_enabled     => {8,  bool,     {}},
                 friends         => {9,  num_list, {8}},
@@ -202,7 +202,7 @@
                 color       => {2, number,   {4}},
                 group       => {3, number,   {8}},
                 priority    => {4, number,   {2}},
-                permissions => {5, number,   {8}},
+                permissions => {5, bin,      {8}},
                 members     => {6, num_list, {8}}
             },
         file => #{

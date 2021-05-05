@@ -142,9 +142,9 @@ delete(Id) ->
 %% registers a message
 reg_msg(Id, Msg) ->
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "BEGIN BATCH;"
-            "INSERT INTO message_ids_by_chan (channel, id) VALUES (?,?);"
-            "INSERT INTO message_ids_by_chan_reverse (channel, id) VALUES (?,?);"
+        statement = "BEGIN BATCH "
+            "INSERT INTO message_ids_by_chan (channel, id) VALUES (?,?); "
+            "INSERT INTO message_ids_by_chan_reverse (channel, id) VALUES (?,?); "
             "APPLY BATCH",
         values    = [{channel, Id}, {id, Msg}]
     }).
@@ -152,7 +152,7 @@ reg_msg(Id, Msg) ->
 %% unregisters a message
 unreg_msg(Id, Msg) ->
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "BEGIN BATCH;"
+        statement = "BEGIN BATCH "
             "DELETE FROM message_ids_by_chan WHERE channel=? AND id=?;"
             "DELETE FROM message_ids_by_chan_reverse WHERE channel=? AND id=?;"
             "APPLY BATCH",

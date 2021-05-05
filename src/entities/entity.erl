@@ -441,7 +441,8 @@ encode_field(_Proto, bool,     V, {})           -> datatypes:enc_bool(V);
 encode_field(_Proto, num_list, V, {Size})       -> datatypes:enc_num_list(V, Size);
 encode_field(_Proto, str_list, V, {})           -> datatypes:enc_list(V, fun datatypes:enc_str/1, 2);
 encode_field(_Proto, list,     V, {LS, EF, _})  -> datatypes:enc_list(V, EF, LS);
-encode_field( Proto, entity,   V, {})           -> entity:encode(V, Proto).
+encode_field( Proto, entity,   V, {})           -> entity:encode(V, Proto);
+encode_field(_Proto, bin,      V, {Size})       -> Size = byte_size(V), V.
 encode_field({{Id, Type, Args}, Value}, Proto) ->
     Repr = encode_field(Proto, Type, Value, Args),
     IdBin = datatypes:enc_num(Id, 1),
@@ -479,7 +480,8 @@ len_decode_field(_Proto, bool,     V, {})           -> {datatypes:dec_bool(V), 1
 len_decode_field(_Proto, num_list, V, {Size})       -> R=datatypes:dec_num_list(V, Size), {R, 2+(length(R)*Size)};
 len_decode_field(_Proto, str_list, V, {})           -> datatypes:len_dec_list(V, fun datatypes:len_dec_str/1, 2);
 len_decode_field(_Proto, list,     V, {LS, _, LDF}) -> datatypes:len_dec_list(V, LDF, LS);
-len_decode_field( Proto, entity,   V, {})           -> entity:len_decode(V, Proto).
+len_decode_field( Proto, entity,   V, {})           -> entity:len_decode(V, Proto);
+len_decode_field(_Proto, bin,      V, {Size})       -> {binary_part(V, {0, Size}), Size}.
 len_decode_field(RevStructure, Bin, Proto) ->
     <<Id:8/unsigned-integer, Repr/binary>> = Bin,
     % find the descriptor

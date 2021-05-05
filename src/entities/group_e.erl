@@ -53,8 +53,8 @@ get(Id, IncludeExtra) ->
         true ->
             maps:merge(Map, #{
                 channels => get_channels(Id),
-                roles => get_roles(Id),
-                invites => get_invites(Id)})
+                roles    => get_roles(Id),
+                invites  => get_invites(Id)})
     end.
 
 create(Name, Owner) ->
