@@ -18,10 +18,10 @@
 %%% encryption helpers
 %% encrypt data
 enc_chunk(<<Data/binary>>, <<Key:128/bitstring, IV:128/bitstring>>) ->
-    crypto:crypto_one_time(aes_128_ctr, Key, IV, Data, true).
+    crypto:crypto_one_time(aes_128_cfb128, Key, IV, Data, true).
 %% decrypt data
 dec_chunk(<<Data/binary>>, <<Key:128/bitstring, IV:128/bitstring>>) ->
-    crypto:crypto_one_time(aes_128_ctr, Key, IV, Data, false).
+    crypto:crypto_one_time(aes_128_cfb128, Key, IV, Data, false).
 
 handle_packet(Src, Packet) -> spawn(?MODULE, handler, [Src, Packet]).
 
