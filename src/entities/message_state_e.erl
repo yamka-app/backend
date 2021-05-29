@@ -20,13 +20,13 @@ get(Id) ->
         values    = [{id, Id}]
     }),
     1 = cqerl:size(Rows),
-    maps:map(fun(K, V) ->
+    maps:filter(fun(K, V) -> (K =/= encrypted) or ((K =:= encrypted) and (V =/= null)) end, maps:map(fun(K, V) ->
         case K of
             sections -> [#message_section{type=maps:get(Type, ?MESSAGE_SECTION_TYPE_MAP), text=Te, blob=B}
                 || [{type, Type}, {txt, Te}, {blob, B}] <- V];
             _ -> V
         end
-    end, maps:from_list(cqerl:head(Rows))).
+    end, maps:from_list(cqerl:head(Rows)))).
 
 %% creates a message state
 create(MsgId, Sections) ->
