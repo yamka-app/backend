@@ -9,7 +9,7 @@
 
 -include_lib("cqerl/include/cqerl.hrl").
 
--export([get/1, create/3, get_by_user/1]).
+-export([get/1, create/3, get_by_user/1, delete/1]).
 
 %% gets an agent by ID
 get(Id) ->
@@ -36,3 +36,9 @@ get_by_user(Id) ->
         values = [{owner, Id}]
     }),
     lists:sort([S || [{id, S}] <- cqerl:all_rows(Result)]).
+
+delete(Id) ->
+    cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "DELETE FROM agents WHERE id=?",
+        values = [{id, Id}]
+    }).

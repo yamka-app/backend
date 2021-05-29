@@ -48,7 +48,23 @@ handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, Ref) ->
             normal_client:icpc_broadcast_entity(Id, NewEntity);
         true -> ok
     end,
-    % if the 2FA setting has changed, update auth settings
+    % if the agent list was changed, calculate the diff and yank the removed ones
+    % (along with their access tokens!)
+    OldAgents = agent_e:get_by_user(Id),
+    {_, RemovedAgents} = utils:list_diff(maps:get(agents, F), OldAgents),
+    [agent_e:delete(A)          || A <- RemovedAgents],
+    [yamka_auth:revoke_agent(A) || A <- RemovedAgents],
+    % construct the updated list of agents
+    NewAgents = lists:foldl(fun(A, Acc) -> case
+        lists:member(A, RemovedAgents) of true -> Acc;
+        _ -> [A|Acc] end
+      end, [], OldAgents),
+    case RemovedAgents of
+        [] -> ok;
+        _ -> normal_client:icpc_broadcast_entity(Id, #entity{type=user,
+            fields=#{id => Id, agents => NewAgents}}, [agents])
+    end,
+    % if the 2FA setting was changed, update auth settings
     MfaChanged = maps:is_key(mfa_enabled, F),
     if
         MfaChanged ->
@@ -300,6 +316,7 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
     end,
 
     Mfa = maps:merge(Dm, #{mfa_enabled => maps:get(mfa_secret, Unfiltered) =/= null}),
+    Agents = maps:merge(Mfa, if IsSelf -> #{agents => agent_e:get_by_user(Id)}; true -> #{} end),
     
     FilteredFields = maps:filter(fun(K, _) ->
         case K of
@@ -333,7 +350,7 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
                 _ -> V
             end
         end, Unfiltered)),
-    #entity{type=user, fields=maps:merge(FilteredFields, Mfa)};
+    #entity{type=user, fields=maps:merge(FilteredFields, Agents)};
 
 
 %% gets a user in context of a group

@@ -1,1 +1,0 @@
-{"id":"En3mpRQu0fDtsxoK","body":"  SELECT hash, agent, permissions\n  FROM yamkadb.tokens\n  LIMIT 500;","filename":"script_1.cql","clusterName":"Yamka","keyspace":"yamkadb","source":"action","modified":true}

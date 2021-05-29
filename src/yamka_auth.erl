@@ -12,12 +12,11 @@
 -include("packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
--export([create_token/2, get_token/1]).
+-export([create_token/2, get_token/1, revoke_agent/1]).
 -export([has_permission/1, assert_permission/2]).
 -export([totp_secret/0, totp_verify/2]).
 
 %% creates a token
--spec create_token(Permissions::[any()], UserId::number()) -> binary().
 create_token(Permissions, AgentId) ->
     % generate the token and hash it
     TokenBytes = crypto:strong_rand_bytes(48), % 48 bytes fit nicely in 64 base64 chars
@@ -36,7 +35,6 @@ create_token(Permissions, AgentId) ->
     TokenStr.
 
 %% gets token permissions and owner ID
--spec get_token(Token::unicode:charlist()) -> {integer(), list(atom())} | error.
 get_token(Token) ->
     % hash the token
     TokenBytes = base64:decode(Token),
@@ -47,10 +45,16 @@ get_token(Token) ->
         values    = [{hash, TokenHash}]
     }),
     case cqerl:head(Rows) of
-        empty_dataset -> error;
+        empty_dataset -> invltoken;
         [{agent, Id}, {permissions, Perms}] ->
             {Id, [maps:get(C, ?TOKEN_PERMISSION_MAP) || C <- Perms]}
     end.
+
+revoke_agent(A) ->
+    cqerl:run_query(get(cassandra), #cql_query{
+        statement = "DELETE FROM tokens WHERE agent=?",
+        values    = [{agent, A}]
+    }).
 
 %% checks whether the client has a permission flag set
 has_permission(Perm) -> lists:member(Perm, get(perms)).
@@ -62,10 +66,8 @@ assert_permission(Perm, {ScopeRef, Seq}) ->
         has_permission(Perm)}.
 
 %% creates a TOTP secret
--spec totp_secret() -> binary().
 totp_secret() -> pot_base32:encode(crypto:strong_rand_bytes(10)).
 
 %% verifies a TOTP token
--spec totp_verify(Secret::binary()|string(), Token::binary()) -> boolean().
 totp_verify(Secret, Token) when is_list(Token) -> totp_verify(Secret, list_to_binary(Token));
 totp_verify(Secret, Token) -> pot:valid_totp(Token, Secret, [{window, 1}]).

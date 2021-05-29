@@ -84,6 +84,7 @@
                 badges          => {17, num_list, {1}},
                 bot_owner       => {18, number,   {8}},
                 owned_bots      => {19, num_list, {8}},
+                agents          => {20, num_list, {8}},
                 email_confirmed => {21, bool,     {}}
             },
         channel => #{
