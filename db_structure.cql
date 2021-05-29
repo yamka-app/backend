@@ -8,7 +8,7 @@ CREATE TYPE yamkadb.message_section (
 
 CREATE TABLE yamkadb.tokens (
     hash blob PRIMARY KEY,
-    id bigint,
+    agent bigint,
     permissions set<int>
 ) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
@@ -27,6 +27,7 @@ CREATE TABLE yamkadb.tokens (
 
 CREATE TABLE yamkadb.message_states (
     id bigint PRIMARY KEY,
+    encrypted blob,
     msg_id bigint,
     sections list<frozen<message_section>>
 ) WITH bloom_filter_fp_chance = 0.01
@@ -45,12 +46,12 @@ CREATE TABLE yamkadb.message_states (
     AND speculative_retry = '99PERCENTILE';
 CREATE INDEX message_state_idx ON yamkadb.message_states (msg_id);
 
-CREATE TABLE yamkadb.users_by_role (
-    role bigint,
+CREATE TABLE yamkadb.poll_votes (
+    poll bigint,
     user bigint,
-    PRIMARY KEY (role, user)
-) WITH CLUSTERING ORDER BY (user ASC)
-    AND bloom_filter_fp_chance = 0.01
+    option int,
+    PRIMARY KEY ((poll, user))
+) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
     AND comment = ''
     AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
@@ -151,6 +152,26 @@ CREATE TABLE yamkadb.roles_by_user (
     AND speculative_retry = '99PERCENTILE';
 CREATE INDEX members_idx ON yamkadb.roles_by_user (role);
 
+CREATE TABLE yamkadb.users_by_role (
+    role bigint,
+    user bigint,
+    PRIMARY KEY (role, user)
+) WITH CLUSTERING ORDER BY (user ASC)
+    AND bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
+
 CREATE TABLE yamkadb.polls (
     id bigint PRIMARY KEY,
     option_votes list<int>,
@@ -214,6 +235,7 @@ CREATE TABLE yamkadb.blob_store (
 
 CREATE TABLE yamkadb.channels (
     id bigint PRIMARY KEY,
+    dm boolean,
     group bigint,
     lcid bigint,
     name text,
@@ -235,11 +257,32 @@ CREATE TABLE yamkadb.channels (
     AND speculative_retry = '99PERCENTILE';
 CREATE INDEX chan_group_idx ON yamkadb.channels (group);
 
-CREATE TABLE yamkadb.poll_votes (
-    poll bigint,
+CREATE TABLE yamkadb.keys (
     user bigint,
-    option int,
-    PRIMARY KEY ((poll, user))
+    type smallint,
+    key text,
+    signature blob,
+    PRIMARY KEY ((user, type))
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
+
+CREATE TABLE yamkadb.agents (
+    id bigint PRIMARY KEY,
+    name text,
+    owner bigint,
+    type smallint
 ) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
     AND comment = ''

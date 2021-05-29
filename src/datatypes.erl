@@ -48,8 +48,8 @@ len_dec_str(X) -> {dec_str(X), len_str(X)}.
 enc_msg_section(#message_section{type=Type, blob=Blob, text=Text}) ->
    TypeNum = maps:get(Type, utils:swap_map(?MESSAGE_SECTION_TYPE_MAP)),
    Str = enc_str(Text),
-   <<TypeNum:8/unsigned-integer, Blob:64/unsigned-integer, Str/binary>>.
-len_dec_msg_section(<<TypeNum:8/unsigned-integer, Blob:64/unsigned-integer, Str/binary>>) ->
+   <<TypeNum:8/unsigned, Blob:64/unsigned, Str/binary>>.
+len_dec_msg_section(<<TypeNum:8/unsigned, Blob:64/unsigned, Str/binary>>) ->
    Type = maps:get(TypeNum, ?MESSAGE_SECTION_TYPE_MAP),
    Text = dec_str(Str),
    {#message_section{type=Type, blob=Blob, text=Text}, len_str(Str) + 9}.

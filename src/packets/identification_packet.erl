@@ -8,7 +8,7 @@
 
 -export([decode/2]).
 
-decode(<<Protocol:32/unsigned-integer, Comp:8/integer>>, _Proto) ->
+decode(<<Protocol:32/unsigned, Comp:8/integer>>, _Proto) ->
     #{
         protocol      => Protocol,
         supports_comp => Comp > 0

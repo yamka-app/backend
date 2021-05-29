@@ -25,6 +25,7 @@ init() ->
 run(State = #state{socket=Socket}) ->
     receive
         {udp, Socket, IP, Port, Packet} ->
+            logging:log("~p ~p", [{IP, Port}, Packet]),
             tasty_client:handle_packet({IP, Port}, Packet);
         {send, {IP, Port}, Data} ->
             gen_udp:send(Socket, IP, Port, Data)

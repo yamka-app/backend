@@ -30,7 +30,7 @@ create(Group, Name, Color, Priority, Perms) ->
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = "INSERT INTO roles (id, group, color, name, permissions, priority) VALUES (?,?,?,?,?,?)",
         values = [
-            {id, Id}, {group, Group}, {color, Color}, {name, Name}, {permissions, <<Perms/unsigned-integer>>},
+            {id, Id}, {group, Group}, {color, Color}, {name, Name}, {permissions, <<Perms/unsigned>>},
             {priority, Priority}
         ]
     }),
@@ -108,7 +108,7 @@ perm_val_flag(Val)  -> maps:get(Val, utils:swap_map(?PERMISSION_FLAGS)).
 
 conformant_perms(<<Perms/bitstring>>) ->
     Trailing = ?PERM_LEN - bit_size(Perms),
-    <<Perms/bitstring, 0:Trailing/unsigned-integer>>.
+    <<Perms/bitstring, 0:Trailing/unsigned>>.
 perm_val(<<Perms/bitstring>>, Which) when is_atom(Which) -> perm_val(Perms, perm_bit(Which));
 perm_val(<<Perms/bitstring>>, Which) ->
     Offset = Which * 2,

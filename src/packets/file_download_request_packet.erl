@@ -8,4 +8,4 @@
 
 -export([decode/2]).
 
-decode(<<Id:64/unsigned-integer>>, Proto) when Proto >= 5 -> #{id => Id}.
+decode(<<Id:64/unsigned>>, Proto) when Proto >= 5 -> #{id => Id}.

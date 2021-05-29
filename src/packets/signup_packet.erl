@@ -6,17 +6,25 @@
 -author("Yamka").
 -license("MPL-2.0").
 
+-include("../entities/entity.hrl").
+
 -export([decode/2]).
 
-decode(Payload, ProtocolVersion) when ProtocolVersion >= 5 ->
+decode(Payload, ProtocolVersion) when ProtocolVersion >= 9 ->
+    Len = byte_size(Payload),
+
     Email    = datatypes:dec_str(Payload),
     EmailLen = datatypes:len_str(Payload),
 
-    NameBin  = binary:part(Payload, EmailLen, byte_size(Payload) - EmailLen),
+    NameBin  = binary:part(Payload, EmailLen, Len - EmailLen),
     Name     = datatypes:dec_str(NameBin),
     NameLen  = datatypes:len_str(NameBin),
 
-    PassBin  = binary:part(Payload, EmailLen+NameLen, byte_size(Payload)-EmailLen-NameLen),
+    PassBin  = binary:part(Payload, EmailLen+NameLen, Len-EmailLen-NameLen),
     Pass     = datatypes:dec_str(PassBin),
-    NameLen  = datatypes:len_str(NameBin),
-    #{email => Email, name => Name, password => Pass}.
+    PassLen  = datatypes:len_str(PassBin),
+
+    AgentBin = binary:part(Payload, EmailLen+NameLen+PassLen, Len-EmailLen-NameLen-PassLen),
+    {Agent = #entity{type=agent}, _} = entity:len_decode(AgentBin, ProtocolVersion),
+
+    #{email => Email, name => Name, password => Pass, agent => Agent}.

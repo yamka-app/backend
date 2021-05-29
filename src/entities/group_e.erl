@@ -144,6 +144,7 @@ has_permission(Id, Perm) ->
     role_e:perm_has(role_e:perm_waterfall(erlang:get(id), Id), Perm).
 
 assert_permission(Id, Perm, {ScopeRef, Seq}) ->
-    {_, true} = {{ScopeRef,
-        status_packet:make(permission_denied, "Missing " ++ atom_to_list(Perm) ++ " group permission", Seq)},
-            has_permission(Id, Perm)}.
+    ok.
+    % {_, true} = {{ScopeRef,
+    %     status_packet:make(permission_denied, "Missing " ++ atom_to_list(Perm) ++ " group permission", Seq)},
+    %         has_permission(Id, Perm)}.

@@ -8,8 +8,8 @@
 -description("\"Normal protocol\" client process").
 
 -define(TIMEOUT, 30*1000).
--define(MIN_PROTO, 7).
--define(MAX_PROTO, 8).
+-define(MIN_PROTO, 9).
+-define(MAX_PROTO, 9).
 -include("entities/entity.hrl").
 -include("packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
@@ -39,7 +39,8 @@ handle_packet(#packet{type=identification, seq=Seq,
 handle_packet(#packet{type=login, seq=Seq,
                       fields=#{email   :=Email,
                                password:=SentPass,
-                               perms   :=Permissions}}, ScopeRef) ->
+                               perms   :=Permissions,
+                               agent:=#entity{type=agent, fields=Agent}}}, ScopeRef) ->
     % ensure proper connection state
     {_, awaiting_login} = {{ScopeRef, status_packet:make_invalid_state(awaiting_login, Seq)}, get(state)},
     % rate limiting
@@ -57,11 +58,17 @@ handle_packet(#packet{type=login, seq=Seq,
     MfaSecret = proplists:get_value(mfa_secret, Row),
     Id        = proplists:get_value(id, Row),
     {_, Password} = {{ScopeRef, status_packet:make(login_error, "Invalid password", Seq)}, utils:hash_password(SentPass, Salt)},
+    % create an agent or use an existing one
+    AgentId = case Agent of
+        #{id := Existing}             -> Existing;
+        #{type := Type, name := Name} -> agent_e:create(Id, Type, Name)
+    end,
     % generate the token depending on whether the client has 2FA enabled or not
     case MfaSecret of
-        null -> access_token_packet:make(yamka_auth:create_token(Permissions, Id), Seq);
+        null -> access_token_packet:make(yamka_auth:create_token(Permissions, AgentId), Seq);
         Secret ->
             put(mfa_id, Id),
+            put(mfa_agent, AgentId),
             put(mfa_perms, Permissions),
             put(mfa_secret, Secret),
             put(state, awaiting_mfa),
@@ -80,13 +87,14 @@ handle_packet(#packet{type=mfa_secret, seq=Seq,
             yamka_auth:totp_verify(get(mfa_secret), Token)},
     put(mfa_secret, none),
     put(state, awaiting_login),
-    access_token_packet:make(yamka_auth:create_token(get(mfa_perms), get(mfa_id)), Seq);
+    access_token_packet:make(yamka_auth:create_token(get(mfa_perms), get(mfa_agent)), Seq);
 
 %% signup packet (to create an account)
 handle_packet(#packet{type=signup, seq=Seq,
                       fields=#{email   :=EMail,
                                password:=SentPass,
-                               name    :=Name}}, ScopeRef) ->
+                               name    :=Name,
+                               agent:=#entity{type=agent, fields=Agent}}}, ScopeRef) ->
     % ensure proper connection state
     {_, awaiting_login} = {{ScopeRef, status_packet:make_invalid_state(awaiting_login, Seq)}, get(state)},
     % check if the E-Mail is valid
@@ -99,7 +107,12 @@ handle_packet(#packet{type=signup, seq=Seq,
     {_, false} = {{ScopeRef, status_packet:make(signup_error, "E-Mail is already in use", Seq)},
         user_e:email_in_use(EMail)},
     Id = user_e:create(Name, EMail, SentPass),
-    access_token_packet:make(yamka_auth:create_token(?ALL_PERMISSIONS_EXCEPT_BOT, Id), Seq);
+    % create an agent or use an existing one
+    AgentId = case Agent of
+        #{id := Existing}             -> Existing;
+        #{type := Type, name := Name} -> agent_e:create(Id, Type, Name)
+    end,
+    access_token_packet:make(yamka_auth:create_token(?ALL_PERMISSIONS_EXCEPT_BOT, AgentId), Seq);
 
 %% access token packet (to identify the user and permissions)
 handle_packet(#packet{type=access_token, seq=Seq,
@@ -107,16 +120,18 @@ handle_packet(#packet{type=access_token, seq=Seq,
     % ensure proper connection state
     {_, awaiting_login} = {{ScopeRef, status_packet:make_invalid_state(awaiting_login, Seq)}, get(state)},
     % get the token
-    {_, {Id, Perms}} = {{ScopeRef, status_packet:make(invalid_access_token, "Invalid token")}, yamka_auth:get_token(Token)},
+    {_, {AgentId, Perms}} = {{ScopeRef, status_packet:make(invalid_access_token, "Invalid token")}, yamka_auth:get_token(Token)},
+    #{owner := Id} = agent_e:get(AgentId),
     % create an ICPC process
     spawn_link(?MODULE, icpc_init, [self(), get(socket), {Id, Perms, get(protocol), get(supports_comp)}]),
     % save state
     put(state, normal),
     put(id, Id),
+    put(agent, AgentId),
     put(perms, Perms),
     ets:insert(id_of_processes, {self(), Id}),
     user_e:broadcast_status(Id),
-    client_identity_packet:make(Id, Seq);
+    client_identity_packet:make(Id, AgentId, Seq);
 
 %% entity get packet (to request a set of entities)
 handle_packet(#packet{type=entity_get, seq=Seq,
@@ -352,7 +367,7 @@ client_init(TransportSocket, Cassandra) ->
     ratelimit:make(close,   {55,  1000  }),
     ratelimit:make(login,   {5,   30000 }),
     ratelimit:make(entity,  {150, 1000  }),
-    ratelimit:make(message, {20,  10    }),
+    ratelimit:make(message, {20,  10000 }),
     ratelimit:make(bot,     {1,   120000}),
 
     % run the client loop
@@ -362,8 +377,10 @@ client_init(TransportSocket, Cassandra) ->
             % what do we do in this situation?
             % no idea
             % at least let's log it so we can take a look later
-            logging:err("Internal error: ~p", [{Ex, Type, Trace}]),
-            send_packet(status_packet:make(internal_error, "Sorry, an internal server error has occured")),
+            ErrId = base64:encode(crypto:strong_rand_bytes(9)),
+            logging:err("[~s] Internal error: ~p", [ErrId, {Ex, Type, Trace}]),
+            send_packet(status_packet:make(internal_error, 
+                lists:flatten(io_lib:format("An internal server error has occured [~s]", [ErrId])))),
             ssl:close(get(socket)),
             exit(crash)
     end.

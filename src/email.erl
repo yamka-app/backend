@@ -12,12 +12,11 @@
 -define(EMAIL_REGEX, "(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|\"(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21\\x23-\\x5b\\x5d-\\x7f]|\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])*\")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21-\\x5a\\x53-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])+)\\])").
 
 -export([is_valid/1]).
--export([send_confirmation/2, send_emergency/4]).
+-export([send_confirmation/2]).
 -export([start/0, stop/1, start_link/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
--record(state, {password :: binary(), confirmation_template :: binary(), emergency_template :: binary()}).
-send_confirmation(To, Code)                    -> gen_server:cast(?MODULE, {send_confirmation, To, Code}).
-send_emergency   (To, User, Message, Location) -> gen_server:cast(?MODULE, {send_emergency, To, User, Message, Location}).
+-record(state, {password :: binary(), confirmation_template :: binary()}).
+send_confirmation(To, Code) -> gen_server:cast(?MODULE, {send_confirmation, To, Code}).
 
 stop(Name)       -> gen_server:call(Name, stop).
 start()          -> start_link(?MODULE).
@@ -25,9 +24,8 @@ start_link(Name) -> gen_server:start_link({local, Name}, ?MODULE, [], []).
 init(_Args) ->
     logging:log("Email gen_server running (node ~p)", [node()]),
     {ok, Confirm}   = file:read_file("/run/email_templates/email_confirmation.html"),
-    {ok, Emergency} = file:read_file("/run/email_templates/emergency.html"),
     {ok, Password}  = file:read_file("/run/secrets/smtp_pass"),
-    {ok, #state{password=Password, confirmation_template=Confirm, emergency_template=Emergency}}.
+    {ok, #state{password=Password, confirmation_template=Confirm}}.
 
 handle_info(_Info, State) -> {noreply, State}.
 
@@ -36,11 +34,6 @@ handle_call(_Request, _From, State) -> {reply, badrq, State}.
 handle_cast({send_confirmation, To, Code}, State=#state{password=Pass, confirmation_template=Template}) ->
     Formatted = lists:flatten(io_lib:format(Template, [Code])),
     send_html({Formatted, "Confirm your email address"}, To, Pass),
-    {noreply, State};
-
-handle_cast({send_emergency, To, User, Message, Location}, State=#state{password=Pass, emergency_template=Template}) ->
-    Formatted = lists:flatten(io_lib:format(Template, [User, Message, Location])),
-    send_html({Formatted, "Emergency notification"}, To, Pass),
     {noreply, State};
 
 handle_cast(_Msg, State) -> {noreply, State}.

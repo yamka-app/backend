@@ -1,0 +1,9 @@
+{
+    "cassandraWorkbench.activeClusterName": "Yamka",
+    "cassandraWorkbench.activeKeyspace": [
+        [
+            "Yamka",
+            "yamkadb"
+        ]
+    ]
+}

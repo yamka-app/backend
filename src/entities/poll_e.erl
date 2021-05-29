@@ -12,7 +12,7 @@
 -export([get/1, create/1]).
 -export([vote/3, get_vote/2]).
 
-%% gets a message state by ID
+%% gets a poll by ID
 get(Id) ->
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = "SELECT * FROM polls WHERE id=?",
@@ -20,14 +20,14 @@ get(Id) ->
     }),
     1 = cqerl:size(Rows),
     Row = #{options := Options} = maps:from_list(cqerl:head(Rows)),
-    % option_votes maybe null if no one has voteed yet
+    % option_votes maybe null if no one has voted yet
     maps:map(fun(K, V) -> case K of
         option_votes when V =:= null ->
             [0 || _ <- Options];
         _ -> V
     end end, Row).
 
-%% creates a message state
+%% creates a poll state
 create(Options) ->
     Id = utils:gen_snowflake(),
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{

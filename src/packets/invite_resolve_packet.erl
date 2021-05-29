@@ -8,5 +8,5 @@
 
 -export([decode/2]).
 
-decode(<<Add:8/unsigned-integer, Code:112/bitstring>>, Proto) when Proto >= 5 ->
+decode(<<Add:8/unsigned, Code:112/bitstring>>, Proto) when Proto >= 5 ->
     #{code => datatypes:dec_str(Code), add => Add > 0}.

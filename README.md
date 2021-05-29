@@ -66,7 +66,6 @@ You don't want to rebuild the whole project every time you've made a small chang
     - [x] Voice
       - [ ] "on the fly" voice server selection
   - [x] Polls
-  - [ ] Emergency notifications
   - [ ] Bots
   - [ ] Make code ready for distribution
     - [ ] Use Mnesia instead of ets for "awareness" storage

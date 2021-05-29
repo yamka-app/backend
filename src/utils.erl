@@ -46,7 +46,7 @@ gen_snowflake() ->
     {MeS, S, MiS} = now(),
     Epoch = ((MeS * 1000000000) + (S * 1000) + (MiS div 1000)) - 1577836800000,
     Random = crypto:strong_rand_bytes(2),
-    <<Snowflake:64/unsigned-integer>> = <<Epoch:48/unsigned-integer, Random/binary>>,
+    <<Snowflake:64/unsigned>> = <<Epoch:48/unsigned, Random/binary>>,
     Snowflake.
 
 %% generates an invite code

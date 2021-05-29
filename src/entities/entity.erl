@@ -427,7 +427,12 @@ handle_get_request(#entity_get_rq{type=poll, id=Id, pagination=none, context=non
         {error, novote} -> Main;
         {ok, Option}    -> maps:merge(Main, #{self_vote => Option})
     end,
-    #entity{type=poll, fields=Fields}.
+    #entity{type=poll, fields=Fields};
+
+
+%% gets an agent by id
+handle_get_request(#entity_get_rq{type=agent, id=Id, pagination=none, context=none}, _Ref) ->
+    #entity{type=agent, fields=agent_e:get(Id)}.
 
 
 
@@ -442,6 +447,7 @@ encode_field(_Proto, num_list, V, {Size})       -> datatypes:enc_num_list(V, Siz
 encode_field(_Proto, str_list, V, {})           -> datatypes:enc_list(V, fun datatypes:enc_str/1, 2);
 encode_field(_Proto, list,     V, {LS, EF, _})  -> datatypes:enc_list(V, EF, LS);
 encode_field( Proto, entity,   V, {})           -> entity:encode(V, Proto);
+encode_field(_Proto, bin,      V, {specified})  -> <<(byte_size(V)):16/unsigned, V/bitstring>>;
 encode_field(_Proto, bin,      V, {Size})       -> Size = byte_size(V), V.
 encode_field({{Id, Type, Args}, Value}, Proto) ->
     Repr = encode_field(Proto, Type, Value, Args),
@@ -481,16 +487,17 @@ len_decode_field(_Proto, num_list, V, {Size})       -> R=datatypes:dec_num_list(
 len_decode_field(_Proto, str_list, V, {})           -> datatypes:len_dec_list(V, fun datatypes:len_dec_str/1, 2);
 len_decode_field(_Proto, list,     V, {LS, _, LDF}) -> datatypes:len_dec_list(V, LDF, LS);
 len_decode_field( Proto, entity,   V, {})           -> entity:len_decode(V, Proto);
+len_decode_field(_Proto, bin,      V, {specified})  -> <<Len:16/unsigned, Data/bitstring>> = V, {binary:part(Data, {0, Len}), Len + 2};
 len_decode_field(_Proto, bin,      V, {Size})       -> {binary_part(V, {0, Size}), Size}.
 len_decode_field(RevStructure, Bin, Proto) ->
-    <<Id:8/unsigned-integer, Repr/binary>> = Bin,
+    <<Id:8/unsigned, Repr/binary>> = Bin,
     % find the descriptor
     {Name, {Id, Type, Args}} = find_desc(RevStructure, Id),
     {FieldVal, Len} = len_decode_field(Proto, Type, Repr, Args),
     {{Name, FieldVal}, Len + 1}. % +1 because we have a one byte field ID
 
 len_decode(Bin, Proto) ->
-    <<TypeNum:8/unsigned-integer, FieldsBin/binary>> = Bin,
+    <<TypeNum:8/unsigned, FieldsBin/binary>> = Bin,
     Type = maps:get(TypeNum, ?ENTITY_TYPE_MAP),
     RevStructure = utils:swap_map(structure(Proto, Type)),
     {FieldProplist, Len} = datatypes:len_dec_list(FieldsBin,

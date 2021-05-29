@@ -87,16 +87,19 @@ handle_cast({register_user, I, Src, Co}, State) ->
     {noreply, State};
 
 handle_cast({unregister_user, S}, State) ->
-    [{S,_,U,C,Co}] = ets:lookup(sessions, S),
-    ets:delete(sessions, S),
-    ets:match_delete(srcs, {'_', S}),
-    ets:match_delete(channel_users, {C, U, '_', Co}),
-    broadcast_connected(C),
+    case ets:lookup(sessions, S) of
+        [{S,_,U,C,Co}] ->
+            ets:delete(sessions, S),
+            ets:match_delete(srcs, {'_', S}),
+            ets:match_delete(channel_users, {C, U, '_', Co}),
+            broadcast_connected(C);
+        [] -> ok
+    end,
     {noreply, State};
 
 handle_cast({broadcast, Chan, Data, From}, State) ->
     % prefix: voice data (not video), user ID
-    Prefixed = <<1, From:64/unsigned-integer, Data/binary>>,
+    Prefixed = <<1, From:64/unsigned, Data/binary>>,
     % broadcast data to controllers
     lists:foreach(fun({_, User, _, Controller}) ->
             % don't broadcast to sender

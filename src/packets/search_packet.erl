@@ -9,7 +9,7 @@
 -include("packet.hrl").
 -export([decode/2]).
 
-decode(<<Type:8/integer, Ref:64/unsigned-integer, Name/binary>>, ProtocolVersion) when ProtocolVersion >= 5 ->
+decode(<<Type:8/integer, Ref:64/unsigned, Name/binary>>, ProtocolVersion) when ProtocolVersion >= 5 ->
   #{type => maps:get(Type, ?SEARCH_TARGET_MAP),
     ref  => Ref,
     name => datatypes:dec_str(Name)}.
