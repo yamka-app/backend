@@ -23,7 +23,7 @@ cleanup(Pid) ->
 
 listener_server() ->
     receive
-        {start, Args} -> spawn_monitor(normal_client, client_init, Args);
+        {start, Args} -> spawn_monitor(client, client_init, Args);
         {'DOWN', _, process, Pid, _} ->
             spawn(fun() -> cleanup(Pid) end),
             logging:log("Listener server: ~p died", [Pid])

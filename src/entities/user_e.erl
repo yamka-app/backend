@@ -25,7 +25,7 @@ broadcast_status(Id) ->
     #{status:=Status} = user_e:get(Id),
     broadcast_status(Id, Status).
 broadcast_status(Id, Status) ->
-    normal_client:icpc_broadcast_to_aware(#entity{type=user, fields=#{id=>Id, status=>Status}}, [status]).
+    client:icpc_broadcast_to_aware(#entity{type=user, fields=#{id=>Id, status=>Status}}, [status]).
 
 %% checks if the specified E-Mail address is in use
 email_in_use(EMail) ->

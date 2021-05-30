@@ -43,7 +43,7 @@ broadcast_connected(Channel) ->
     States = [{User, UserState} || {_, User, UserState, _} <- ets:lookup(channel_users, Channel)],
     Sorted = lists:sort(fun({A, _}, {B, _}) -> A =< B end, States),
     {Users, Statuses} = lists:unzip(Sorted),
-    normal_client:icpc_broadcast_to_aware(chan_awareness,
+    client:icpc_broadcast_to_aware(chan_awareness,
         #entity{type=channel, fields=#{
             id => Channel,
             voice_users  => Users,

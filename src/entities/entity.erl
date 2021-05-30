@@ -32,7 +32,7 @@ handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, Ref) ->
             user_e:update(Id, AllowedFields),
             % broadcast the changes
             Entity = #entity{type=user, fields=maps:merge(AllowedFields, #{id=>Id})},
-            normal_client:icpc_broadcast_to_aware(Entity, BroadcastFields)
+            client:icpc_broadcast_to_aware(Entity, BroadcastFields)
     end,
     % if the email was changed, un-confirm it and send a confirmation request to the user
     EmailChanged = maps:is_key(email, F),
@@ -45,7 +45,7 @@ handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, Ref) ->
                 id => Id,
                 email => Email,
                 email_confirmed => false}},
-            normal_client:icpc_broadcast_entity(Id, NewEntity);
+            client:icpc_broadcast_entity(Id, NewEntity);
         true -> ok
     end,
     % if the agent list was changed, calculate the diff and yank the removed ones
@@ -64,7 +64,7 @@ handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, Ref) ->
             end, [], OldAgents),
             case RemovedAgents of
                 [] -> ok;
-                _ -> normal_client:icpc_broadcast_entity(Id, #entity{type=user,
+                _ -> client:icpc_broadcast_entity(Id, #entity{type=user,
                     fields=#{id => Id, agents => NewAgents}}, [agents])
             end;
         true -> ok
@@ -74,7 +74,7 @@ handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, Ref) ->
     if
         MfaChanged ->
             MfaEnabled = maps:get(mfa_enabled, F),
-            normal_client:icpc_broadcast_entity(Id, #entity{type=user,
+            client:icpc_broadcast_entity(Id, #entity{type=user,
                 fields=#{id => Id, mfa_enabled => MfaEnabled}}, [mfa_enabled]),
             if
                 MfaEnabled ->
@@ -102,12 +102,12 @@ handle_entity(#entity{type=file, fields=#{name:=Name, length:=Length}}, Seq, Ref
 %% (re-)sets the typing status
 handle_entity(#entity{type=channel, fields=#{id:=Id, typing:=[0]}}, _Seq, _Ref) ->
     channel_e:set_typing(Id, get(id)),
-    normal_client:icpc_broadcast_to_aware(chan_awareness,
+    client:icpc_broadcast_to_aware(chan_awareness,
         #entity{type=channel, fields=#{id=>Id, typing=>channel_e:get_typing(Id)}}, [id, typing]),
     none;
 handle_entity(#entity{type=channel, fields=#{id:=Id, typing:=[]}}, _Seq, _Ref) ->
     channel_e:reset_typing(Id, get(id)), 
-    normal_client:icpc_broadcast_to_aware(chan_awareness,
+    client:icpc_broadcast_to_aware(chan_awareness,
         #entity{type=channel, fields=#{id=>Id, typing=>channel_e:get_typing(Id)}}, [id, typing]),
     none;
 
@@ -137,7 +137,7 @@ handle_entity(#entity{type=channel, fields=#{id:=0, group:=Group, name:=Name}}, 
     group_e:assert_permission(Group, edit_channels, {Ref, Seq}),
 
     channel_e:create(Name, Group, [], false),
-    normal_client:icpc_broadcast_to_aware(group_awareness, #entity{
+    client:icpc_broadcast_to_aware(group_awareness, #entity{
         type=group, fields=group_e:get(Group)}, [id, channels]),
     none;
 
@@ -149,7 +149,7 @@ handle_entity(#entity{type=channel, fields=#{id:=Id, group:=0}}, Seq, Ref) ->
     group_e:assert_permission(Group, edit_channels, {Ref, Seq}),
 
     channel_e:delete(Id),
-    normal_client:icpc_broadcast_to_aware(group_awareness, #entity{
+    client:icpc_broadcast_to_aware(group_awareness, #entity{
         type=group, fields=group_e:get(Group)}, [id, channels]),
     none;
 
@@ -161,7 +161,7 @@ handle_entity(#entity{type=channel, fields=Fields=#{id:=Id}}, Seq, Ref) ->
     group_e:assert_permission(Group, edit_channels, {Ref, Seq}),
     
     channel_e:update(Id, maps:filter(fun(K, _) -> K =/= id end, Fields)),
-    normal_client:icpc_broadcast_to_aware(chan_awareness,
+    client:icpc_broadcast_to_aware(chan_awareness,
         #entity{type=channel, fields=Fields}, maps:keys(Fields)),
     none;
 
@@ -188,7 +188,7 @@ handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, la
     % register mentions
     [channel_e:add_mention(Channel, User, MsgId) || User <- Mentions],
     % broadcast the message
-    normal_client:icpc_broadcast_to_aware(chan_awareness, Channel,
+    client:icpc_broadcast_to_aware(chan_awareness, Channel,
         M#entity{fields=maps:merge(message_e:get(MsgId), #{states => message_e:get_states(MsgId), latest =>
             L#entity{fields=message_state_e:get(StateId)}})}, [id, states, channel, sender, latest]),
     none;
@@ -203,7 +203,7 @@ handle_entity(M=#entity{type=message,       fields=#{id:=Id, latest:=
         SelfSent},
 
     StateId = message_state_e:create(Id, message_state_e:filter_sections(Sections)),
-    normal_client:icpc_broadcast_to_aware(chan_awareness, maps:get(channel, Existing),
+    client:icpc_broadcast_to_aware(chan_awareness, maps:get(channel, Existing),
         M#entity{fields=maps:merge(message_e:get(Id), #{states => message_e:get_states(Id), latest =>
             L#entity{fields=message_state_e:get(StateId)}})}, [id, states, channel, sender, latest]),
     none;
@@ -225,7 +225,7 @@ handle_entity(M=#entity{type=message, fields=#{id:=Id, sender:=0}}, Seq, Ref) ->
 
     channel_e:unreg_msg(Channel, Id),
     message_e:delete(Id),
-    normal_client:icpc_broadcast_to_aware(chan_awareness, Channel,
+    client:icpc_broadcast_to_aware(chan_awareness, Channel,
         M#entity{fields=#{id => Id, channel => Channel, sender => 0}},
             [id, channel, sender]),
     none;
@@ -239,7 +239,7 @@ handle_entity(#entity{type=group, fields=#{id:=0, name:=Name}}, Seq, Ref) ->
     role_e:add(Everyone, get(id)),
     group_e:cache_user_name(Id, get(id), Username),
     user_e:manage_contact(get(id), add, {group, Id}),
-    normal_client:icpc_broadcast_entity(get(id),
+    client:icpc_broadcast_entity(get(id),
         #entity{type=user, fields=user_e:get(get(id))}, [groups]),
     none;
 
@@ -259,7 +259,7 @@ handle_entity(#entity{type=group, fields=#{id:=Id, owner:=0}}, Seq, Ref) ->
     lists:foreach(fun channel_e:delete/1, Channels),
     lists:foreach(fun role_e:nuke/1, lists:delete(Everyone, Roles)),
     role_e:nuke(Everyone, true),
-    normal_client:icpc_broadcast_to_aware(group_awareness,
+    client:icpc_broadcast_to_aware(group_awareness,
         #entity{type=group, fields=#{id => Id, owner => 0}}, [id, owner]),
     none;
 
@@ -297,7 +297,7 @@ handle_entity(#entity{type=poll, fields=#{id:=Id, self_vote:=Option}}, Seq, Ref)
     {_, {error, novote}} = {{Ref, status_packet:make(poll_error, "Already voted", Seq)},
         poll_e:get_vote(Id, get(id))},
     {_, ok} = {status_packet:make(poll_error, "Invalid option", Seq), poll_e:vote(Id, get(id), Option)},
-    normal_client:icpc_broadcast_to_aware(poll_awareness,
+    client:icpc_broadcast_to_aware(poll_awareness,
         #entity{type=poll, fields=poll_e:get(Id)}, [id, total_votes, option_votes]),
     none.
 
