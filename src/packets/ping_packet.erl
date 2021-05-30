@@ -8,7 +8,7 @@
 
 -export([decode/2]).
 
-decode(Payload, ProtocolVersion) when ProtocolVersion >= 5 ->
+decode(Payload, Proto) when Proto >= 5 ->
     4 = byte_size(Payload),
     Echo = datatypes:dec_num(Payload),
     #{echo => Echo}.

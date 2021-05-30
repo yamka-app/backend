@@ -8,6 +8,6 @@
 
 -export([decode/2]).
 
-decode(CodeBin, ProtocolVersion) when ProtocolVersion >= 5 ->
+decode(CodeBin, Proto) when Proto >= 5 ->
     Code = datatypes:dec_str(CodeBin),
     #{code => Code}.

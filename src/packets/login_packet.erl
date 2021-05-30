@@ -11,7 +11,7 @@
 
 -export([decode/2]).
 
-decode(Payload, ProtocolVersion) when ProtocolVersion >= 9 ->
+decode(Payload, Proto) when Proto >= 9 ->
     Len = byte_size(Payload),
 
     Email    = datatypes:dec_str(Payload),
@@ -27,6 +27,6 @@ decode(Payload, ProtocolVersion) when ProtocolVersion >= 9 ->
     PermsLen = length(Perms) + 2,
 
     AgentBin = binary:part(Payload, EmailLen+PasswordLen+PermsLen, Len-EmailLen-PasswordLen-PermsLen),
-    {Agent = #entity{type=agent}, _} = entity:len_decode(AgentBin, ProtocolVersion),
+    {Agent = #entity{type=agent}, _} = entity:len_decode(AgentBin, Proto),
 
     #{email => Email, password => Password, perms => Perms, agent => Agent}.

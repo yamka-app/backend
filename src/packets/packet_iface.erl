@@ -13,7 +13,7 @@
 -export([reader/3, writer/5, clear_for_printing/1]).
 
 %% decodes a packet
-decode(Data, ProtocolVersion) ->
+decode(Data, Proto) ->
     TypeCode = datatypes:dec_num(binary:part(Data, 0, 1)),
     Seq      = datatypes:dec_num(binary:part(Data, 1, 4)),
     Reply    = datatypes:dec_num(binary:part(Data, 5, 4)),
@@ -53,13 +53,13 @@ decode(Data, ProtocolVersion) ->
                           seq     = Seq,
                           reply   = Reply,
                           captcha = Captcha,
-                          fields  = F(Payload, ProtocolVersion)}}
+                          fields  = F(Payload, Proto)}}
     catch
         E:D:T -> {error, Seq, Type, {E, D, T}}
     end.
 
 %% encodes a packet
-encode(Packet, ProtocolVersion) ->
+encode(Packet, Proto) ->
     Fields = Packet#packet.fields,
     Payload = case Packet#packet.type of
         status          -> fun status_packet         :encode/2;
@@ -71,7 +71,7 @@ encode(Packet, ProtocolVersion) ->
         mfa_secret      -> fun mfa_secret_packet     :encode/2;
         voice_join      -> fun voice_join_packet     :encode/2;
         search_result   -> fun search_result_packet  :encode/2
-    end(Fields, ProtocolVersion),
+    end(Fields, Proto),
     
     Type     = datatypes:enc_num(maps:get(Packet#packet.type, ?REVERSE_PACKET_TYPE_MAP), 1),
     SeqBin   = datatypes:enc_num(Packet#packet.seq, 4),
