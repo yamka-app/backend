@@ -50,19 +50,24 @@ handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, Ref) ->
     end,
     % if the agent list was changed, calculate the diff and yank the removed ones
     % (along with their access tokens!)
-    OldAgents = agent_e:get_by_user(Id),
-    {_, RemovedAgents} = utils:list_diff(maps:get(agents, F), OldAgents),
-    [agent_e:delete(A)          || A <- RemovedAgents],
-    [yamka_auth:revoke_agent(A) || A <- RemovedAgents],
-    % construct the updated list of agents
-    NewAgents = lists:foldl(fun(A, Acc) -> case
-        lists:member(A, RemovedAgents) of true -> Acc;
-        _ -> [A|Acc] end
-      end, [], OldAgents),
-    case RemovedAgents of
-        [] -> ok;
-        _ -> normal_client:icpc_broadcast_entity(Id, #entity{type=user,
-            fields=#{id => Id, agents => NewAgents}}, [agents])
+    AgentsChanged = maps:is_key(agents, F),
+    if
+        AgentsChanged ->
+            OldAgents = agent_e:get_by_user(Id),
+            {_, RemovedAgents} = utils:list_diff(maps:get(agents, F), OldAgents),
+            [agent_e:delete(A)          || A <- RemovedAgents],
+            [yamka_auth:revoke_agent(A) || A <- RemovedAgents],
+            % construct the updated list of agents
+            NewAgents = lists:foldl(fun(A, Acc) -> case
+                lists:member(A, RemovedAgents) of true -> Acc;
+                _ -> [A|Acc] end
+            end, [], OldAgents),
+            case RemovedAgents of
+                [] -> ok;
+                _ -> normal_client:icpc_broadcast_entity(Id, #entity{type=user,
+                    fields=#{id => Id, agents => NewAgents}}, [agents])
+            end;
+        true -> ok
     end,
     % if the 2FA setting was changed, update auth settings
     MfaChanged = maps:is_key(mfa_enabled, F),
