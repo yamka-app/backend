@@ -9,7 +9,7 @@
 
 -include_lib("cqerl/include/cqerl.hrl").
 
--export([get/1, create/3, get_by_user/1, delete/1]).
+-export([get/1, create/3, get_by_user/1, delete/1, online/1]).
 
 %% gets an agent by ID
 get(Id) ->
@@ -42,3 +42,8 @@ delete(Id) ->
         statement = "DELETE FROM agents WHERE id=?",
         values = [{id, Id}]
     }).
+
+online(Id) ->
+    #{owner := User} = agent_e:get(Id),
+    AllClients = ets:lookup(icpc_processes, User),
+    length(lists:filter(fun({_, A, _}) -> A =:= Id end, AllClients)) > 0.

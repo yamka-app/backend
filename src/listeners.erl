@@ -12,8 +12,8 @@
 -define(NORMAL_PORT, 1746).
 
 cleanup(Pid) ->
-    [{Pid, Id}] = ets:lookup(id_of_processes, Pid),
-    ets:match_delete(icpc_processes,  {Id, '_'}),
+    [{Pid, Id, Agent}] = ets:lookup(id_of_processes, Pid),
+    ets:match_delete(icpc_processes,  {Id, Agent, '_'}),
     ets:match_delete(user_awareness,  {'_', {Id, Pid}}),
     ets:match_delete(chan_awareness,  {'_', {Id, Pid}}),
     ets:match_delete(poll_awareness,  {'_', {Id, Pid}}),
@@ -23,7 +23,7 @@ cleanup(Pid) ->
 
 listener_server() ->
     receive
-        {start, Args}                -> spawn_monitor(normal_client, client_init, Args);
+        {start, Args} -> spawn_monitor(normal_client, client_init, Args);
         {'DOWN', _, process, Pid, _} ->
             spawn(fun() -> cleanup(Pid) end),
             logging:log("Listener server: ~p died", [Pid])

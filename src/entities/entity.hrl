@@ -150,10 +150,11 @@
                 total_votes  => {4, number,   {3}}
             },
         agent => #{
-                id    => {0, number, {8}},
-                owner => {1, number, {8}},
-                type  => {2, number, {1}},
-                name  => {3, string, {}}
+                id     => {0, number, {8}},
+                owner  => {1, number, {8}},
+                type   => {2, number, {1}},
+                name   => {3, string, {}},
+                online => {4, bool,   {}}
             }
     }
 }).

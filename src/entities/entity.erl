@@ -454,7 +454,8 @@ handle_get_request(#entity_get_rq{type=poll, id=Id, pagination=none, context=non
 
 %% gets an agent by id
 handle_get_request(#entity_get_rq{type=agent, id=Id, pagination=none, context=none}, _Ref) ->
-    #entity{type=agent, fields=agent_e:get(Id)}.
+    Online = #{online => agent_e:online(Id)},
+    #entity{type=agent, fields=maps:merge(agent_e:get(Id), Online)}.
 
 
 

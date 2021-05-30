@@ -123,13 +123,14 @@ handle_packet(#packet{type=access_token, seq=Seq,
     {_, {AgentId, Perms}} = {{ScopeRef, status_packet:make(invalid_access_token, "Invalid token")}, yamka_auth:get_token(Token)},
     #{owner := Id} = agent_e:get(AgentId),
     % create an ICPC process
-    spawn_link(?MODULE, icpc_init, [self(), get(socket), {Id, Perms, get(protocol), get(supports_comp)}]),
+    spawn_link(?MODULE, icpc_init, [self(), get(socket),
+            {Id, AgentId, Perms, get(protocol), get(supports_comp)}]),
     % save state
     put(state, normal),
     put(id, Id),
     put(agent, AgentId),
     put(perms, Perms),
-    ets:insert(id_of_processes, {self(), Id}),
+    ets:insert(id_of_processes, {self(), Id, AgentId}),
     user_e:broadcast_status(Id),
     client_identity_packet:make(Id, AgentId, Seq);
 
@@ -406,7 +407,7 @@ send_packet(P) ->
 icpc_broadcast_entity(Id, E) -> icpc_broadcast_entity(Id, E, []).
 icpc_broadcast_entity(Id, E, F) -> icpc_broadcast(Id, {entities, [entity:filter(E, F)]}).
 icpc_broadcast(Id, D) ->
-    utils:broadcast(D, [P || {_,{_,P}} <- ets:lookup(icpc_processes, Id)]).
+    utils:broadcast(D, [P || {_,_,{_,P}} <- ets:lookup(icpc_processes, Id)]).
 
 icpc_broadcast_to_aware(E)       -> icpc_broadcast_to_aware(E, maps:keys(E#entity.fields)).
 icpc_broadcast_to_aware(E, F)    -> icpc_broadcast_to_aware(user_awareness, E, F).
@@ -415,11 +416,11 @@ icpc_broadcast_to_aware(T, Id, E, F) ->
     [icpc_broadcast_entity(RId, E, F)
         || {_,{RId,_}} <- ets:lookup(T, Id)].
 
-icpc_init(Host, Socket, {Id, Perms, Protocol, SC}) ->
-    put(socket, Socket), put(id, Id), put(perms, Perms),
+icpc_init(Host, Socket, {Id, Agent, Perms, Protocol, SC}) ->
+    put(socket, Socket), put(id, Id), put(agent, Agent), put(perms, Perms),
     put(protocol, Protocol), put(supports_comp, SC), put(seq, 0),
     % announce ourselves
-    ets:insert(icpc_processes, {Id, {Host, self()}}),
+    ets:insert(icpc_processes, {Id, Agent, {Host, self()}}),
     % start the loop
     icpc_loop().
 
