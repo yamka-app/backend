@@ -32,7 +32,7 @@ create(Owner, Type, Name) ->
 %% gets all agents a user owns
 get_by_user(Id) ->
     {ok, Result} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "SELECT id FROM agents WHERE owner=?",
+        statement = "SELECT id FROM agents_by_user WHERE owner=?",
         values = [{owner, Id}]
     }),
     lists:sort([S || [{id, S}] <- cqerl:all_rows(Result)]).

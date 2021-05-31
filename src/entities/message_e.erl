@@ -50,9 +50,7 @@ delete(Id) ->
 get_latest_state(Id) -> lists:last(get_states(Id)).
 get_states(Id) ->
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "SELECT id FROM message_states WHERE msg_id=?",
+        statement = "SELECT id FROM message_states_by_msg WHERE msg_id=?",
         values = [{msg_id, Id}]
     }),
-    % we can't instruct Cassandra with neither ORDER BY nor CLUSTERING ORDER BY, unfortunately
-    % fortunately, though, we can guarantee it's not bigger than 50 elements anyways
-    lists:sort([S || [{id, S}] <- cqerl:all_rows(Rows)]).
+    [S || [{id, S}] <- cqerl:all_rows(Rows)].

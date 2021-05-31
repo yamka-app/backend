@@ -11,7 +11,7 @@
 
 -export([get/1, create/4, update/2, delete/1]).
 -export([get_dm/1, get_messages/4]).
--export([set_unread/3, get_unread/2, reg_msg/2, unreg_msg/2]).
+-export([set_unread/3, get_unread/2]).
 -export([add_mention/3, forget_mentions/2, get_mentions/2]).
 -export([get_typing/1, set_typing/2, reset_typing/2]).
 
@@ -100,8 +100,8 @@ get_mentions(Id, User) ->
     [MId || [{msg, MId}] <- cqerl:all_rows(Rows)].
 
 %% gets messages IDs (with pagination)
-get_messages(Id, StartId, Limit, down) -> get_messages(Id, StartId, Limit, "message_ids_by_chan", "<");
-get_messages(Id, StartId, Limit, up)   -> get_messages(Id, StartId, Limit, "message_ids_by_chan_reverse", ">").
+get_messages(Id, StartId, Limit, down) -> get_messages(Id, StartId, Limit, "messages_id_by_chan", "<");
+get_messages(Id, StartId, Limit, up)   -> get_messages(Id, StartId, Limit, "messages_id_by_chan_rev", ">").
 get_messages(Id, StartId, Limit, Tab, Operator) ->
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = "SELECT * FROM " ++ Tab ++ " WHERE channel=? AND id" ++ Operator ++ "? LIMIT ? ALLOW FILTERING",
@@ -137,26 +137,6 @@ delete(Id) ->
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = Statement,
         values    = [{id, Id}]
-    }).
-
-%% registers a message
-reg_msg(Id, Msg) ->
-    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "BEGIN BATCH "
-            "INSERT INTO message_ids_by_chan (channel, id) VALUES (?,?); "
-            "INSERT INTO message_ids_by_chan_reverse (channel, id) VALUES (?,?); "
-            "APPLY BATCH",
-        values    = [{channel, Id}, {id, Msg}]
-    }).
-
-%% unregisters a message
-unreg_msg(Id, Msg) ->
-    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "BEGIN BATCH "
-            "DELETE FROM message_ids_by_chan WHERE channel=? AND id=?;"
-            "DELETE FROM message_ids_by_chan_reverse WHERE channel=? AND id=?;"
-            "APPLY BATCH",
-        values    = [{channel, Id}, {id, Msg}]
     }).
 
 %% gets the users who are typing

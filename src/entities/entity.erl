@@ -184,7 +184,6 @@ handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, la
     % create entities
     {MsgId, _} = message_e:create(Channel, get(id)),
     StateId = message_state_e:create(MsgId, Filtered),
-    channel_e:reg_msg(Channel, MsgId),
     % register mentions
     [channel_e:add_mention(Channel, User, MsgId) || User <- Mentions],
     % broadcast the message
@@ -223,7 +222,6 @@ handle_entity(M=#entity{type=message, fields=#{id:=Id, sender:=0}}, Seq, Ref) ->
         true -> delete_direct_messages
     end, {Ref, Seq}),
 
-    channel_e:unreg_msg(Channel, Id),
     message_e:delete(Id),
     client:icpc_broadcast_to_aware(chan_awareness, Channel,
         M#entity{fields=#{id => Id, channel => Channel, sender => 0}},

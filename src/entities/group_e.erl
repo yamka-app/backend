@@ -16,20 +16,20 @@
 
 get_channels(Id) ->
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "SELECT id FROM channels WHERE group=?",
+        statement = "SELECT id FROM channels_by_group WHERE group=?",
         values    = [{group, Id}]
     }),
     [C || [{id, C}] <- cqerl:all_rows(Rows)].
 
 get_roles(Id) ->
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "SELECT id FROM roles WHERE group=?",
+        statement = "SELECT id FROM roles_by_group WHERE group=?",
         values    = [{group, Id}]
     }),
     [C || [{id, C}] <- cqerl:all_rows(Rows)].
 get_invites(Id) ->
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "SELECT code FROM invites WHERE group=?",
+        statement = "SELECT code FROM invites_by_group WHERE group=?",
         values    = [{group, Id}]
     }),
     [C || [{code, C}] <- cqerl:all_rows(Rows)].

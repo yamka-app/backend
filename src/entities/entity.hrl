@@ -5,7 +5,7 @@
 -record(entity, {type=unknown, fields=#{}}).
 -record(entity_pagination, {field=0, dir=unknown, from=0, cnt=0}).
 -record(entity_context, {type=unknown, id=0}).
--record(entity_get_rq, {type=unknown, id=0, pagination=none, context=none}).
+-record(entity_get_rq, {type=unknown, id=0, pagination=none, context=none, key=none}).
 -record(message_section, {type=unknown, blob=0, text=""}).
 
 -define(REVERSE_MESSAGE_SECTION_TYPE_MAP, utils:swap_map(?MESSAGE_SECTION_TYPE_MAP)).
@@ -22,18 +22,22 @@
 
 -define(REVERSE_ENTITY_MAP, utils:swap_map(?ENTITY_TYPE_MAP)).
 -define(ENTITY_TYPE_MAP, #{
-    1 => user,
-    2 => channel,
-    3 => group,
-    4 => message,
-    5 => role,
-    6 => file,
-    7 => message_state,
-    8 => poll,
-    9 => agent
+    1  => user,
+    2  => channel,
+    3  => group,
+    4  => message,
+    5  => role,
+    6  => file,
+    7  => message_state,
+    8  => poll,
+    9  => agent,
+    10 => pkey
 }).
 
 -define(USER_STATUS_MAP, #{0 => offline, 1 => online, 2 => idle, 3 => dnd}).
+
+-define(REVERSE_KEY_TYPE_MAP, utils:swap_map(?KEY_TYPE_MAP)).
+-define(KEY_TYPE_MAP, #{0 => identity, 1 => prekey, 2 => otprekey, 3 => x3dh_bundle}).
 
 -define(PERM_LEN, 64).
 -define(PERMISSION_FLAGS, #{
@@ -59,6 +63,13 @@
     14 => speak_in_voice,
     15 => mute_others,
     16 => deafen_others
+}).
+
+-define(REVERSE_KEY_TYPE, utils:swap_map(?KEY_TYPE)).
+-define(KEY_TYPE, #{
+    0 => identity,
+    1 => prekey,
+    2 => otprekey
 }).
 
 -define(ENTITY_STRUCTURE, #{
@@ -155,6 +166,13 @@
                 type   => {2, number, {1}},
                 name   => {3, string, {}},
                 online => {4, bool,   {}}
+            },
+        pkey => #{
+                id        => {0, number, {8}},
+                key       => {1, bin,    {specified}},
+                signature => {2, bin,    {specified}},
+                type      => {3, number, {1}},
+                user      => {4, number, {8}}
             }
     }
 }).

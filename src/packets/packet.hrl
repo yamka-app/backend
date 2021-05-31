@@ -96,6 +96,7 @@
     26 => bot
 }).
 
+-define(REVERSE_SEARCH_TARGET_MAP, utils:swap_map(?SEARCH_TARGET_MAP)).
 -define(SEARCH_TARGET_MAP, #{
     0 => user,
     1 => group,
