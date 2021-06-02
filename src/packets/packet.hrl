@@ -56,7 +56,9 @@
     23 => stream_end,
     24 => one_upload_only,
     25 => invalid_confirmation_code,
-    26 => poll_error
+    26 => poll_error,
+    27 => key_error,
+    28 => invalid_request
 }).
 
 -define(REVERSE_TOKEN_PERMISSION_MAP, utils:swap_map(?TOKEN_PERMISSION_MAP)).

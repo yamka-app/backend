@@ -20,3 +20,4 @@ rebar3.crashdump
 compile_commands.json
 .cassandraWorkbench.jsonc
 .cassandraWorkbench/
+.vscode

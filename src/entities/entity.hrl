@@ -10,34 +10,36 @@
 
 -define(REVERSE_MESSAGE_SECTION_TYPE_MAP, utils:swap_map(?MESSAGE_SECTION_TYPE_MAP)).
 -define(MESSAGE_SECTION_TYPE_MAP, #{
-    0 => text,
-    1 => file,
-    2 => code,
-    3 => quote,
-    4 => invite,
-    5 => user,
-    6 => bot_ui,
-    7 => poll
+                 % can have text     can have a blob
+    0 => text,   %       +  
+    1 => file,   %                           +
+    2 => code,   %       +  
+    3 => quote,  % + [plain quote]   + [linked reply]
+    4 => invite, %       +
+    5 => user,   %       +
+    6 => bot_ui, %       +
+    7 => poll    %                           +
 }).
 
 -define(REVERSE_ENTITY_MAP, utils:swap_map(?ENTITY_TYPE_MAP)).
 -define(ENTITY_TYPE_MAP, #{
-    1  => user,
-    2  => channel,
-    3  => group,
-    4  => message,
-    5  => role,
-    6  => file,
-    7  => message_state,
-    8  => poll,
-    9  => agent,
-    10 => pkey
+                         % [I]mmutable, [P]aginable, [C]ontextable, [K]eyable
+    1  => user,          %   CK   [context: group]
+    2  => channel,       %  P     [pagination: messages]
+    3  => group,         %
+    4  => message,       %
+    5  => role,          %  P     [pagination: members]
+    6  => file,          % I
+    7  => message_state, % I
+    8  => poll,          %
+    9  => agent,         %
+    10 => pkey           % I
 }).
 
 -define(USER_STATUS_MAP, #{0 => offline, 1 => online, 2 => idle, 3 => dnd}).
 
 -define(REVERSE_KEY_TYPE_MAP, utils:swap_map(?KEY_TYPE_MAP)).
--define(KEY_TYPE_MAP, #{0 => identity, 1 => prekey, 2 => otprekey, 3 => x3dh_bundle}).
+-define(KEY_TYPE_MAP, #{0 => identity, 1 => prekey, 2 => otprekey}).
 
 -define(PERM_LEN, 64).
 -define(PERMISSION_FLAGS, #{
@@ -65,13 +67,6 @@
     16 => deafen_others
 }).
 
--define(REVERSE_KEY_TYPE, utils:swap_map(?KEY_TYPE)).
--define(KEY_TYPE, #{
-    0 => identity,
-    1 => prekey,
-    2 => otprekey
-}).
-
 -define(ENTITY_STRUCTURE, #{
     9 => #{
         user => #{
@@ -96,7 +91,10 @@
                 bot_owner       => {18, number,   {8}},
                 owned_bots      => {19, num_list, {8}},
                 agents          => {20, num_list, {8}},
-                email_confirmed => {21, bool,     {}}
+                email_confirmed => {21, bool,     {}},
+                identity_key    => {22, entity,   {pkey}},
+                prekey          => {23, entity,   {pkey}},
+                otprekey        => {24, entity,   {pkey}}
             },
         channel => #{
                 id            => {0,  number,   {8}},
@@ -128,7 +126,7 @@
                 states  => {1, num_list, {8}},
                 channel => {2, number,   {8}},
                 sender  => {3, number,   {8}},
-                latest  => {4, entity,   {}}
+                latest  => {4, entity,   {message_state}}
             },
         role => #{
                 id          => {0, number,   {8}},
