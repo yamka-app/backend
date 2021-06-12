@@ -318,13 +318,14 @@ handle_entity(#entity{type=pkey, fields=#{type:=prekey, key:=KeyBin, signature:=
         [] -> ok;
         [Existing] -> pkey_e:delete(Existing)
     end,
-    pkey_e:create(get(id), identity, KeyBin, SignBin),
+    pkey_e:create(get(id), prekey, KeyBin, SignBin),
     none;
 handle_entity(#entity{type=pkey, fields=#{type:=otprekey, key:=KeyBin, signature:=SignBin}}, Seq, Ref) ->
     % TODO: again, it would be a good idea to check the signature
     Count = pkey_e:count(get(id), otprekey),
     {_, false} = {{Ref, status_packet:make(key_error, "Reached the limit of 32 one-time prekeys", Seq)}, Count >= 32},
-    pkey_e:create(get(id), otprekey, KeyBin, SignBin);
+    pkey_e:create(get(id), otprekey, KeyBin, SignBin),
+    none;
 
 
 %% handle illegal requests

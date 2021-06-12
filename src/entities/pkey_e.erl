@@ -27,7 +27,10 @@ create(User, Type, Key, Signature) ->
     Id = utils:gen_snowflake(),
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = "INSERT INTO pkeys (id, user, type, key, signature) VALUES (?,?,?,?,?)",
-        values = [{id, Id}, {user, User}, {type, Type}, {key, Key}, {signature, Signature}]
+        values = [
+            {id, Id}, {user, User}, {type, maps:get(Type, ?REVERSE_KEY_TYPE_MAP)},
+            {key, Key}, {signature, Signature}
+        ]
     }),
     Id.
 
@@ -40,8 +43,8 @@ delete(Id) ->
 %% gets user's public keys
 get_by_user(Id, Type) ->
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "SELECT id FROM pkeys_by_user WHERE owner=? AND type=? ALLOW FILTERING",
-        values    = [{owner, Id}, {type, maps:get(Type, ?REVERSE_KEY_TYPE_MAP)}]
+        statement = "SELECT id FROM pkeys_by_user WHERE user=? AND type=? ALLOW FILTERING",
+        values    = [{user, Id}, {type, maps:get(Type, ?REVERSE_KEY_TYPE_MAP)}]
     }),
     [Key || [{id, Key}] <- cqerl:all_rows(Rows)].
 
@@ -50,8 +53,8 @@ count(Id, Type) ->
     % dOnT uSe cOuNt iN pRoDuCtIoN
     % (the dataset is realyl small, I guess we can afford it)
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "SELECT COUNT(*) FROM pkeys_by_user WHERE owner=? AND type=? ALLOW FILTERING",
-        values    = [{owner, Id}, {type, maps:get(Type, ?REVERSE_KEY_TYPE_MAP)}]
+        statement = "SELECT COUNT(*) FROM pkeys_by_user WHERE user=? AND type=? ALLOW FILTERING",
+        values    = [{user, Id}, {type, maps:get(Type, ?REVERSE_KEY_TYPE_MAP)}]
     }),
     [[{count, Count}]] = cqerl:all_rows(Rows),
     Count.
