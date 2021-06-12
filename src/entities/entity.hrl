@@ -169,7 +169,7 @@
                 id        => {0, number, {8}},
                 key       => {1, bin,    {specified}},
                 signature => {2, bin,    {specified}},
-                type      => {3, number, {1}},
+                type      => {3, atom,   {1, ?KEY_TYPE_MAP}},
                 user      => {4, number, {8}}
             }
     }

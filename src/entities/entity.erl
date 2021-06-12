@@ -570,8 +570,8 @@ len_decode_field(_Proto, num_list, V, {Size})       -> R=datatypes:dec_num_list(
 len_decode_field(_Proto, str_list, V, {})           -> datatypes:len_dec_list(V, fun datatypes:len_dec_str/1, 2);
 len_decode_field(_Proto, list,     V, {LS, _, LDF}) -> datatypes:len_dec_list(V, LDF, LS);
 len_decode_field( Proto, entity,   V, {})           -> entity:len_decode(V, Proto);
-len_decode_field(_Proto, bin,      V, {specified})  -> <<Len:16/unsigned, Data/bitstring>> = V, {binary:part(Data, {0, Len}), Len + 2};
-len_decode_field(_Proto, bin,      V, {Size})       -> {binary_part(V, {0, Size}), Size}.
+len_decode_field(_Proto, bin,      V, {specified})  -> <<Len:16/unsigned, Data/bitstring>> = V, {binary:part(Data, 0, Len), Len + 2};
+len_decode_field(_Proto, bin,      V, {Size})       -> {binary_part(V, 0, Size), Size}.
 len_decode_field(RevStructure, Bin, Proto) ->
     <<Id:8/unsigned, Repr/binary>> = Bin,
     % find the descriptor
@@ -587,7 +587,7 @@ len_decode(Bin, Proto) ->
         fun(B) -> len_decode_field(RevStructure, B, Proto) end, 1),
     Fields = maps:from_list(FieldProplist),
 
-    {#entity{type=Type, fields=Fields}, Len}.
+    {#entity{type=Type, fields=Fields}, Len + 2}.
 
 %% constructs a "key1=?,key2=? ..." string and a list of cqerl bindings from #{key1=>val1, key2=>val2, ...}
 construct_kv_str(Map) when is_map(Map) -> construct_kv_str(maps:to_list(Map));

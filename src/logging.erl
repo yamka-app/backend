@@ -35,7 +35,7 @@ start()          -> start_link(?MODULE).
 start_link(Name) -> gen_server:start_link({local, Name}, ?MODULE, [], []).
 init(_Args) ->
     File = file:open("/var/log/yamka/latest.log", [write]),
-    {ok, #state{level=1, file=File}}.
+    {ok, #state{level=0, file=File}}.
 
 handle_cast({dbg,  Format, Args}, State) -> maybe_write(0, Format, Args, State), {noreply, State};
 handle_cast({log,  Format, Args}, State) -> maybe_write(1, Format, Args, State), {noreply, State};
