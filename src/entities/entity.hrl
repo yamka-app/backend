@@ -36,7 +36,7 @@
     10 => pkey           % I
 }).
 
--define(USER_STATUS_MAP, #{0 => offline, 1 => online, 2 => idle, 3 => dnd}).
+-define(USER_STATUS_MAP, #{0 => offline, 1 => online, 2 => idle, 3 => dnd, 4 => focused}).
 
 -define(REVERSE_KEY_TYPE_MAP, utils:swap_map(?KEY_TYPE_MAP)).
 -define(KEY_TYPE_MAP, #{0 => identity, 1 => prekey, 2 => otprekey}).
