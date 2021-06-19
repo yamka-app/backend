@@ -301,15 +301,16 @@ handle_entity(#entity{type=poll, fields=#{id:=Id, self_vote:=Option}}, Seq, Ref)
 
 
 %% publishes keys
-handle_entity(#entity{type=pkey, fields=#{type:=identity, key:=KeyBin}}, _Seq, _Ref) ->
+handle_entity(#entity{type=pkey, fields=#{type:=IdType, key:=KeyBin}}, _Seq, _Ref)
+            when IdType =:= identity; IdType =:= id_sign ->
     % see if there's an identity key already
-    case pkey_e:get_by_user(get(id), identity) of
+    case pkey_e:get_by_user(get(id), IdType) of
         [] -> ok;
         [Existing] ->
             % TODO: SCREAM OUT LOUD TO EVERY USER THIS ONE SHARES A DM CHANNEL WITH
             pkey_e:delete(Existing)
     end,
-    pkey_e:create(get(id), identity, KeyBin, null),
+    pkey_e:create(get(id), IdType, KeyBin, null),
     none;
 handle_entity(#entity{type=pkey, fields=#{type:=prekey, key:=KeyBin, signature:=SignBin}}, _Seq, _Ref) ->
     % TODO: it would be a good idea to check the signature
@@ -323,7 +324,7 @@ handle_entity(#entity{type=pkey, fields=#{type:=prekey, key:=KeyBin, signature:=
 handle_entity(#entity{type=pkey, fields=#{type:=otprekey, key:=KeyBin, signature:=SignBin}}, Seq, Ref) ->
     % TODO: again, it would be a good idea to check the signature
     Count = pkey_e:count(get(id), otprekey),
-    {_, false} = {{Ref, status_packet:make(key_error, "Reached the limit of 32 one-time prekeys", Seq)}, Count >= 32},
+    {_, false} = {{Ref, status_packet:make(key_error, "Reached the limit of 256 one-time prekeys", Seq)}, Count >= 256},
     pkey_e:create(get(id), otprekey, KeyBin, SignBin),
     none;
 
@@ -403,17 +404,21 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
         length(Keys) > 0},
     % delete the key if it's a one-time prekey
     OneTime = KeyType =:= otprekey,
-    Key = lists:nth(1, Keys),
     if
-        OneTime ->
-            {_, true} = {{Ref, status_packet:make(key_error, "One-time prekey rate limiting", Seq)},
-                pkey_e:check_rate_limit(Id, get(id))},
-            pkey_e:limit_rate(Id, get(id)),
-            pkey_e:delete(Key);
-        true -> ok
-    end,
-    #entity{type=user, fields=#{KeyType =>
-        #entity{type=pkey, fields=pkey_e:get(Key)}}};
+        length(Keys) =:= 0 -> #entity{type=user, fields=#{}};
+        true ->
+            Key = lists:nth(1, Keys),
+            if
+                OneTime ->
+                    {_, true} = {{Ref, status_packet:make(key_error, "One-time prekey rate limiting", Seq)},
+                        pkey_e:check_rate_limit(Id, get(id))},
+                    pkey_e:limit_rate(Id, get(id)),
+                    pkey_e:delete(Key);
+                true -> ok
+            end,
+            #entity{type=user, fields=#{KeyType =>
+                #entity{type=pkey, fields=pkey_e:get(Key)}}}
+    end;
 
 
 %% gets a file
@@ -558,6 +563,7 @@ filter(#entity{fields=Fields}=E, Allowed) ->
 
 %% finds a field descriptor by its ID in a reversed entity structure map
 find_desc(RevS, Id) ->
+    logging:log("~p", [Id]),
     Desc = lists:nth(1, [D || {I, _, _} = D <- utils:map_keys(RevS), I == Id]),
     Name = maps:get(Desc, RevS),
     {Name, Desc}.

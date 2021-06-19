@@ -1,4 +1,12 @@
-# Erlang Yamka backend
+# Erlang Yamka backend :tada:
+
+![Top language](https://img.shields.io/github/languages/top/yamka-app/backend)
+![License](https://img.shields.io/github/license/yamka-app/backend)
+![Platforms](https://img.shields.io/badge/platform-linux%20%7C%20windows%20%7C%20macos%20%7C%20freebsd-blueviolet)
+![Last commit](https://img.shields.io/github/last-commit/yamka-app/backend)
+![Status](https://img.shields.io/uptimerobot/status/m788461709-79464d516b1ef3af81a20454)
+![Uptime (7 days)](https://img.shields.io/uptimerobot/ratio/7/m788461709-79464d516b1ef3af81a20454)
+![Maintainer](https://img.shields.io/badge/maintainer-portasynthinca3-ff69b4)
 
 ## Structure
 This project consists of three main parts, all of which are open-source, distributed and horizontally scalable:

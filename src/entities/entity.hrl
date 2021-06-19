@@ -39,7 +39,7 @@
 -define(USER_STATUS_MAP, #{0 => offline, 1 => online, 2 => idle, 3 => dnd, 4 => focused}).
 
 -define(REVERSE_KEY_TYPE_MAP, utils:swap_map(?KEY_TYPE_MAP)).
--define(KEY_TYPE_MAP, #{0 => identity, 1 => prekey, 2 => otprekey}).
+-define(KEY_TYPE_MAP, #{0 => identity, 1 => prekey, 2 => otprekey, 3 => id_sign}).
 
 -define(PERM_LEN, 64).
 -define(PERMISSION_FLAGS, #{
@@ -92,9 +92,10 @@
                 owned_bots      => {19, num_list, {8}},
                 agents          => {20, num_list, {8}},
                 email_confirmed => {21, bool,     {}},
-                identity_key    => {22, entity,   {pkey}},
+                identity        => {22, entity,   {pkey}},
                 prekey          => {23, entity,   {pkey}},
-                otprekey        => {24, entity,   {pkey}}
+                otprekey        => {24, entity,   {pkey}},
+                id_sign         => {25, entity,   {pkey}}
             },
         channel => #{
                 id            => {0,  number,   {8}},
