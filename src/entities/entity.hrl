@@ -110,7 +110,8 @@
                 voice_users   => {10, num_list, {8}},
                 voice_status  => {11, list,     {2, fun datatypes:enc_chan_voice_status/1,
                                                     fun datatypes:len_dec_chan_voice_status/1}},
-                mentions      => {12, num_list, {8}}
+                mentions      => {12, num_list, {8}},
+                lcid          => {13, number,   {4}}
             },
         group => #{
                 id            => {0, number,   {8}},

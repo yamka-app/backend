@@ -160,7 +160,7 @@ handle_entity(#entity{type=channel, fields=Fields=#{id:=Id}}, Seq, Ref) ->
     #{group := Group} = channel_e:get(Id),
     group_e:assert_permission(Group, edit_channels, {Ref, Seq}),
     
-    channel_e:update(Id, maps:filter(fun(K, _) -> K =/= id end, Fields)),
+    channel_e:update(Id, maps:filter(fun(K, _) -> (K =:= name) or (K =:= voice) end, Fields)),
     client:icpc_broadcast_to_aware(chan_awareness,
         #entity{type=channel, fields=Fields}, maps:keys(Fields)),
     none;
@@ -472,13 +472,7 @@ handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=none, context=
     Unfiltered = channel_e:get(Id),
     {UnreadLcid, UnreadId} = channel_e:get_unread(Id, get(id)),
     Mentions = channel_e:get_mentions(Id, get(id)),
-    Filtered = maps:filter(fun(K, _) ->
-            case K of
-                lcid  -> false;
-                perms -> false;
-                _     -> true
-            end
-        end, Unfiltered),
+    Filtered = maps:filter(fun(K, _) -> K =/= perms end, Unfiltered),
     UnreadCnt = maps:get(lcid, Unfiltered) - UnreadLcid,
     AddMap = case UnreadCnt of
             0 -> #{unread => 0};
