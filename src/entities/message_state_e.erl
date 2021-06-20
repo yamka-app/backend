@@ -29,14 +29,22 @@ get(Id) ->
     end, maps:from_list(cqerl:head(Rows)))).
 
 %% creates a message state
+create(MsgId, <<Encrypted/binary>>) ->
+    Id = utils:gen_snowflake(),
+    % execute the CQL query
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "INSERT INTO message_states (id, msg_id, sections) VALUES (?,?,?)",
+        values = [{id, Id}, {msg_id, MsgId}, {encrypted, Encrypted}]
+    }),
+    Id;
 create(MsgId, Sections) ->
     Id = utils:gen_snowflake(),
     % execute the CQL query
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = "INSERT INTO message_states (id, msg_id, sections) VALUES (?,?,?)",
         values = [
-            {id,       Id},
-            {msg_id,   MsgId},
+            {id,     Id},
+            {msg_id, MsgId},
             {sections, [
                 [
                     {type, maps:get(Type, ?REVERSE_MESSAGE_SECTION_TYPE_MAP)},

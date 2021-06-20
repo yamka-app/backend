@@ -166,19 +166,17 @@ handle_entity(#entity{type=channel, fields=Fields=#{id:=Id}}, Seq, Ref) ->
     none;
 
 
-%% sends a message
+%% sends a group message
 handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, latest:=
               L=#entity{type=message_state, fields=#{id:=0, sections:=Sections}}}}, Seq, Ref) ->
-    % check token permissions
+    % check permissions
     #{group := Group} = channel_e:get(Channel),
-    yamka_auth:assert_permission(if
-        Group =/= 0 ->
-            group_e:assert_permission(Group, send_messages, {Ref, Seq}),
-            send_group_messages;
-        true -> send_direct_messages
-    end, {Ref, Seq}),
+    % group messages should be sent unencrypted
+    {_, true} = {{Ref, status_packet:make(invalid_request, "\"sections\" field in direct message", Seq)}, Group > 0},
+    group_e:assert_permission(Group, send_messages, {Ref, Seq}),
+    yamka_auth:assert_permission(send_group_messages, {Ref, Seq}),
 
-    % parse mentions
+    % filter sections and parse mentions
     Filtered = message_state_e:filter_sections(Sections),
     Mentions = message_state_e:parse_mentions(Filtered),
     % create entities
@@ -193,15 +191,55 @@ handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, la
     none;
 
 
-%% edits a message
+%% sends a direct message
+handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, latest:=
+              L=#entity{type=message_state, fields=#{id:=0, encrypted:=Encrypted}}}}, Seq, Ref) ->
+    % check permissions
+    #{group := Group} = channel_e:get(Channel),
+    % DMs should be sent encrypted
+    {_, true} = {{Ref, status_packet:make(invalid_request, "\"encrypted\" field in group message", Seq)}, Group =:= 0},
+    yamka_auth:assert_permission(send_direct_messages, {Ref, Seq}),
+
+    % create entities
+    {MsgId, _} = message_e:create(Channel, get(id)),
+    StateId = message_state_e:create(MsgId, Encrypted),
+    % broadcast the message
+    client:icpc_broadcast_to_aware(chan_awareness, Channel,
+        M#entity{fields=maps:merge(message_e:get(MsgId), #{states => message_e:get_states(MsgId), latest =>
+            L#entity{fields=message_state_e:get(StateId)}})}, [id, states, channel, sender, latest]),
+    none;
+
+
+%% edits a group message
 handle_entity(M=#entity{type=message,       fields=#{id:=Id, latest:=
               L=#entity{type=message_state, fields=#{id:=0, sections:=Sections}}}}, Seq, Ref) ->
-    Existing = message_e:get(Id),
+    #{channel := Channel} = Existing = message_e:get(Id),
+    #{group := Group} = channel_e:get(Channel),
+    {_, true} = {{Ref, status_packet:make(invalid_request, "\"sections\" field in direct message", Seq)}, Group > 0},
+    yamka_auth:assert_permission(send_group_messages, {Ref, Seq}),
     SelfSent = maps:get(sender, Existing) =:= get(id),
     {_, true} = {{Ref, status_packet:make(permission_denied, "This message was sent by another user", Seq)},
         SelfSent},
 
     StateId = message_state_e:create(Id, message_state_e:filter_sections(Sections)),
+    client:icpc_broadcast_to_aware(chan_awareness, maps:get(channel, Existing),
+        M#entity{fields=maps:merge(message_e:get(Id), #{states => message_e:get_states(Id), latest =>
+            L#entity{fields=message_state_e:get(StateId)}})}, [id, states, channel, sender, latest]),
+    none;
+
+
+%% edits a direct message
+handle_entity(M=#entity{type=message,       fields=#{id:=Id, latest:=
+              L=#entity{type=message_state, fields=#{id:=0, encrypted:=Encrypted}}}}, Seq, Ref) ->
+    #{channel := Channel} = Existing = message_e:get(Id),
+    #{group := Group} = channel_e:get(Channel),
+    {_, true} = {{Ref, status_packet:make(invalid_request, "\"encrypted\" field in direct message", Seq)}, Group =:= 0},
+    yamka_auth:assert_permission(send_direct_messages, {Ref, Seq}),
+    SelfSent = maps:get(sender, Existing) =:= get(id),
+    {_, true} = {{Ref, status_packet:make(permission_denied, "This message was sent by another user", Seq)},
+        SelfSent},
+
+    StateId = message_state_e:create(Id, Encrypted),
     client:icpc_broadcast_to_aware(chan_awareness, maps:get(channel, Existing),
         M#entity{fields=maps:merge(message_e:get(Id), #{states => message_e:get_states(Id), latest =>
             L#entity{fields=message_state_e:get(StateId)}})}, [id, states, channel, sender, latest]),
