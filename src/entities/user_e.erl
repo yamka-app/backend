@@ -30,7 +30,7 @@ broadcast_status(Id, Status) ->
 %% checks if the specified E-Mail address is in use
 email_in_use(EMail) ->
     {ok, User} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "SELECT email FROM users WHERE email=?",
+        statement = "SELECT email FROM users WHERE users_by_email=?",
         values    = [{email, EMail}]
     }),
     cqerl:size(User) > 0.
@@ -95,7 +95,7 @@ search(NameTag) ->
     Tag = list_to_integer(TagStr),
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         % ALLOW FILTERING should be fine, we're guaranteed to have <=1k users with the same name
-        statement = "SELECT id FROM users WHERE name=? AND tag=? ALLOW FILTERING",
+        statement = "SELECT id FROM user_ids_by_name WHERE name=? AND tag=? ALLOW FILTERING",
         values    = [{name, Name}, {tag, Tag}]
     }),
     1 = cqerl:size(Rows),

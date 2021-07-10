@@ -20,9 +20,9 @@ get(Id) ->
         values    = [{id, Id}]
     }),
     1 = cqerl:size(Rows),
-    maps:filter(fun(K, V) -> (K =/= encrypted) or ((K =:= encrypted) and (V =/= null)) end, maps:map(fun(K, V) ->
+    maps:filter(fun(_, V) -> V =/= null end, maps:map(fun(K, V) ->
         case K of
-            sections -> [#message_section{type=maps:get(Type, ?MESSAGE_SECTION_TYPE_MAP), text=Te, blob=B}
+            sections when V =/= null -> [#message_section{type=maps:get(Type, ?MESSAGE_SECTION_TYPE_MAP), text=Te, blob=B}
                 || [{type, Type}, {txt, Te}, {blob, B}] <- V];
             _ -> V
         end
@@ -33,7 +33,7 @@ create(MsgId, <<Encrypted/binary>>) ->
     Id = utils:gen_snowflake(),
     % execute the CQL query
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "INSERT INTO message_states (id, msg_id, sections) VALUES (?,?,?)",
+        statement = "INSERT INTO message_states (id, msg_id, encrypted) VALUES (?,?,?)",
         values = [{id, Id}, {msg_id, MsgId}, {encrypted, Encrypted}]
     }),
     Id;

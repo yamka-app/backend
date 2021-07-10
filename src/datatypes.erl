@@ -108,7 +108,7 @@ dec_list(Bin, LengthingDecoder, CountLength) ->
    {Val, _} = len_dec_list(Bin, LengthingDecoder, CountLength),
    Val.
 dec_list(Bin, Decoder, Lengther, CountLength) ->
-   {Val, _} = len_dec_list(Bin, fun(B)->{Decoder(B), Lengther(B)} end, CountLength),
+   {Val, _} = len_dec_list(Bin, fun(B)->L=Lengther(B), {Decoder(binary:part(B,0,L)), L} end, CountLength),
    Val.
 
 len_list(Bin, Lengther, CountLength) ->

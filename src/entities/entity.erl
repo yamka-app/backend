@@ -167,8 +167,8 @@ handle_entity(#entity{type=channel, fields=Fields=#{id:=Id}}, Seq, Ref) ->
 
 
 %% sends a group message
-handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, latest:=
-              L=#entity{type=message_state, fields=#{id:=0, sections:=Sections}}}}, Seq, Ref) ->
+handle_entity(M=#entity{type=message,       fields=#{channel:=Channel, latest:=
+              L=#entity{type=message_state, fields=#{sections:=Sections}}}}, Seq, Ref) ->
     % check permissions
     #{group := Group} = channel_e:get(Channel),
     % group messages should be sent unencrypted
@@ -192,8 +192,8 @@ handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, la
 
 
 %% sends a direct message
-handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, latest:=
-              L=#entity{type=message_state, fields=#{id:=0, encrypted:=Encrypted}}}}, Seq, Ref) ->
+handle_entity(M=#entity{type=message,       fields=#{channel:=Channel, latest:=
+              L=#entity{type=message_state, fields=#{encrypted:=Encrypted}}}}, Seq, Ref) ->
     % check permissions
     #{group := Group} = channel_e:get(Channel),
     % DMs should be sent encrypted
@@ -339,25 +339,25 @@ handle_entity(#entity{type=poll, fields=#{id:=Id, self_vote:=Option}}, Seq, Ref)
 
 
 %% publishes keys
-handle_entity(#entity{type=pkey, fields=#{type:=IdType, key:=KeyBin}}, _Seq, _Ref)
-            when IdType =:= identity; IdType =:= id_sign ->
+handle_entity(#entity{type=pkey, fields=#{type:=id_sign, key:=KeyBin}}, _Seq, _Ref) ->
     % see if there's an identity key already
-    case pkey_e:get_by_user(get(id), IdType) of
+    case pkey_e:get_by_user(get(id), id_sign) of
         [] -> ok;
         [Existing] ->
             % TODO: SCREAM OUT LOUD TO EVERY USER THIS ONE SHARES A DM CHANNEL WITH
             pkey_e:delete(Existing)
     end,
-    pkey_e:create(get(id), IdType, KeyBin, null),
+    pkey_e:create(get(id), id_sign, KeyBin, null),
     none;
-handle_entity(#entity{type=pkey, fields=#{type:=prekey, key:=KeyBin, signature:=SignBin}}, _Seq, _Ref) ->
+handle_entity(#entity{type=pkey, fields=#{type:=Type, key:=KeyBin, signature:=SignBin}}, _Seq, _Ref)
+            when Type =:= identity; Type =:= prekey ->
     % TODO: it would be a good idea to check the signature
-    % see if there's an identity key already
-    case pkey_e:get_by_user(get(id), prekey) of
+    % see if there's a key already
+    case pkey_e:get_by_user(get(id), Type) of
         [] -> ok;
         [Existing] -> pkey_e:delete(Existing)
     end,
-    pkey_e:create(get(id), prekey, KeyBin, SignBin),
+    pkey_e:create(get(id), Type, KeyBin, SignBin),
     none;
 handle_entity(#entity{type=pkey, fields=#{type:=otprekey, key:=KeyBin, signature:=SignBin}}, Seq, Ref) ->
     % TODO: again, it would be a good idea to check the signature
@@ -446,16 +446,17 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
         length(Keys) =:= 0 -> #entity{type=user, fields=#{}};
         true ->
             Key = lists:nth(1, Keys),
+            KeyObj = pkey_e:get(Key),
             if
                 OneTime ->
                     {_, true} = {{Ref, status_packet:make(key_error, "One-time prekey rate limiting", Seq)},
-                        pkey_e:check_rate_limit(Id, get(id))},
-                    pkey_e:limit_rate(Id, get(id)),
-                    pkey_e:delete(Key);
+                        pkey_e:check_rate_limit(Id, get(id))};
+                    % pkey_e:limit_rate(Id, get(id)),
+                    % pkey_e:delete(Key);
                 true -> ok
             end,
-            #entity{type=user, fields=#{KeyType =>
-                #entity{type=pkey, fields=pkey_e:get(Key)}}}
+            #entity{type=user, fields=#{id => Id, KeyType =>
+                #entity{type=pkey, fields=KeyObj}}}
     end;
 
 
@@ -568,6 +569,7 @@ encode_field(_Proto, num_list, V, {Size})       -> datatypes:enc_num_list(V, Siz
 encode_field(_Proto, str_list, V, {})           -> datatypes:enc_list(V, fun datatypes:enc_str/1, 2);
 encode_field(_Proto, list,     V, {LS, EF, _})  -> datatypes:enc_list(V, EF, LS);
 encode_field( Proto, entity,   V, {})           -> entity:encode(V, Proto);
+encode_field( Proto, entity,   V, {T})          -> #entity{type=T}=V, entity:encode(V, Proto);
 encode_field(_Proto, bin,      V, {specified})  -> <<(byte_size(V)):16/unsigned, V/bitstring>>;
 encode_field(_Proto, bin,      V, {Size})       -> Size = byte_size(V), V.
 encode_field({{Id, Type, Args}, Value}, Proto) ->
@@ -609,6 +611,7 @@ len_decode_field(_Proto, num_list, V, {Size})       -> R=datatypes:dec_num_list(
 len_decode_field(_Proto, str_list, V, {})           -> datatypes:len_dec_list(V, fun datatypes:len_dec_str/1, 2);
 len_decode_field(_Proto, list,     V, {LS, _, LDF}) -> datatypes:len_dec_list(V, LDF, LS);
 len_decode_field( Proto, entity,   V, {})           -> entity:len_decode(V, Proto);
+len_decode_field( Proto, entity,   V, {T})          -> {#entity{type=T},_}=entity:len_decode(V, Proto);
 len_decode_field(_Proto, bin,      V, {specified})  -> <<Len:16/unsigned, Data/bitstring>> = V, {binary:part(Data, 0, Len), Len + 2};
 len_decode_field(_Proto, bin,      V, {Size})       -> {binary_part(V, 0, Size), Size}.
 len_decode_field(RevStructure, Bin, Proto) ->

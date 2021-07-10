@@ -47,7 +47,7 @@ handle_packet(#packet{type=login, seq=Seq,
     {_, 1} = {{ScopeRef, status_packet:make(rate_limiting, "Please try again in a minute", Seq)}, ratelimit:hit(login)},
     % get the user and ensure they're the only one with this email (could be none)
     {ok, User} = cqerl:run_query(get(cassandra), #cql_query{
-        statement = "SELECT salt, password, mfa_secret, id FROM users WHERE email=?",
+        statement = "SELECT salt, password, mfa_secret, id FROM users_by_email WHERE email=?",
         values    = [{email, Email}]
     }),
     {_, 1} = {{ScopeRef, status_packet:make(login_error, "Invalid E-Mail", Seq)}, cqerl:size(User)},

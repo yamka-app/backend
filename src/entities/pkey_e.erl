@@ -20,7 +20,12 @@ get(Id) ->
         values    = [{id, Id}]
     }),
     1 = cqerl:size(Rows),
-    maps:from_list(cqerl:head(Rows)).
+    maps:filter(fun(K, V) -> V =/= null end, maps:map(fun(K, V) ->
+        case K of
+            type -> maps:get(V, ?KEY_TYPE_MAP);
+            _ -> V
+        end end,
+    maps:from_list(cqerl:head(Rows)))).
 
 %% creates a public key
 create(User, Type, Key, Signature) ->
