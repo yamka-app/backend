@@ -450,9 +450,9 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
             if
                 OneTime ->
                     {_, true} = {{Ref, status_packet:make(key_error, "One-time prekey rate limiting", Seq)},
-                        pkey_e:check_rate_limit(Id, get(id))};
-                    % pkey_e:limit_rate(Id, get(id)),
-                    % pkey_e:delete(Key);
+                        pkey_e:check_rate_limit(Id, get(id))},
+                    pkey_e:limit_rate(Id, get(id)),
+                    pkey_e:delete(Key);
                 true -> ok
             end,
             #entity{type=user, fields=#{id => Id, KeyType =>
