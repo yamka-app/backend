@@ -99,7 +99,7 @@ resolve_invite(Code) ->
     end.
 
 find_users(Id, Name, Max) when is_list(Name) ->
-    find_users(Id, list_to_binary(Name), Max);
+    find_users(Id, unicode:characters_to_binary(Name), Max);
 find_users(Id, Name, Max) when Max > 5 ->
     find_users(Id, Name, 5);
 find_users(Id, Name, Max) ->
@@ -126,7 +126,7 @@ find_users(Id, Name, Max) ->
     [binary_to_integer(proplists:get_value(<<"_id">>, Hit)) || Hit <- Hits].
 
 cache_user_name(Id, User, Name) when is_list(Name) ->
-    cache_user_name(Id, User, list_to_binary(Name));
+    cache_user_name(Id, User, unicode:characters_to_binary(Name));
 cache_user_name(Id, User, Name) ->
     % Elassandra uses "upsert" operations for indexations,
     % so we don't need to explicitly update/delete anything,

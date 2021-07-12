@@ -8,8 +8,8 @@
 -description("\"Normal protocol\" client process").
 
 -define(TIMEOUT, 30*1000).
--define(MIN_PROTO, 9).
--define(MAX_PROTO, 9).
+-define(MIN_PROTO, 10).
+-define(MAX_PROTO, 10).
 -include("entities/entity.hrl").
 -include("packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
@@ -144,6 +144,7 @@ handle_packet(#packet{type=entity_get, seq=Seq,
 handle_packet(#packet{type=entities, seq=Seq,
                       fields=#{entities := Entities}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
+    {_, false} = {{ScopeRef, status_packet:make_excessive_data(Seq)}, entity:check_excessivity(Entities)},
     [entity:handle_entity(R, Seq, ScopeRef) || R <- Entities];
 
 %% file download request (to download a file)

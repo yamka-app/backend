@@ -10,7 +10,7 @@
 -include("entity.hrl").
 
 -export([handle_get_request/2, handle_entity/3]).
--export([encode_field/2, encode/2, len_decode/2]).
+-export([encode_field/2, encode/2, len_decode/2, check_excessivity/1]).
 -export([construct_kv_str/1, filter/2]).
 
 structure(Proto, EntityType) ->
@@ -563,10 +563,12 @@ handle_get_request(#entity_get_rq{}, {_Ref, Seq}) ->
 %% encodes entities
 encode_field(_Proto, number,   V, {Size})       -> datatypes:enc_num(V, Size);
 encode_field(_Proto, string,   V, {})           -> datatypes:enc_str(V);
+encode_field(_Proto, string,   V, {_})          -> datatypes:enc_str(V);
 encode_field(_Proto, atom,     V, {Size, Map})  -> datatypes:enc_num(maps:get(V, utils:swap_map(Map)), Size);
 encode_field(_Proto, bool,     V, {})           -> datatypes:enc_bool(V);
 encode_field(_Proto, num_list, V, {Size})       -> datatypes:enc_num_list(V, Size);
 encode_field(_Proto, str_list, V, {})           -> datatypes:enc_list(V, fun datatypes:enc_str/1, 2);
+encode_field(_Proto, str_list, V, {_})          -> datatypes:enc_list(V, fun datatypes:enc_str/1, 2);
 encode_field(_Proto, list,     V, {LS, EF, _})  -> datatypes:enc_list(V, EF, LS);
 encode_field( Proto, entity,   V, {})           -> entity:encode(V, Proto);
 encode_field( Proto, entity,   V, {T})          -> #entity{type=T}=V, entity:encode(V, Proto);
@@ -598,17 +600,23 @@ filter(#entity{fields=Fields}=E, Allowed) ->
 %% finds a field descriptor by its ID in a reversed entity structure map
 find_desc(RevS, Id) ->
     logging:log("~p", [Id]),
-    Desc = lists:nth(1, [D || {I, _, _} = D <- utils:map_keys(RevS), I == Id]),
+    Desc = lists:nth(1, [D || {I, _, _} = D <- utils:map_keys(RevS), I =:= Id]),
     Name = maps:get(Desc, RevS),
     {Name, Desc}.
 
 %% decodes entities
 len_decode_field(_Proto, number,   V, {Size})       -> {datatypes:dec_num(V, Size), Size};
 len_decode_field(_Proto, string,   V, {})           -> {datatypes:dec_str(V), datatypes:len_str(V)};
+len_decode_field(_Proto, string,   V, {MaxLen})     ->
+    S=datatypes:dec_str(V), {if length(S) >= MaxLen -> excessive; true -> S end, datatypes:len_str(V)};
 len_decode_field(_Proto, atom,     V, {Size, Map})  -> {maps:get(datatypes:dec_num(V, Size), Map), Size};
 len_decode_field(_Proto, bool,     V, {})           -> {datatypes:dec_bool(V), 1};
 len_decode_field(_Proto, num_list, V, {Size})       -> R=datatypes:dec_num_list(V, Size), {R, 2+(length(R)*Size)};
 len_decode_field(_Proto, str_list, V, {})           -> datatypes:len_dec_list(V, fun datatypes:len_dec_str/1, 2);
+len_decode_field(_Proto, str_list, V, {MaxLen})     ->
+    {L, Len} = datatypes:len_dec_list(V, fun datatypes:len_dec_str/1, 2),
+    Excessive = lists:any(fun(X) -> length(X) >= MaxLen end, L),
+    {if Excessive -> excessive; true -> L end, Len};
 len_decode_field(_Proto, list,     V, {LS, _, LDF}) -> datatypes:len_dec_list(V, LDF, LS);
 len_decode_field( Proto, entity,   V, {})           -> entity:len_decode(V, Proto);
 len_decode_field( Proto, entity,   V, {T})          -> {#entity{type=T},_}=entity:len_decode(V, Proto);
@@ -630,6 +638,11 @@ len_decode(Bin, Proto) ->
     Fields = maps:from_list(FieldProplist),
 
     {#entity{type=Type, fields=Fields}, Len + 2}.
+
+check_excessivity(#entity{fields=Fields}) ->
+    lists:any(fun(V) -> V =:= excessive end, maps:values(Fields));
+check_excessivity(List=[_|_]) ->
+    lists:any(fun(X) -> check_excessivity(X) end, List).
 
 %% constructs a "key1=?,key2=? ..." string and a list of cqerl bindings from #{key1=>val1, key2=>val2, ...}
 construct_kv_str(Map) when is_map(Map) -> construct_kv_str(maps:to_list(Map));

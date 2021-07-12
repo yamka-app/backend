@@ -58,7 +58,8 @@
     25 => invalid_confirmation_code,
     26 => poll_error,
     27 => key_error,
-    28 => invalid_request
+    28 => invalid_request,
+    29 => excessive_data
 }).
 
 -define(REVERSE_TOKEN_PERMISSION_MAP, utils:swap_map(?TOKEN_PERMISSION_MAP)).

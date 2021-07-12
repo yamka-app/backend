@@ -209,7 +209,7 @@ add_dm_channel(Peers=[_,_], Channel) ->
     }).
 
 find(Name, Max) when is_list(Name) ->
-    find(list_to_binary(Name), Max);
+    find(unicode:characters_to_binary(Name), Max);
 find(Name, Max) when Max > 5 ->
     find(Name, 5);
 find(Name, Max) ->
@@ -225,7 +225,7 @@ find(Name, Max) ->
     [binary_to_integer(proplists:get_value(<<"_id">>, Hit)) || Hit <- Hits].
     
 cache_name(User, Name) when is_list(Name) ->
-    cache_name(User, list_to_binary(Name));
+    cache_name(User, unicode:characters_to_binary(Name));
 cache_name(User, Name) ->
     % Elassandra uses "upsert" operations for indexations,
     % so we don't need to explicitly update/delete anything,

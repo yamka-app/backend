@@ -68,14 +68,14 @@
 }).
 
 -define(ENTITY_STRUCTURE, #{
-    9 => #{
+    10 => #{
         user => #{
                 id              => {0,  number,   {8}},
-                email           => {1,  string,   {}},
-                name            => {2,  string,   {}},
+                email           => {1,  string,   {128}},
+                name            => {2,  string,   {64}},
                 tag             => {3,  number,   {3}},
                 status          => {4,  atom,     {1, ?USER_STATUS_MAP}},
-                status_text     => {5,  string,   {}},
+                status_text     => {5,  string,   {128}},
                 permissions     => {6,  bin,      {8}},
                 ava_file        => {7,  number,   {8}},
                 mfa_enabled     => {8,  bool,     {}},
@@ -99,7 +99,7 @@
             },
         channel => #{
                 id            => {0,  number,   {8}},
-                name          => {1,  string,   {}},
+                name          => {1,  string,   {64}},
                 members       => {2,  num_list, {8}},
                 group         => {3,  number,   {8}},
                 messages      => {4,  num_list, {8}},
@@ -115,12 +115,12 @@
             },
         group => #{
                 id            => {0, number,   {8}},
-                name          => {1, string,   {}},
+                name          => {1, string,   {64}},
                 channels      => {2, num_list, {8}},
                 owner         => {3, number,   {8}},
                 roles         => {4, num_list, {8}},
                 icon          => {5, number,   {8}},
-                invites       => {6, str_list, {}},
+                invites       => {6, str_list, {16}},
                 everyone_role => {7, number,   {8}}
             },
         message => #{
@@ -132,7 +132,7 @@
             },
         role => #{
                 id          => {0, number,   {8}},
-                name        => {1, string,   {}},
+                name        => {1, string,   {64}},
                 color       => {2, number,   {4}},
                 group       => {3, number,   {8}},
                 priority    => {4, number,   {2}},
@@ -141,9 +141,9 @@
             },
         file => #{
                 id         => {0, number, {8}},
-                name       => {1, string, {}},
-                pixel_size => {2, string, {}},
-                preview    => {3, string, {}},
+                name       => {1, string, {128}},
+                pixel_size => {2, string, {16}},
+                preview    => {3, string, {128}},
                 length     => {4, number, {4}}
             },
         message_state => #{
@@ -155,7 +155,7 @@
             },
         poll => #{
                 id           => {0, number,   {8}},
-                options      => {1, str_list, {}},
+                options      => {1, str_list, {128}},
                 option_votes => {2, num_list, {3}},
                 self_vote    => {3, number,   {1}},
                 total_votes  => {4, number,   {3}}
@@ -164,7 +164,7 @@
                 id     => {0, number, {8}},
                 owner  => {1, number, {8}},
                 type   => {2, number, {1}},
-                name   => {3, string, {}},
+                name   => {3, string, {64}},
                 online => {4, bool,   {}}
             },
         pkey => #{
