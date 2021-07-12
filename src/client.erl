@@ -109,8 +109,8 @@ handle_packet(#packet{type=signup, seq=Seq,
     Id = user_e:create(Name, EMail, SentPass),
     % create an agent or use an existing one
     AgentId = case Agent of
-        #{id := Existing}             -> Existing;
-        #{type := Type, name := Name} -> agent_e:create(Id, Type, Name)
+        #{id := Existing}              -> Existing;
+        #{type := Type, name := AName} -> agent_e:create(Id, Type, AName)
     end,
     access_token_packet:make(yamka_auth:create_token(?ALL_PERMISSIONS_EXCEPT_BOT, AgentId), Seq);
 
@@ -310,16 +310,21 @@ client_loop() ->
         
         {ok, Packet} ->
             if
-                (Packet#packet.type /= identification) and (State == awaiting_identification) ->
+                (Packet#packet.type =/= identification) and (State =:= awaiting_identification) ->
                     status_packet:make(invalid_connection_state, "Protocol version unknown or illegal");
                 true ->
                     % thanks to José M at https://stackoverflow.com/a/65711977/8074626
                     % for this graceful match error handling technique
                     try
-                        % terminate the connection if the client sends us too many packets
-                        {_, 1} = {{ScopeRef, close}, ratelimit:hit(close)},
-                        % ignore the packet if the client sends us too many of them, but not as many to close the connection
-                        {_, 1} = {{ScopeRef, status_packet:make_rate_limiting(Packet)}, ratelimit:hit(packet)},
+                        % impose rate limits on all types of packets except for file chunks
+                        if
+                            Packet#packet.type =/= file_data_chunk ->
+                                % terminate the connection if the client sends us too many packets
+                                {_, 1} = {{ScopeRef, close}, ratelimit:hit(close)},
+                                % ignore the packet if the client sends us too many of them, but not as many to close the connection
+                                {_, 1} = {{ScopeRef, status_packet:make_rate_limiting(Packet)}, ratelimit:hit(packet)};
+                            true -> ok
+                        end,
                         logging:dbg("--> ~p", [packet_iface:clear_for_printing(Packet)]),
                         handle_packet(Packet, ScopeRef)
                     of

@@ -7,7 +7,7 @@
 -license("MPL-2.0").
 -description("File process. Sends and receives files. Depends on a \"normal client\" process. In fact, it's using").
 
--define(CHUNK_SIZE, 1024*5). % bytes
+-define(CHUNK_SIZE, 1024 * 8). % bytes
 -include("packets/packet.hrl").
 -include("entities/entity.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
@@ -63,11 +63,22 @@ client_init({Socket, Protocol, Host, Cassandra}, {recv_file, Length, Name, Reply
 
 %% sends a packet
 send_packet(P) ->
+    SeqP = P#packet{seq=case P of
+        #packet{type=file_data_chunk, fields=#{position := Pos}} -> Pos;
+        _ -> 0
+    end},
     logging:dbg("<--F ~p", [packet_iface:clear_for_printing(P)]),
     spawn_monitor(packet_iface, writer, [
-        get(socket), P,
+        get(socket), SeqP,
         get(protocol), false, self()
     ]),
-    receive
-        _ -> ok
+    case SeqP of
+        #packet{type=file_data_chunk, seq=Seq} ->
+            receive
+                {sent, Seq} -> ok
+            end;
+        _ ->
+            receive
+                {sent, _} -> ok
+            end
     end.

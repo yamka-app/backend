@@ -30,7 +30,7 @@ broadcast_status(Id, Status) ->
 %% checks if the specified E-Mail address is in use
 email_in_use(EMail) ->
     {ok, User} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "SELECT email FROM users WHERE users_by_email=?",
+        statement = "SELECT email FROM users_by_email WHERE email=?",
         values    = [{email, EMail}]
     }),
     cqerl:size(User) > 0.
