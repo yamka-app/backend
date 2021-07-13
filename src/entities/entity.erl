@@ -599,7 +599,6 @@ filter(#entity{fields=Fields}=E, Allowed) ->
 
 %% finds a field descriptor by its ID in a reversed entity structure map
 find_desc(RevS, Id) ->
-    logging:log("~p", [Id]),
     Desc = lists:nth(1, [D || {I, _, _} = D <- utils:map_keys(RevS), I =:= Id]),
     Name = maps:get(Desc, RevS),
     {Name, Desc}.

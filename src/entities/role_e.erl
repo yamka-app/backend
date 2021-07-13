@@ -45,9 +45,9 @@ delete(Id) ->
 %% deletes all member records in addition to the role itself
 nuke(Id) -> nuke(Id, false).
 nuke(Id, RemGroup) ->
-    delete(Id),
     #{group := Group} = role_e:get(Id),
-    nuke(Id, Group, 0, 1000, RemGroup).
+    nuke(Id, Group, 0, 1000, RemGroup),
+    delete(Id).
 nuke(Id, Group, From, Batch, RemGroup) ->
     Members = get_members(Id, From, Batch, up),
     lists:foreach(fun(User) ->
