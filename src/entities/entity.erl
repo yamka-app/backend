@@ -102,7 +102,7 @@ handle_entity(#entity{type=file, fields=#{name:=Name, length:=Length}}, Seq, Ref
                 {Length, Name})),
             none;
         true ->
-            status_packet:make(file_too_large, file_storage:max_size_text())
+            status_packet:make(file_too_large, "Max file size is " ++ file_storage:max_size_text())
     end;
 
 %% (re-)sets the typing status
