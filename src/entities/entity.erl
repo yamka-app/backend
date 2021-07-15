@@ -173,7 +173,7 @@ handle_entity(#entity{type=channel, fields=Fields=#{id:=Id}}, Seq, Ref) ->
 
 
 %% sends a group message
-handle_entity(M=#entity{type=message,       fields=#{channel:=Channel, latest:=
+handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, latest:=
               L=#entity{type=message_state, fields=#{sections:=Sections}}}}, Seq, Ref) ->
     % check permissions
     #{group := Group} = channel_e:get(Channel),
@@ -201,7 +201,7 @@ handle_entity(M=#entity{type=message,       fields=#{channel:=Channel, latest:=
 
 
 %% sends a direct message
-handle_entity(M=#entity{type=message,       fields=#{channel:=Channel, latest:=
+handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, latest:=
               L=#entity{type=message_state, fields=#{encrypted:=Encrypted}}}}, Seq, Ref) ->
     % check permissions
     #{group := Group} = channel_e:get(Channel),
@@ -221,7 +221,7 @@ handle_entity(M=#entity{type=message,       fields=#{channel:=Channel, latest:=
 
 %% edits a group message
 handle_entity(M=#entity{type=message,       fields=#{id:=Id, latest:=
-              L=#entity{type=message_state, fields=#{id:=0, sections:=Sections}}}}, Seq, Ref) ->
+              L=#entity{type=message_state, fields=#{sections:=Sections}}}}, Seq, Ref) ->
     #{channel := Channel} = Existing = message_e:get(Id),
     #{group := Group} = channel_e:get(Channel),
     {_, true} = {{Ref, status_packet:make(invalid_request, "\"sections\" field in direct message", Seq)}, Group > 0},
@@ -239,10 +239,10 @@ handle_entity(M=#entity{type=message,       fields=#{id:=Id, latest:=
 
 %% edits a direct message
 handle_entity(M=#entity{type=message,       fields=#{id:=Id, latest:=
-              L=#entity{type=message_state, fields=#{id:=0, encrypted:=Encrypted}}}}, Seq, Ref) ->
+              L=#entity{type=message_state, fields=#{encrypted:=Encrypted}}}}, Seq, Ref) ->
     #{channel := Channel} = Existing = message_e:get(Id),
     #{group := Group} = channel_e:get(Channel),
-    {_, true} = {{Ref, status_packet:make(invalid_request, "\"encrypted\" field in direct message", Seq)}, Group =:= 0},
+    {_, true} = {{Ref, status_packet:make(invalid_request, "\"encrypted\" field in group message", Seq)}, Group =:= 0},
     yamka_auth:assert_permission(send_direct_messages, {Ref, Seq}),
     SelfSent = maps:get(sender, Existing) =:= get(id),
     {_, true} = {{Ref, status_packet:make(permission_denied, "This message was sent by another user", Seq)},
