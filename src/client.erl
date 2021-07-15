@@ -283,7 +283,7 @@ handle_packet(#packet{type=password_change, seq=Seq,
     Salt       = proplists:get_value(salt, User),
     ExPassword = proplists:get_value(password, User),
     MfaSecret  = proplists:get_value(mfa_secret, User),
-    {_, ExPassword} = {{ScopeRef, status_packet:make(invalid_credential, "Invalid password", Seq)},
+    {_, ExPassword} = {{ScopeRef, status_packet:make(invalid_credential, "Invalid current password", Seq)},
         utils:hash_password(OldPass, Salt)},
     % check the 2FA code
     MfaCheckPassed = case MfaSecret of
