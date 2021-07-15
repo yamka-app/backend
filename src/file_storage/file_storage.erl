@@ -13,6 +13,7 @@
 -record(file_info, {size, type, access, atime, mtime, ctime, mode, links, major_device, minor_device, inode, uid, gid}).
 
 -export([register_file/2, send_file/3, recv_file/3, exists/1]).
+-export([max_size/0, max_size_text/0]).
 
 %% determines the file name by its ID
 path_in_storage(Id) -> string:concat(?STORAGE_PATH, integer_to_list(Id)).
@@ -49,3 +50,6 @@ recv_file(Reply, Settings, {Length, Name}) ->
 
 %% checks if a file exists
 exists(Id) -> filelib:is_file(path_in_storage(Id)).
+
+max_size() -> 128 * 1024 * 1024.
+max_size_text() -> "128 MiB".

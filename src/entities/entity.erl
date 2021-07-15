@@ -94,10 +94,16 @@ handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, Ref) ->
 handle_entity(#entity{type=file, fields=#{name:=Name, length:=Length}}, Seq, Ref) ->
     {_, none} = {{Ref, status_packet:make(one_upload_only,
             "Only one concurrent upload is allowed", Seq)}, get(file_recv_pid)},
-    put(file_recv_pid, file_storage:recv_file(Seq,
-        {get(socket), get(protocol), self(), get(cassandra)},
-        {Length, Name})),
-    none;
+    MaxSize = file_storage:max_size(),
+    if
+        Length =< MaxSize -> 
+            put(file_recv_pid, file_storage:recv_file(Seq,
+                {get(socket), get(protocol), self(), get(cassandra)},
+                {Length, Name})),
+            none;
+        true ->
+            status_packet:make(file_too_large, file_storage:max_size_text())
+    end;
 
 %% (re-)sets the typing status
 handle_entity(#entity{type=channel, fields=#{id:=Id, typing:=[0]}}, _Seq, _Ref) ->
