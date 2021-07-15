@@ -182,8 +182,11 @@ handle_entity(M=#entity{type=message,       fields=#{channel:=Channel, latest:=
     group_e:assert_permission(Group, send_messages, {Ref, Seq}),
     yamka_auth:assert_permission(send_group_messages, {Ref, Seq}),
 
-    % filter sections and parse mentions
+    % filter sections
     Filtered = message_state_e:filter_sections(Sections),
+    % check section count
+    {_, true} = {{Ref, status_packet:make(invalid_request, "Message should have at least 1 section", Seq)}, length(Filtered) > 1},
+    % parse mentions
     Mentions = message_state_e:parse_mentions(Filtered),
     % create entities
     {MsgId, _} = message_e:create(Channel, get(id)),
