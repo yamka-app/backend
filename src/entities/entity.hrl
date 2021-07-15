@@ -12,7 +12,7 @@
 -define(MESSAGE_SECTION_TYPE_MAP, #{
                  % can have text     can have a blob
     0 => text,   %       +  
-    1 => file,   %                           +
+    1 => file,   %   + [in DMs]              +
     2 => code,   %       +  
     3 => quote,  % + [plain quote]   + [linked reply]
     4 => invite, %       +
@@ -68,7 +68,7 @@
 }).
 
 -define(ENTITY_STRUCTURE, #{
-    10 => #{
+    11 => #{
         user => #{
                 id              => {0,  number,   {8}},
                 email           => {1,  string,   {128}},

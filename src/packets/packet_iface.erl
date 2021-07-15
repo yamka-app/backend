@@ -46,6 +46,7 @@ decode(Data, Proto) ->
             invite_resolve        -> fun invite_resolve_packet       :decode/2;
             voice_join            -> fun voice_join_packet           :decode/2;
             email_confirmation    -> fun email_confirmation_packet   :decode/2;
+            password_change       -> fun password_change_packet      :decode/2;
             _                     -> fun(_,_) -> #{} end
         end
     of

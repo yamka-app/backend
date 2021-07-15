@@ -8,8 +8,8 @@
 -description("\"Normal protocol\" client process").
 
 -define(TIMEOUT, 30*1000).
--define(MIN_PROTO, 10).
--define(MAX_PROTO, 10).
+-define(MIN_PROTO, 11).
+-define(MAX_PROTO, 11).
 -include("entities/entity.hrl").
 -include("packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
@@ -44,7 +44,7 @@ handle_packet(#packet{type=login, seq=Seq,
     % ensure proper connection state
     {_, awaiting_login} = {{ScopeRef, status_packet:make_invalid_state(awaiting_login, Seq)}, get(state)},
     % rate limiting
-    {_, 1} = {{ScopeRef, status_packet:make(rate_limiting, "Please try again in a minute", Seq)}, ratelimit:hit(login)},
+    {_, 1} = {{ScopeRef, status_packet:make(rate_limiting, "Too many attempts. Please try again in a minute", Seq)}, ratelimit:hit(login)},
     % get the user and ensure they're the only one with this email (could be none)
     {ok, User} = cqerl:run_query(get(cassandra), #cql_query{
         statement = "SELECT salt, password, mfa_secret, id FROM users_by_email WHERE email=?",
@@ -267,6 +267,38 @@ handle_packet(#packet{type=email_confirmation, seq=Seq,
                           "Invalid email address confirmation code", Seq)},
         user_e:finish_email_confirmation(get(id), Code)},
     entities_packet:make([#entity{type=user, fields=#{id => get(id), email_confirmed => true}}]);
+
+%% password change packet
+handle_packet(#packet{type=password_change, seq=Seq,
+                      fields=#{old_pass:=OldPass, mfa_code:=MfaCode, pass:=Pass}}, ScopeRef) ->
+    {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
+    {_, true} = {{ScopeRef, status_packet:make(invalid_credential, "Use a longer password", Seq)},
+        length(Pass) >= 6},
+    % make sure the old password is correct
+    {ok, Rows} = cqerl:run_query(get(cassandra), #cql_query{
+        statement = "SELECT salt, password, mfa_secret FROM users WHERE id=?",
+        values    = [{id, get(id)}]
+    }),
+    User = cqerl:head(Rows),
+    Salt       = proplists:get_value(salt, User),
+    ExPassword = proplists:get_value(password, User),
+    MfaSecret  = proplists:get_value(mfa_secret, User),
+    {_, ExPassword} = {{ScopeRef, status_packet:make(invalid_credential, "Invalid password", Seq)},
+        utils:hash_password(OldPass, Salt)},
+    % check the 2FA code
+    MfaCheckPassed = case MfaSecret of
+        null -> true;
+        _ -> yamka_auth:totp_verify(MfaSecret, MfaCode)
+    end,
+    {_, true} = {{ScopeRef, status_packet:make(invalid_credential, "Invalid 2FA code", Seq)},
+        MfaCheckPassed},
+    % change the password if all checks passed
+    NewHash = utils:hash_password(Pass, Salt),
+    {ok, _} = cqerl:run_query(get(cassandra), #cql_query{
+        statement = "UPDATE users SET password=? WHERE id=?",
+        values    = [{id, get(id)}, {password, NewHash}]
+    }),
+    status_packet:make(password_changed, "Changed password successfully", Seq);
 
 %% ping packet (to signal to the server that the connection is alive)
 handle_packet(#packet{type=ping, seq=Seq,

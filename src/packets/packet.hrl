@@ -26,7 +26,9 @@
     18 => identification,
     19 => client_identity,
     20 => voice_join,
-    21 => email_confirmation
+    21 => email_confirmation,
+    22 => password_change,
+    23 => mfa_change
 }).
 
 -define(REVERSE_STATUS_CODE_MAP, utils:swap_map(?STATUS_CODE_MAP)).
@@ -59,7 +61,10 @@
     26 => poll_error,
     27 => key_error,
     28 => invalid_request,
-    29 => excessive_data
+    29 => excessive_data,
+    30 => invalid_credential,
+    31 => password_changed,
+    32 => mfa_toggled
 }).
 
 -define(REVERSE_TOKEN_PERMISSION_MAP, utils:swap_map(?TOKEN_PERMISSION_MAP)).
