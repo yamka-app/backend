@@ -139,7 +139,7 @@ delete(Id) ->
         values    = [{id, Id}]
     }).
 
-%% gets the users who are typing
+%% gets the users that are typing
 get_typing_filter([]) -> [];
 get_typing_filter([{_, {User, Time}}|T]) ->
     MsSince = utils:ms_since(Time),

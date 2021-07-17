@@ -105,6 +105,7 @@ handle_entity(#entity{type=file, fields=#{name:=Name, length:=Length}}, Seq, Ref
             status_packet:make(file_too_large, "Max file size is " ++ file_storage:max_size_text())
     end;
 
+
 %% (re-)sets the typing status
 handle_entity(#entity{type=channel, fields=#{id:=Id, typing:=[0]}}, _Seq, _Ref) ->
     channel_e:set_typing(Id, get(id)),
@@ -258,7 +259,7 @@ handle_entity(M=#entity{type=message,       fields=#{id:=Id, latest:=
 %% deletes a message
 handle_entity(M=#entity{type=message, fields=#{id:=Id, sender:=0}}, Seq, Ref) ->
     #{channel := Channel, sender := Sender} = message_e:get(Id),
-    #{group := Group} = channel_e:get(Channel),
+    #{group := Group, lcid := Lcid} = channel_e:get(Channel),
     {_, true} = {{Ref, status_packet:make(permission_denied, "This message was sent by another user", Seq)},
         Sender =:= get(id)},
     #{group := Group} = channel_e:get(Channel),
@@ -268,7 +269,8 @@ handle_entity(M=#entity{type=message, fields=#{id:=Id, sender:=0}}, Seq, Ref) ->
             delete_group_messages;
         true -> delete_direct_messages
     end, {Ref, Seq}),
-
+    % decrease the LCID
+    channel_e:update(Channel, #{lcid => Lcid - 1}),
     message_e:delete(Id),
     client:icpc_broadcast_to_aware(chan_awareness, Channel,
         #entity{type=message, fields=#{id => Id, channel => Channel, sender => 0}},
