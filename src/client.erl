@@ -254,6 +254,7 @@ handle_packet(#packet{type=invite_resolve, seq=Seq,
 handle_packet(#packet{type=voice_join, seq=Seq,
                       fields=#{channel:=Chan, crypto:=Key}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
+    {_, 1} = {{ScopeRef, status_packet:make(rate_limiting, "Rate limiting")}, ratelimit:hit(voice)},
     Session = tasty:create_session(Key, get(id), Chan),
     Server = tasty:server_name(),
     logging:log("Redirecting voice client to ~p", [Server]),
@@ -408,6 +409,7 @@ client_init(TransportSocket, Cassandra) ->
     ratelimit:make(entity,  {150, 1000  }),
     ratelimit:make(message, {20,  10000 }),
     ratelimit:make(bot,     {1,   120000}),
+    ratelimit:make(voice,   {2,   1000  }),
 
     % run the client loop
     try client_loop()
