@@ -201,7 +201,7 @@ handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, la
 
 
 %% sends a direct message
-handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, latest:=
+handle_entity(M=#entity{type=message,       fields=#{channel:=Channel, latest:=
               L=#entity{type=message_state, fields=#{encrypted:=Encrypted}}}}, Seq, Ref) ->
     % check permissions
     #{group := Group} = channel_e:get(Channel),
@@ -271,7 +271,7 @@ handle_entity(M=#entity{type=message, fields=#{id:=Id, sender:=0}}, Seq, Ref) ->
 
     message_e:delete(Id),
     client:icpc_broadcast_to_aware(chan_awareness, Channel,
-        M#entity{fields=#{id => Id, channel => Channel, sender => 0}},
+        #entity{type=message, fields=#{id => Id, channel => Channel, sender => 0}},
             [id, channel, sender]),
     none;
 
