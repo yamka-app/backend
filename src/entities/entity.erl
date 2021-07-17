@@ -487,7 +487,7 @@ handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=none, context=
     Filtered = maps:filter(fun(K, _) -> K =/= perms end, Unfiltered),
     UnreadCnt = maps:get(lcid, Unfiltered) - UnreadLcid,
     AddMap = case UnreadCnt of
-            0 -> #{unread => 0};
+            N when N =< 0 -> #{unread => 0};
             _ -> #{unread => UnreadCnt, first_unread => UnreadId}
         end,
     #entity{type=channel, fields=maps:merge(
