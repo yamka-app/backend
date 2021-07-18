@@ -16,6 +16,7 @@
 -export([add_dm_channel/2]).
 -export([start_email_confirmation/2, finish_email_confirmation/2]).
 -export([find/2, cache_name/2]).
+-export([get_note/2, set_note/3]).
 
 %% returns true if the user is currently connected
 online(Id) -> length(ets:lookup(icpc_processes, Id)) > 0.
@@ -88,6 +89,24 @@ get(Id) ->
     % convert the status into its atomic representation
     #{status := StatusNum} = Vals,
     maps:put(status, maps:get(StatusNum, ?USER_STATUS_MAP), Vals).
+
+%% gets a note set by someone
+get_note(Id, From) ->
+    {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "SELECT note FROM user_notes WHERE user=? AND subject=?",
+        values    = [{subject, Id}, {user, From}]
+    }),
+    case cqerl:head(Rows) of
+        empty_dataset -> nonote;
+        [{note, Note}] -> Note
+    end.
+
+%% sets a note
+set_note(Id, From, Note) ->
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "UPDATE user_notes SET note=? WHERE user=? AND subject=?",
+        values    = [{subject, Id}, {user, From}, {note, Note}]
+    }), ok.
 
 %% searches a user by name and tag
 search(NameTag) ->

@@ -18,10 +18,9 @@ structure(Proto, EntityType) ->
     Structure.
 
 %% updates a user
-handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, Ref) ->
+handle_entity(#entity{type=user, fields=#{id:=0} = F}, Seq, Ref) ->
     % a user can only change info about themselves
     yamka_auth:assert_permission(edit_profile, {Ref, Seq}),
-    {_, Id} = {{Ref, status_packet:make(invalid_id, "You can only change info about yourself", Seq)}, get(id)},
     % only allow allowed fields (wow thx captain obvious)
     BroadcastFields = [name, status, status_text, ava_file],
     AllowedFields = maps:filter(fun(K, _) -> lists:member(K, [email|BroadcastFields]) end, F),
@@ -29,9 +28,9 @@ handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, Ref) ->
         0 -> ok;
         _ ->
             % change the DB record
-            user_e:update(Id, AllowedFields),
+            user_e:update(get(id), AllowedFields),
             % broadcast the changes
-            Entity = #entity{type=user, fields=maps:merge(AllowedFields, #{id=>Id})},
+            Entity = #entity{type=user, fields=maps:merge(AllowedFields, #{id => get(id)})},
             client:icpc_broadcast_to_aware(Entity, BroadcastFields)
     end,
     % if the email was changed, un-confirm it and send a confirmation request to the user
@@ -39,13 +38,13 @@ handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, Ref) ->
     if
         EmailChanged ->
             Email = maps:get(email, F),
-            user_e:update(Id, #{email => Email, email_confirmed => false}),
-            user_e:start_email_confirmation(Id, Email),
+            user_e:update(get(id), #{email => Email, email_confirmed => false}),
+            user_e:start_email_confirmation(get(id), Email),
             NewEntity = #entity{type=user, fields=#{
-                id => Id,
+                id => get(id),
                 email => Email,
                 email_confirmed => false}},
-            client:icpc_broadcast_entity(Id, NewEntity);
+            client:icpc_broadcast_entity(get(id), NewEntity);
         true -> ok
     end,
     % if the agent list was changed, calculate the diff and yank the removed ones
@@ -53,7 +52,7 @@ handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, Ref) ->
     AgentsChanged = maps:is_key(agents, F),
     if
         AgentsChanged ->
-            OldAgents = agent_e:get_by_user(Id),
+            OldAgents = agent_e:get_by_user(get(id)),
             {_, RemovedAgents} = utils:list_diff(maps:get(agents, F), OldAgents),
             [agent_e:delete(A)          || A <- RemovedAgents],
             [yamka_auth:revoke_agent(A) || A <- RemovedAgents],
@@ -64,8 +63,8 @@ handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, Ref) ->
             end, [], OldAgents),
             case RemovedAgents of
                 [] -> ok;
-                _ -> client:icpc_broadcast_entity(Id, #entity{type=user,
-                    fields=#{id => Id, agents => NewAgents}}, [agents])
+                _ -> client:icpc_broadcast_entity(get(id), #entity{type=user,
+                    fields=#{id => get(id), agents => NewAgents}}, [agents])
             end;
         true -> ok
     end,
@@ -74,21 +73,26 @@ handle_entity(#entity{type=user, fields=#{id:=Id} = F}, Seq, Ref) ->
     if
         MfaChanged ->
             MfaEnabled = maps:get(mfa_enabled, F),
-            client:icpc_broadcast_entity(Id, #entity{type=user,
-                fields=#{id => Id, mfa_enabled => MfaEnabled}}, [mfa_enabled]),
+            client:icpc_broadcast_entity(get(id), #entity{type=user,
+                fields=#{id => get(id), mfa_enabled => MfaEnabled}}, [mfa_enabled]),
             if
                 MfaEnabled ->
                     Secret = yamka_auth:totp_secret(),
-                    user_e:update(Id, #{mfa_secret => Secret}),
+                    user_e:update(get(id), #{mfa_secret => Secret}),
                     mfa_secret_packet:make(Secret, Seq);
                 true ->
-                    user_e:update(Id, #{mfa_secret => null}),
+                    user_e:update(get(id), #{mfa_secret => null}),
                     none
             end;
         true ->
             none
     end;
 
+
+%% sets a note
+handle_entity(#entity{type=user, fields=#{id:=Id, note:=Note}}, _, _) ->
+    user_e:set_note(Id, get(id), Note),
+    none;
 
 %% puts a file
 handle_entity(#entity{type=file, fields=#{name:=Name, length:=Length}}, Seq, Ref) ->
@@ -396,10 +400,15 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
     Online = user_e:online(Id),
     Unfiltered = user_e:get(Id),
 
-    Dm = case channel_e:get_dm([get(id), Id]) of
+    Note = case user_e:get_note(Id, get(id)) of
+        nonote -> #{};
+        Str    -> #{note => Str}
+    end,
+
+    Dm = maps:merge(Note, case channel_e:get_dm([get(id), Id]) of
         nodm -> #{};
         DmId -> #{dm_channel => DmId}
-    end,
+    end),
 
     Mfa = maps:merge(Dm, #{mfa_enabled => maps:get(mfa_secret, Unfiltered) =/= null}),
     Agents = maps:merge(Mfa, if IsSelf -> #{agents => agent_e:get_by_user(Id)}; true -> #{} end),

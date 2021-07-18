@@ -68,11 +68,11 @@
 }).
 
 -define(ENTITY_STRUCTURE, #{
-    11 => #{
+    12 => #{
         user => #{
                 id              => {0,  number,   {8}},
                 email           => {1,  string,   {128}},
-                name            => {2,  string,   {64}},
+                name            => {2,  string,   {24}},
                 tag             => {3,  number,   {3}},
                 status          => {4,  atom,     {1, ?USER_STATUS_MAP}},
                 status_text     => {5,  string,   {128}},
@@ -95,7 +95,8 @@
                 identity        => {22, entity,   {pkey}},
                 prekey          => {23, entity,   {pkey}},
                 otprekey        => {24, entity,   {pkey}},
-                id_sign         => {25, entity,   {pkey}}
+                id_sign         => {25, entity,   {pkey}},
+                note            => {26, string,   {24}}
             },
         channel => #{
                 id            => {0,  number,   {8}},
