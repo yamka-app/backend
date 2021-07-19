@@ -9,5 +9,5 @@
 -export([decode/2]).
 
 decode(<<EnableBin, PasswordBin/binary>>, Proto) when Proto >= 12 ->
-    #{pass   => EnableBin >= 1,
-      enable => datatypes:dec_str(PasswordBin)}.
+    #{enable => EnableBin >= 1,
+      pass   => datatypes:dec_str(PasswordBin)}.

@@ -28,7 +28,7 @@
     20 => voice_join,
     21 => email_confirmation,
     22 => password_change,
-    23 => mfa_change
+    23 => mfa_toggle
 }).
 
 -define(REVERSE_STATUS_CODE_MAP, utils:swap_map(?STATUS_CODE_MAP)).

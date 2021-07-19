@@ -47,7 +47,7 @@ decode(Data, Proto) ->
             voice_join            -> fun voice_join_packet           :decode/2;
             email_confirmation    -> fun email_confirmation_packet   :decode/2;
             password_change       -> fun password_change_packet      :decode/2;
-            mfa_change            -> fun mfa_change_packet           :decode/2;
+            mfa_toggle            -> fun mfa_toggle_packet           :decode/2;
             _                     -> throw(unknown)
         end
     of

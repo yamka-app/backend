@@ -15,6 +15,18 @@
 -export([create_token/2, get_token/1, revoke_agent/1]).
 -export([has_permission/1, assert_permission/2]).
 -export([totp_secret/0, totp_verify/2]).
+-export([pass_verify/2]).
+
+%% verifies a user's password
+pass_verify(Id, Pass) ->
+    {ok, Rows} = cqerl:run_query(get(cassandra), #cql_query{
+        statement = "SELECT salt, password FROM users WHERE id=?",
+        values    = [{id, Id}]
+    }),
+    User    = cqerl:head(Rows),
+    Salt    = proplists:get_value(salt, User),
+    CurPass = proplists:get_value(password, User),
+    utils:hash_password(Pass, Salt) =:= CurPass.
 
 %% creates a token
 create_token(Permissions, AgentId) ->

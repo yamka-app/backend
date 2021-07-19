@@ -68,25 +68,7 @@ handle_entity(#entity{type=user, fields=#{id:=0} = F}, Seq, Ref) ->
             end;
         true -> ok
     end,
-    % if the 2FA setting was changed, update auth settings
-    MfaChanged = maps:is_key(mfa_enabled, F),
-    if
-        MfaChanged ->
-            MfaEnabled = maps:get(mfa_enabled, F),
-            client:icpc_broadcast_entity(get(id), #entity{type=user,
-                fields=#{id => get(id), mfa_enabled => MfaEnabled}}, [mfa_enabled]),
-            if
-                MfaEnabled ->
-                    Secret = yamka_auth:totp_secret(),
-                    user_e:update(get(id), #{mfa_secret => Secret}),
-                    mfa_secret_packet:make(Secret, Seq);
-                true ->
-                    user_e:update(get(id), #{mfa_secret => null}),
-                    none
-            end;
-        true ->
-            none
-    end;
+    none;
 
 
 %% sets a note

@@ -35,6 +35,7 @@ handle_packet(#packet{type=identification, seq=Seq,
             none
     end;
 
+
 %% login packet (to acquire an access token)
 handle_packet(#packet{type=login, seq=Seq,
                       fields=#{email   :=Email,
@@ -75,6 +76,7 @@ handle_packet(#packet{type=login, seq=Seq,
             status_packet:make(mfa_required, "2FA is enabled on this account", Seq)
     end;
 
+
 %% MFA "secret" packet (to finish 2FA authentication)
 handle_packet(#packet{type=mfa_secret, seq=Seq,
                       fields=#{secret:=Token}}, ScopeRef) ->
@@ -88,6 +90,7 @@ handle_packet(#packet{type=mfa_secret, seq=Seq,
     put(mfa_secret, none),
     put(state, awaiting_login),
     access_token_packet:make(yamka_auth:create_token(get(mfa_perms), get(mfa_agent)), Seq);
+
 
 %% signup packet (to create an account)
 handle_packet(#packet{type=signup, seq=Seq,
@@ -114,6 +117,7 @@ handle_packet(#packet{type=signup, seq=Seq,
     end,
     access_token_packet:make(yamka_auth:create_token(?ALL_PERMISSIONS_EXCEPT_BOT, AgentId), Seq);
 
+
 %% access token packet (to identify the user and permissions)
 handle_packet(#packet{type=access_token, seq=Seq,
                       fields=#{token := Token}}, ScopeRef) ->
@@ -134,11 +138,13 @@ handle_packet(#packet{type=access_token, seq=Seq,
     user_e:broadcast_status(Id),
     client_identity_packet:make(Id, AgentId, Seq);
 
+
 %% entity get packet (to request a set of entities)
 handle_packet(#packet{type=entity_get, seq=Seq,
                       fields=#{entities := Entities}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
     entities_packet:make([entity:handle_get_request(R, {ScopeRef, Seq}) || R <- Entities], Seq);
+
 
 %% entity packet (to put a set of entities)
 handle_packet(#packet{type=entities, seq=Seq,
@@ -146,6 +152,7 @@ handle_packet(#packet{type=entities, seq=Seq,
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
     {_, false} = {{ScopeRef, status_packet:make_excessive_data(Seq)}, entity:check_excessivity(Entities)},
     [entity:handle_entity(R, Seq, ScopeRef) || R <- Entities];
+
 
 %% file download request (to download a file)
 handle_packet(#packet{type=file_download_request, seq=Seq,
@@ -155,12 +162,14 @@ handle_packet(#packet{type=file_download_request, seq=Seq,
     file_storage:send_file(Id, Seq, {get(socket), get(protocol)}),
     none;
 
+
 %% file data chunk (to upload a file)
 handle_packet(#packet{type=file_data_chunk, seq=Seq,
                       fields=#{data := Data}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
     get(file_recv_pid) ! Data,
     none;
+
 
 %% contact manage packet (add a contact such as a friend)
 handle_packet(#packet{type=contacts_manage, seq=Seq,
@@ -193,6 +202,7 @@ handle_packet(#packet{type=contacts_manage, seq=Seq,
     end,
     none;
 
+
 %% contact manage packet (remove a contact such as a friend)
 handle_packet(#packet{type=contacts_manage, seq=Seq,
                       fields=#{type:=Type, action:=remove, id:=Id}}, ScopeRef) ->
@@ -209,6 +219,7 @@ handle_packet(#packet{type=contacts_manage, seq=Seq,
     end,
     none;
 
+
 %% user search packet (send a friend request using their name and tag)
 handle_packet(#packet{type=search, seq=Seq,
                       fields=#{type:=user, name:=Name}}, ScopeRef) ->
@@ -222,6 +233,7 @@ handle_packet(#packet{type=search, seq=Seq,
     icpc_broadcast_entity(Id,      #entity{type=user, fields=user_e:get(Id)},      [pending_in]),
     status_packet:make(friend_request_sent, "Friend request sent", Seq);
 
+
 %% group member search
 handle_packet(#packet{type=search, seq=Seq,
                       fields=#{type:=group_member, name:=Name, ref:=Id}}, ScopeRef) ->
@@ -229,6 +241,7 @@ handle_packet(#packet{type=search, seq=Seq,
     yamka_auth:assert_permission(see_groups, {ScopeRef, Seq}),
     Users = group_e:find_users(Id, Name, 10),
     search_result_packet:make(Users, Seq);
+
 
 %% invite resolution packet (to get the group by one of its invites)
 handle_packet(#packet{type=invite_resolve, seq=Seq,
@@ -250,6 +263,7 @@ handle_packet(#packet{type=invite_resolve, seq=Seq,
     end,
     entities_packet:make([#entity{type=group, fields=group_e:get(Id, false)}], Seq);
 
+
 %% voice join packet
 handle_packet(#packet{type=voice_join, seq=Seq,
                       fields=#{channel:=Chan, crypto:=Key}}, ScopeRef) ->
@@ -260,6 +274,7 @@ handle_packet(#packet{type=voice_join, seq=Seq,
     logging:log("Redirecting voice client to ~p", [Server]),
     voice_join_packet:make(Session, Server, Seq);
 
+
 %% email confirmation packet
 handle_packet(#packet{type=email_confirmation, seq=Seq,
                       fields=#{code:=Code}}, ScopeRef) ->
@@ -268,6 +283,7 @@ handle_packet(#packet{type=email_confirmation, seq=Seq,
                           "Invalid email address confirmation code", Seq)},
         user_e:finish_email_confirmation(get(id), Code)},
     entities_packet:make([#entity{type=user, fields=#{id => get(id), email_confirmed => true}}]);
+
 
 %% password change packet
 handle_packet(#packet{type=password_change, seq=Seq,
@@ -300,6 +316,28 @@ handle_packet(#packet{type=password_change, seq=Seq,
         values    = [{id, get(id)}, {password, NewHash}]
     }),
     status_packet:make(password_changed, "Changed password successfully", Seq);
+
+
+%% 2FA change packet
+handle_packet(#packet{type=mfa_toggle, seq=Seq,
+                      fields=#{pass:=Pass, enable:=Enable}}, ScopeRef) ->
+    {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
+    % make sure the password is correct
+    {_, true} = {{ScopeRef, status_packet:make(invalid_credential, "Invalid password", Seq)},
+        yamka_auth:pass_verify(get(id), Pass)},
+    % broadcast the changes
+    icpc_broadcast_entity(get(id), #entity{type=user,
+        fields=#{id => get(id), mfa_enabled => Enable}}, [mfa_enabled]),
+    % reply with nothing or with our newly generated secret
+    if
+        Enable ->
+            Secret = yamka_auth:totp_secret(),
+            user_e:update(get(id), #{mfa_secret => Secret}),
+            mfa_secret_packet:make(Secret, Seq);
+        true ->
+            user_e:update(get(id), #{mfa_secret => null}),
+            status_packet:make(mfa_toggled, "2FA disabled", Seq)
+    end;
 
 %% ping packet (to signal to the server that the connection is alive)
 handle_packet(#packet{type=ping, seq=Seq,
