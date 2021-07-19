@@ -335,7 +335,9 @@ client_loop() ->
 
         {error, decoding, Seq, Type, DErr} ->
             if
-                (Type /= identification) and (State == awaiting_identification) ->
+                DErr =:= unknown_packet ->
+                    status_packet:make(unknown_packet, "Unknown packet type");
+                (Type =/= identification) and (State =:= awaiting_identification) ->
                     status_packet:make(invalid_connection_state, "Protocol version unknown or illegal");
                 true ->
                     logging:warn("~w: decoding error of seq ~w (~p)", [get(client_ip), Seq, DErr]),

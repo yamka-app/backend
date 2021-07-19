@@ -5,7 +5,7 @@
 -record(entity, {type=unknown, fields=#{}}).
 -record(entity_pagination, {field=0, dir=unknown, from=0, cnt=0}).
 -record(entity_context, {type=unknown, id=0}).
--record(entity_get_rq, {type=unknown, id=0, pagination=none, context=none, key=none}).
+-record(entity_get_rq, {type=unknown, id=0, pagination=none, context=none, key=none, deref=false}).
 -record(message_section, {type=unknown, blob=0, text=""}).
 
 -define(REVERSE_MESSAGE_SECTION_TYPE_MAP, utils:swap_map(?MESSAGE_SECTION_TYPE_MAP)).
@@ -25,7 +25,7 @@
 -define(ENTITY_TYPE_MAP, #{
                          % [I]mmutable, [P]aginable, [C]ontextable, [K]eyable
     1  => user,          %   CK   [context: group]
-    2  => channel,       %  P     [pagination: messages]
+    2  => channel,       %  P     [pagination: messages (in-place deref supported)]
     3  => group,         %
     4  => message,       %
     5  => role,          %  P     [pagination: members]

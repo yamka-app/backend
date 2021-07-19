@@ -47,7 +47,8 @@ decode(Data, Proto) ->
             voice_join            -> fun voice_join_packet           :decode/2;
             email_confirmation    -> fun email_confirmation_packet   :decode/2;
             password_change       -> fun password_change_packet      :decode/2;
-            _                     -> fun(_,_) -> #{} end
+            mfa_change            -> fun mfa_change_packet           :decode/2;
+            _                     -> throw(unknown)
         end
     of
         F -> {ok, #packet{type    = Type,
@@ -56,6 +57,7 @@ decode(Data, Proto) ->
                           captcha = Captcha,
                           fields  = F(Payload, Proto)}}
     catch
+        throw:unknown -> {error, Seq, Type, {unknown_packet}};
         E:D:T -> {error, Seq, Type, {E, D, T}}
     end.
 
