@@ -382,10 +382,17 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
     Online = user_e:online(Id),
     Unfiltered = user_e:get(Id),
 
-    Note = case user_e:get_note(Id, get(id)) of
+    OtpHashes = if
+        IsSelf ->
+            #{otp_hashes => [pkey_e:fingerprint(Id)
+                || Id <- pkey_e:get_by_user(get(id), otprekey)]};
+        true -> #{}
+    end,
+
+    Note = maps:merge(OtpHashes, case user_e:get_note(Id, get(id)) of
         nonote -> #{};
         Str    -> #{note => Str}
-    end,
+    end),
 
     Dm = maps:merge(Note, case channel_e:get_dm([get(id), Id]) of
         nodm -> #{};
@@ -414,6 +421,7 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
             groups          -> yamka_auth:has_permission(see_groups);
             badges          -> true;
             bot_owner       -> true;
+            note            -> not IsSelf;
             _ -> false
         end
     end, maps:map(fun(K, V) ->

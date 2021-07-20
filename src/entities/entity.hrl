@@ -68,7 +68,7 @@
 }).
 
 -define(ENTITY_STRUCTURE, #{
-    12 => #{
+    12 => #{ % protocol version
         user => #{
                 id              => {0,  number,   {8}},
                 email           => {1,  string,   {128}},
@@ -96,7 +96,9 @@
                 prekey          => {23, entity,   {pkey}},
                 otprekey        => {24, entity,   {pkey}},
                 id_sign         => {25, entity,   {pkey}},
-                note            => {26, string,   {24}}
+                note            => {26, string,   {24}},
+                otp_hashes      => {27, list,     {1, fun(<<X/binary>>) -> X end,
+                                                      fun(<<X:256/binary, _/binary>>) -> {X, 32} end}}
             },
         channel => #{
                 id            => {0,  number,   {8}},
@@ -165,7 +167,7 @@
                 id     => {0, number, {8}},
                 owner  => {1, number, {8}},
                 type   => {2, number, {1}},
-                name   => {3, string, {64}},
+                name   => {3, string, {32}},
                 online => {4, bool,   {}}
             },
         pkey => #{

@@ -10,7 +10,7 @@
 -include("entity.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
--export([get/1, create/4, delete/1, get_by_user/2, count/2]).
+-export([get/1, fingerprint/1, create/4, delete/1, get_by_user/2, count/2]).
 -export([limit_rate/2, check_rate_limit/2]).
 
 %% gets a public key by ID
@@ -26,6 +26,10 @@ get(Id) ->
             _ -> V
         end end,
     maps:from_list(cqerl:head(Rows)))).
+
+fingerprint(Id) ->
+    #{key := Data} = pkey_e:get(Id),
+    crypto:hash(sha256, Data).
 
 %% creates a public key
 create(User, Type, Key, Signature) ->

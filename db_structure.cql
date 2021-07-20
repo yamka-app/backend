@@ -337,10 +337,6 @@ CREATE TABLE yamkadb.roles_by_user (
 	max_index_interval = 2048 AND 
 	crc_check_chance = 1;
 
-
-CREATE INDEX members_idx ON yamkadb.roles_by_user(role);
-
-
 CREATE TABLE yamkadb.tokens (
 	agent bigint,
 	hash blob,
@@ -369,6 +365,24 @@ CREATE TABLE yamkadb.unread (
 	msg bigint,
 	user bigint,
 	PRIMARY KEY((channel, user))
+) WITH 	dclocal_read_repair_chance = 0.1 AND 
+	gc_grace_seconds = 864000 AND 
+	bloom_filter_fp_chance = 0.01 AND 
+	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
+	comment = '' AND 
+	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
+	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	default_time_to_live = 0 AND 
+	speculative_retry = '99PERCENTILE' AND 
+	min_index_interval = 128 AND 
+	max_index_interval = 2048 AND 
+	crc_check_chance = 1;
+
+CREATE TABLE yamkadb.user_notes (
+	note text,
+	subject bigint,
+	user bigint,
+	PRIMARY KEY((user, subject))
 ) WITH 	dclocal_read_repair_chance = 0.1 AND 
 	gc_grace_seconds = 864000 AND 
 	bloom_filter_fp_chance = 0.01 AND 
@@ -420,10 +434,6 @@ CREATE TABLE yamkadb.users (
 CREATE INDEX bot_owner_idx ON yamkadb.users(bot_owner);
 
 CREATE INDEX bot_token_idx ON yamkadb.users(password);
-
-CREATE INDEX email_idx ON yamkadb.users(email);
-
-CREATE INDEX username_idx ON yamkadb.users(name);
 
 
 CREATE TABLE yamkadb.users_by_role (
@@ -596,6 +606,46 @@ group, id
 FROM yamkadb.roles
 WHERE id IS NOT NULL AND group IS NOT NULL
 PRIMARY KEY(group, id)
+WITH
+	dclocal_read_repair_chance = 0.1 AND 
+	gc_grace_seconds = 864000 AND 
+	bloom_filter_fp_chance = 0.01 AND 
+	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
+	comment = '' AND 
+	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
+	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	default_time_to_live = 0 AND 
+	speculative_retry = '99PERCENTILE' AND 
+	min_index_interval = 128 AND 
+	max_index_interval = 2048 AND 
+	crc_check_chance = 1;
+
+CREATE MATERIALIZED VIEW yamkadb.user_ids_by_name
+AS SELECT
+id, name, tag
+FROM yamkadb.users
+WHERE id IS NOT NULL AND name IS NOT NULL AND tag IS NOT NULL
+PRIMARY KEY(name, id)
+WITH
+	dclocal_read_repair_chance = 0.1 AND 
+	gc_grace_seconds = 864000 AND 
+	bloom_filter_fp_chance = 0.01 AND 
+	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
+	comment = '' AND 
+	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
+	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	default_time_to_live = 0 AND 
+	speculative_retry = '99PERCENTILE' AND 
+	min_index_interval = 128 AND 
+	max_index_interval = 2048 AND 
+	crc_check_chance = 1;
+
+CREATE MATERIALIZED VIEW yamkadb.users_by_email
+AS SELECT
+email, id, mfa_secret, password, salt
+FROM yamkadb.users
+WHERE id IS NOT NULL AND salt IS NOT NULL AND email IS NOT NULL AND password IS NOT NULL
+PRIMARY KEY(email, id)
 WITH
 	dclocal_read_repair_chance = 0.1 AND 
 	gc_grace_seconds = 864000 AND 
