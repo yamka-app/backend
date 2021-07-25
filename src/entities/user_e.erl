@@ -59,7 +59,8 @@ create(Name, EMail, Password, BotOwner) ->
             % generate a random avatar
             {ava_file, file_storage:register_file(utils:gen_avatar(), "user_avatar.png")},
             {badges, if BotOwner > 0 -> [3]; true -> [] end},
-            {bot_owner, BotOwner}
+            {bot_owner, BotOwner},
+            {fav_color, 0}
         ]
     }),
     % confirm email
@@ -91,10 +92,10 @@ get(Id) ->
     maps:put(status, maps:get(StatusNum, ?USER_STATUS_MAP), Vals).
 
 %% gets a note set by someone
-get_note(Id, From) ->
+get_note(Id, By) ->
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = "SELECT note FROM user_notes WHERE user=? AND subject=?",
-        values    = [{subject, Id}, {user, From}]
+        values    = [{subject, Id}, {user, By}]
     }),
     case cqerl:head(Rows) of
         empty_dataset -> nonote;
@@ -102,10 +103,10 @@ get_note(Id, From) ->
     end.
 
 %% sets a note
-set_note(Id, From, Note) ->
+set_note(Id, By, Note) ->
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = "UPDATE user_notes SET note=? WHERE user=? AND subject=?",
-        values    = [{subject, Id}, {user, From}, {note, Note}]
+        values    = [{subject, Id}, {user, By}, {note, Note}]
     }), ok.
 
 %% searches a user by name and tag

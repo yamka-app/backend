@@ -22,7 +22,7 @@ handle_entity(#entity{type=user, fields=#{id:=0} = F}, Seq, Ref) ->
     % a user can only change info about themselves
     yamka_auth:assert_permission(edit_profile, {Ref, Seq}),
     % only allow allowed fields (wow thx captain obvious)
-    BroadcastFields = [name, status, status_text, ava_file],
+    BroadcastFields = [name, status, status_text, ava_file, fav_color],
     AllowedFields = maps:filter(fun(K, _) -> lists:member(K, [email|BroadcastFields]) end, F),
     case maps:size(AllowedFields) of
         0 -> ok;
@@ -410,6 +410,7 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
             mfa_enabled     -> IsSelf;
             name            -> true;
             tag             -> true;
+            fav_color       -> true;
             status          -> true;
             status_text     -> true;
             ava_file        -> true;

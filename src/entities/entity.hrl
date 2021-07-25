@@ -98,7 +98,8 @@
                 id_sign         => {25, entity,   {pkey}},
                 note            => {26, string,   {24}},
                 otp_hashes      => {27, list,     {1, fun(<<X/binary>>) -> X end,
-                                                      fun(<<X:256/binary, _/binary>>) -> {X, 32} end}}
+                                                      fun(<<X:256/binary, _/binary>>) -> {X, 32} end}},
+                fav_color       => {28, number,   {4}}
             },
         channel => #{
                 id            => {0,  number,   {8}},
