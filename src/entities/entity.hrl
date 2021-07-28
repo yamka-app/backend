@@ -71,8 +71,8 @@
     12 => #{ % protocol version
         user => #{
                 id              => {0,  number,   {8}},
-                email           => {1,  string,   {128}},
-                name            => {2,  string,   {24}},
+                email           => {1,  string,   {64}},
+                name            => {2,  string,   {64}},
                 tag             => {3,  number,   {3}},
                 status          => {4,  atom,     {1, ?USER_STATUS_MAP}},
                 status_text     => {5,  string,   {128}},
@@ -96,14 +96,14 @@
                 prekey          => {23, entity,   {pkey}},
                 otprekey        => {24, entity,   {pkey}},
                 id_sign         => {25, entity,   {pkey}},
-                note            => {26, string,   {24}},
+                note            => {26, string,   {32}},
                 otp_hashes      => {27, list,     {1, fun(<<X/binary>>) -> X end,
                                                       fun(<<X:256/binary, _/binary>>) -> {X, 32} end}},
                 fav_color       => {28, number,   {4}}
             },
         channel => #{
                 id            => {0,  number,   {8}},
-                name          => {1,  string,   {64}},
+                name          => {1,  string,   {32}},
                 members       => {2,  num_list, {8}},
                 group         => {3,  number,   {8}},
                 messages      => {4,  num_list, {8}},
@@ -119,7 +119,7 @@
             },
         group => #{
                 id            => {0, number,   {8}},
-                name          => {1, string,   {64}},
+                name          => {1, string,   {32}},
                 channels      => {2, num_list, {8}},
                 owner         => {3, number,   {8}},
                 roles         => {4, num_list, {8}},
@@ -136,7 +136,7 @@
             },
         role => #{
                 id          => {0, number,   {8}},
-                name        => {1, string,   {64}},
+                name        => {1, string,   {32}},
                 color       => {2, number,   {4}},
                 group       => {3, number,   {8}},
                 priority    => {4, number,   {2}},
@@ -159,7 +159,7 @@
             },
         poll => #{
                 id           => {0, number,   {8}},
-                options      => {1, str_list, {128}},
+                options      => {1, str_list, {256}},
                 option_votes => {2, num_list, {3}},
                 self_vote    => {3, number,   {1}},
                 total_votes  => {4, number,   {3}}
@@ -168,7 +168,7 @@
                 id     => {0, number, {8}},
                 owner  => {1, number, {8}},
                 type   => {2, number, {1}},
-                name   => {3, string, {32}},
+                name   => {3, string, {64}},
                 online => {4, bool,   {}}
             },
         pkey => #{
