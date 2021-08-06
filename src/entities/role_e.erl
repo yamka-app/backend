@@ -51,10 +51,7 @@ nuke(Id, RemGroup) ->
 nuke(Id, Group, From, Batch, RemGroup) ->
     Members = get_members(Id, From, Batch, up),
     lists:foreach(fun(User) ->
-        remove(Id, Group, User),
-        if RemGroup -> user_e:manage_contact(User, remove, {group, Group});
-           true -> ok
-        end
+        remove(Id, Group, User)
       end, Members),
     case length(Members) of
         Batch -> nuke(Id, Group, From, Batch, RemGroup);
@@ -64,10 +61,7 @@ nuke(Id, Group, From, Batch, RemGroup) ->
 add(Id, User) ->
     #{group := Group} = role_e:get(Id),
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "BEGIN BATCH "
-            "INSERT INTO roles_by_user (group, user, role) VALUES (?,?,?); "
-            "INSERT INTO users_by_role (user, role) VALUES (?,?); "
-            "APPLY BATCH",
+        statement =  "INSERT INTO roles_by_user (group, user, role) VALUES (?,?,?)",
         values = [{group, Group}, {user, User}, {role, Id}]
     }).
 
@@ -76,18 +70,15 @@ remove(Id, User) ->
     remove(Id, Group, User).
 remove(Id, Group, User) ->
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "BEGIN BATCH "
-            "DELETE FROM roles_by_user WHERE group=? AND role=? AND user=?; "
-            "DELETE FROM users_by_role WHERE role=? AND user=?; "
-            "APPLY BATCH",
+        statement = "DELETE FROM roles_by_user WHERE group=? AND role=? AND user=?",
         values = [{group, Group}, {user, User}, {role, Id}]
     }).
 
 get_members(_Id, _StartId, _Limit, down) -> not_implemented;
-get_members(Id, StartId, Limit, up)      -> get_members_worker(Id, StartId, Limit, "users_by_role", ">").
+get_members(Id, StartId, Limit, up)      -> get_members_worker(Id, StartId, Limit, "users_by_role_view", ">").
 get_members_worker(Id, StartId, Limit, Tab, Operator) ->
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "SELECT * FROM " ++ Tab ++ " WHERE role=? AND user" ++ Operator ++ "? LIMIT ? ALLOW FILTERING",
+        statement = "SELECT role, user FROM " ++ Tab ++ " WHERE role=? AND user" ++ Operator ++ "? LIMIT ? ALLOW FILTERING",
         values    = [{role, Id}, {user, StartId}, {'[limit]', Limit}]
     }),
     [MId || [{role, _}, {user, MId}] <- cqerl:all_rows(Rows)].

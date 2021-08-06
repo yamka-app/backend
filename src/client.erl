@@ -171,53 +171,84 @@ handle_packet(#packet{type=file_data_chunk, seq=Seq,
     none;
 
 
-%% contact manage packet (add a contact such as a friend)
+%% accept friend request
 handle_packet(#packet{type=contacts_manage, seq=Seq,
-                      fields=#{type:=Type, action:=add, id:=Id}}, ScopeRef) ->
+                      fields=#{type:=friend, action:=add, id:=Id}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
     yamka_auth:assert_permission(edit_relationships, {ScopeRef, Seq}),
-    Self = user_e:get(get(id)),
-    {_, true} = {{ScopeRef, status_packet:make(contact_action_not_applicable, "Contact action not applicable")},
-        (Type == blocked) or ((Type == friend) and lists:member(Id, maps:get(pending_in, Self))) },
-    % write changes to the DB
-    user_e:manage_contact(get(id), add, {Type, Id}),
-    % if we're adding a friend, remove them from corresponding pending in/out queues
-    % also create a DM channel
-    if  Type == friend ->
-            user_e:manage_contact(get(id), remove, {pending_in,  Id}),
-            user_e:manage_contact(Id,      remove, {pending_out, get(id)}),
-            DM = channel_e:create("DM", 0, [], true),
-            user_e:add_dm_channel([Id, get(id)], DM);
-        true -> ok
-    end,
-    % broadcast the changes to each of both users' devices
-    icpc_broadcast_entity(get(id), #entity{type=user, fields=user_e:get(get(id))},
-        [user_e:contact_field(Type), pending_in, pending_out, dm_channels]),
-    Opposite = user_e:opposite_type(Type),
-    if
-        Opposite /= none ->
-            icpc_broadcast_entity(Id, #entity{type=user, fields=user_e:get(Id)},
-                [user_e:contact_field(Opposite), pending_in, pending_out, dm_channels]);
-        true -> ok
-    end,
+    % check if that user has, in fact, sent a friend request
+    #{pending_in := Requests} = user_e:get(get(id)),
+    {_, true} = {{ScopeRef, status_packet:make(contact_action_not_applicable, "This user has not issued a friend request", Seq)},
+        lists:member(Id, Requests)},
+    % write to DB
+    DmId = channel_e:create("DM", 0, null, true),
+    user_e:add_dm_channel([Id, get(id)], DmId),
+    user_e:accept_friend_rq(Id, get(id)),
+    % broadcast changes
+    icpc_broadcast_entity(Id,      #entity{type=user, fields=user_e:get(Id)},      [id, friends, pending_out]),
+    icpc_broadcast_entity(get(id), #entity{type=user, fields=user_e:get(get(id))}, [id, friends, pending_in]),
     none;
-
-
-%% contact manage packet (remove a contact such as a friend)
+%% block
 handle_packet(#packet{type=contacts_manage, seq=Seq,
-                      fields=#{type:=Type, action:=remove, id:=Id}}, ScopeRef) ->
+                      fields=#{type:=blocked, action:=add, id:=Id}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
     yamka_auth:assert_permission(edit_relationships, {ScopeRef, Seq}),
-    % write changes to the DB
-    user_e:manage_contact(get(id), remove, {Type, Id}),
-    % broadcast the changes to each of both users' devices
-    icpc_broadcast_entity(get(id), #entity{type=user, fields=user_e:get(get(id))}, [user_e:contact_field(Type)]),
-    Opposite = user_e:opposite_type(Type),
-    if Opposite =/= none ->
-        icpc_broadcast_entity(Id, #entity{type=user, fields=user_e:get(Id)}, [user_e:contact_field(Opposite)]);
-       true -> ok
-    end,
+    % write to DB
+    user_e:remove_dm_channel([Id, get(id)]),
+    user_e:remove_friend(Id, get(id)),
+    user_e:block(Id, get(id)),
+    % broadcast changes
+    icpc_broadcast_entity(Id,      #entity{type=user, fields=user_e:get(Id)},      [id, friends]),
+    icpc_broadcast_entity(get(id), #entity{type=user, fields=user_e:get(get(id))}, [id, friends, blocked]),
     none;
+%% decline a friend request
+handle_packet(#packet{type=contacts_manage, seq=Seq,
+                      fields=#{type:=pending_in, action:=remove, id:=Id}}, ScopeRef) ->
+    {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
+    yamka_auth:assert_permission(edit_relationships, {ScopeRef, Seq}),
+    % write to DB
+    user_e:decline_friend_rq(Id, get(id)),
+    % broadcast changes
+    icpc_broadcast_entity(Id,      #entity{type=user, fields=user_e:get(Id)},      [id, pending_out]),
+    icpc_broadcast_entity(get(id), #entity{type=user, fields=user_e:get(get(id))}, [id, pending_in]),
+    none;
+%% cancel a friend request we sent
+handle_packet(#packet{type=contacts_manage, seq=Seq,
+                      fields=#{type:=pending_out, action:=remove, id:=Id}}, ScopeRef) ->
+    {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
+    yamka_auth:assert_permission(edit_relationships, {ScopeRef, Seq}),
+    % write to DB
+    user_e:decline_friend_rq(get(id), Id),
+    % broadcast changes
+    icpc_broadcast_entity(get(id), #entity{type=user, fields=user_e:get(get(id))}, [id, pending_out]),
+    icpc_broadcast_entity(Id,      #entity{type=user, fields=user_e:get(Id)},      [id, pending_in]),
+    none;
+%% remove friend
+handle_packet(#packet{type=contacts_manage, seq=Seq,
+                      fields=#{type:=friend, action:=remove, id:=Id}}, ScopeRef) ->
+    {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
+    yamka_auth:assert_permission(edit_relationships, {ScopeRef, Seq}),
+    % write to DB
+    user_e:remove_friend(Id, get(id)),
+    % broadcast changes
+    icpc_broadcast_entity(get(id), #entity{type=user, fields=user_e:get(get(id))}, [id, friends]),
+    icpc_broadcast_entity(Id,      #entity{type=user, fields=user_e:get(Id)},      [id, friends]),
+    none;
+%% unblock
+handle_packet(#packet{type=contacts_manage, seq=Seq,
+                      fields=#{type:=blocked, action:=remove, id:=Id}}, ScopeRef) ->
+    {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
+    yamka_auth:assert_permission(edit_relationships, {ScopeRef, Seq}),
+    % write to DB
+    user_e:unblock(Id, get(id)),
+    % broadcast changes
+    icpc_broadcast_entity(get(id), #entity{type=user, fields=user_e:get(get(id))}, [id, blocked]),
+    none;
+%% invalid request
+handle_packet(#packet{type=contacts_manage, seq=Seq}, ScopeRef) ->
+    {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
+    yamka_auth:assert_permission(edit_relationships, {ScopeRef, Seq}),
+    status_packet:make(contact_action_not_applicable, "Invalid request (check type and target id)", Seq);
 
 
 %% user search packet (send a friend request using their name and tag)
@@ -228,7 +259,7 @@ handle_packet(#packet{type=search, seq=Seq,
     {_, {ok, Id}} = {{ScopeRef, status_packet:make(invalid_username, "Invalid username", Seq)},
         utils:safe_call(fun user_e:search/1, [Name], [{cassandra, get(cassandra)}])},
     % write and broadcast changes
-    user_e:manage_contact(get(id), add, {pending_out, Id}),
+    user_e:send_friend_rq(get(id), Id),
     icpc_broadcast_entity(get(id), #entity{type=user, fields=user_e:get(get(id))}, [pending_out]),
     icpc_broadcast_entity(Id,      #entity{type=user, fields=user_e:get(Id)},      [pending_in]),
     status_packet:make(friend_request_sent, "Friend request sent", Seq);
@@ -256,7 +287,6 @@ handle_packet(#packet{type=invite_resolve, seq=Seq,
             #{name := SelfName} = user_e:get(get(id)),
             #{everyone_role := Everyone} = group_e:get(Id),
             role_e:add(Everyone, get(id)),
-            user_e:manage_contact(get(id), add, {group, Id}),
             group_e:cache_user_name(Id, get(id), SelfName),
             icpc_broadcast_entity(get(id),
                 #entity{type=user, fields=user_e:get(get(id))}, [groups])

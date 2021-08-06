@@ -271,7 +271,6 @@ handle_entity(#entity{type=group, fields=#{id:=0, name:=Name}}, Seq, Ref) ->
     {Id, Everyone} = group_e:create(Name, get(id)),
     role_e:add(Everyone, get(id)),
     group_e:cache_user_name(Id, get(id), Username),
-    user_e:manage_contact(get(id), add, {group, Id}),
     client:icpc_broadcast_entity(get(id),
         #entity{type=user, fields=user_e:get(get(id))}, [groups]),
     none;

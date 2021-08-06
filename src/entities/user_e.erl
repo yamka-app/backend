@@ -12,8 +12,9 @@
 
 -export([get/1, search/1, update/2, email_in_use/1, create/4, create/3, online/1]).
 -export([broadcast_status/1, broadcast_status/2]).
--export([manage_contact/3, opposite_type/1, contact_field/1]).
--export([add_dm_channel/2]).
+-export([send_friend_rq/2, decline_friend_rq/2, accept_friend_rq/2, remove_friend/2, block/2, unblock/2]).
+-export([get_friends/1, get_pending_in/1, get_pending_out/1, get_blocked/1, get_groups/1]).
+-export([add_dm_channel/2, remove_dm_channel/1]).
 -export([start_email_confirmation/2, finish_email_confirmation/2]).
 -export([find/2, cache_name/2]).
 -export([get_note/2, set_note/3]).
@@ -79,11 +80,11 @@ get(Id) ->
     Row = maps:from_list(cqerl:head(Rows)),
     % insert default values
     Vals = maps:merge(#{
-        friends     => [],
-        blocked     => [],
-        pending_in  => [],
-        pending_out => [],
-        groups      => [],
+        friends     => get_friends(Id),
+        blocked     => get_blocked(Id),
+        pending_in  => get_pending_in(Id),
+        pending_out => get_pending_out(Id),
+        groups      => get_groups(Id),
         badges      => [],
         mfa_secret  => null
     }, maps:filter(fun(_, V) -> V /= null end, Row)),
@@ -174,58 +175,97 @@ finish_email_confirmation(Id, Code) ->
             ok
     end.
 
-%% adds a contact
-add_contact(Id, {friend, Tid})      -> add_contacts(Id, "friends",     [Tid]);
-add_contact(Id, {pending_in, Tid})  -> add_contacts(Id, "pending_in",  [Tid]);
-add_contact(Id, {pending_out, Tid}) -> add_contacts(Id, "pending_out", [Tid]);
-add_contact(Id, {blocked, Tid})     -> add_contacts(Id, "blocked",     [Tid]);
-add_contact(Id, {group, Tid})       -> add_contacts(Id, "groups",      [Tid]);
-add_contact(_,  {none, _}) -> ok.
-add_contacts(Id, PropName, Tids) ->
+%% sends a friend request
+send_friend_rq(From, To) ->
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "UPDATE users SET " ++ PropName ++ "+=? WHERE id=?",
-        values    = [{id, Id}, {list_to_atom(PropName), Tids}]
+        statement = "INSERT INTO friend_requests(user, subject) VALUES(?, ?)",
+        values    = [{user, To}, {subject, From}]
+    }).
+%% declines or removes a friend request
+decline_friend_rq(From, To) ->
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "DELETE FROM friend_requests(user, subject) VALUES(?, ?)",
+        values    = [{user, To}, {subject, From}]
+    }).
+%% accepts a friend request
+accept_friend_rq(From, To) ->
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "BEGIN BATCH "
+            "DELETE FROM friend_requests(user, subject) VALUES(?, ?); "
+            "INSERT INTO friendships(u1, u2) VALUES(?, ?); "
+            "APPLY BATCH",
+        values = [{user, To}, {subject, From}, {u1, To}, {u2, From}]
+    }).
+%% removes friend
+remove_friend(User1, User2) ->
+    % we don't know the order here
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "DELETE FROM friendships(u1, u2) VALUES(?, ?)",
+        values = [{u1, User1}, {u2, User2}]
+    }),
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "DELETE FROM friendships(u1, u2) VALUES(?, ?)",
+        values = [{u1, User2}, {u2, User1}]
+    }).
+%% blocks a user
+block(Target, As) ->
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "INSERT INTO blocked(subject, user) VALUES(?, ?)",
+        values = [{user, As}, {subject, Target}]
+    }).
+%% unblocks a user
+unblock(Target, As) ->
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "DELETE FROM blocked(subject, user) VALUES(?, ?)",
+        values = [{user, As}, {subject, Target}]
     }).
 
-%% removes a contact
-remove_contact(Id, {friend, Tid})      -> remove_contacts(Id, "friends",     [Tid]);
-remove_contact(Id, {pending_in, Tid})  -> remove_contacts(Id, "pending_in",  [Tid]);
-remove_contact(Id, {pending_out, Tid}) -> remove_contacts(Id, "pending_out", [Tid]);
-remove_contact(Id, {blocked, Tid})     -> remove_contacts(Id, "blocked",     [Tid]);
-remove_contact(Id, {group, Tid})       -> remove_contacts(Id, "groups",      [Tid]);
-remove_contact(_,  {none, _}) -> ok.
-remove_contacts(Id, PropName, Tids) ->
+get_friends(Id) ->
+    {ok, From1} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "SELECT u2 FROM friendships_by_u1 WHERE u1=?",
+        values = [{u1, Id}]
+    }),
+    {ok, From2} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "SELECT u1 FROM friendships_by_u2 WHERE u2=?",
+        values = [{u2, Id}]
+    }),
+    [U || [{u2, U}] <- cqerl:all_rows(From1)] ++
+    [U || [{u1, U}] <- cqerl:all_rows(From2)].
+get_pending_in(Id) ->
+    {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "SELECT user FROM friend_requests WHERE subject=?",
+        values = [{subject, Id}]
+    }), [U || [{user, U}] <- cqerl:all_rows(Rows)].
+get_pending_out(Id) ->
+    {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "SELECT subject FROM friend_requests_by_sender WHERE user=?",
+        values = [{user, Id}]
+    }), [U || [{subject, U}] <- cqerl:all_rows(Rows)].
+get_blocked(Id) ->
+    {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "SELECT subject FROM blocked WHERE user=?",
+        values = [{user, Id}]
+    }), [U || [{subject, U}] <- cqerl:all_rows(Rows)].
+get_groups(Id) ->
+    {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "SELECT group FROM user_groups WHERE user=?",
+        values = [{user, Id}]
+    }), [G || [{group, G}] <- cqerl:all_rows(Rows)].
+
+
+
+
+%% registers a DM channel
+add_dm_channel([_,_]=Peers, Channel) ->
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "UPDATE users SET " ++ PropName ++ "-=? WHERE id=?",
-        values    = [{id, Id}, {list_to_atom(PropName), Tids}]
-    }).
-
-%% determines the opposite of the contact type for the target ID
-opposite_type(friend)      -> friend;
-opposite_type(blocked)     -> none; % (un-)blocking somebody shouldn't change the subject's block list
-opposite_type(pending_in)  -> pending_out;
-opposite_type(pending_out) -> pending_in;
-opposite_type(group)       -> none.
-
-%% determines the field that contains contacts of type
-contact_field(friend) -> friends;
-contact_field(group)  -> groups;
-contact_field(F)      -> F.
-
-%% adds/removes a contact to/from both the object and the subject
-manage_contact(Id, add, {Type, Tid}) ->
-    add_contact(Id, {Type, Tid}),
-    add_contact(Tid, {opposite_type(Type), Id});
-
-manage_contact(Id, remove, {Type, Tid}) ->
-    remove_contact(Id, {Type, Tid}),
-    remove_contact(Tid, {opposite_type(Type), Id}).
-
-%% adds/removes a channel
-add_dm_channel(Peers=[_,_], Channel) ->
-    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "INSERT INTO dm_channels (users, channel) VALUES (?, ?)",
+        statement = "INSERT INTO dm_channels(users, channel) VALUES (?, ?)",
         values    = [{users, Peers}, {channel, Channel}]
+    }).
+%% underegisters a DM channel
+remove_dm_channel([_,_]=Peers) ->
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "DELETE FROM dm_channels(users) VALUES(?)",
+        values = [{users, Peers}]
     }).
 
 find(Name, Max) when is_list(Name) ->
