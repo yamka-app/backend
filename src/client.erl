@@ -9,7 +9,7 @@
 
 -define(TIMEOUT, 30*1000).
 -define(MIN_PROTO, 12).
--define(MAX_PROTO, 12).
+-define(MAX_PROTO, 13).
 -include("entities/entity.hrl").
 -include("packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
@@ -281,8 +281,17 @@ handle_packet(#packet{type=search, seq=Seq,
                       fields=#{type:=group_member, name:=Name, ref:=Id}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
     yamka_auth:assert_permission(see_groups, {ScopeRef, Seq}),
-    Users = group_e:find_users(Id, Name, 10),
+    Users = group_e:find_users(Id, Name, 5),
     search_result_packet:make(Users, Seq);
+
+
+%% group emoji search
+handle_packet(#packet{type=search, seq=Seq,
+                      fields=#{type:=group_emoji, name:=Name, ref:=Id}}, ScopeRef) ->
+    {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
+    yamka_auth:assert_permission(see_groups, {ScopeRef, Seq}),
+    Emoji = group_e:find_emoji(Id, Name, 10),
+    search_result_packet:make(Emoji, Seq);
 
 
 %% invite resolution packet (to get the group by one of its invites)
@@ -484,10 +493,10 @@ client_init(TransportSocket, Cassandra) ->
     put(file_recv_pid, none),
 
     % make rate limiters
-    ratelimit:make(packet,  {50,  1000  }),
-    ratelimit:make(close,   {55,  1000  }),
+    ratelimit:make(packet,  {100, 1000  }),
+    ratelimit:make(close,   {105, 1000  }),
     ratelimit:make(login,   {5,   30000 }),
-    ratelimit:make(entity,  {150, 1000  }),
+    ratelimit:make(entity,  {300, 1000  }),
     ratelimit:make(message, {20,  10000 }),
     ratelimit:make(bot,     {1,   120000}),
     ratelimit:make(voice,   {2,   1000  }),

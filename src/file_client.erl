@@ -47,7 +47,7 @@ client_init({Socket, Protocol}, {send_file, Path, Reply}) ->
     exit(normal);
 
 %% receives a file
-client_init({Socket, Protocol, Host, Cassandra}, {recv_file, Length, Name, Reply}) ->
+client_init({Socket, Protocol, Host, Cassandra}, {recv_file, Length, Name, EmojiName, Reply}) ->
     put(socket, Socket), put(protocol, Protocol), put(cassandra, Cassandra),
 
     send_packet(status_packet:make(start_uploading, "Start uploading", Reply)),
@@ -55,7 +55,7 @@ client_init({Socket, Protocol, Host, Cassandra}, {recv_file, Length, Name, Reply
     Path = utils:temp_file_name(),
     {ok, Handle} = file:open(Path, [write, binary]),
     recv_chunk(Handle, Length),
-    Id = file_storage:register_file(Path, Name),
+    Id = file_storage:register_file(Path, Name, EmojiName),
     send_packet(entities_packet:make([#entity{type=file, fields=file_e:get(Id)}], Reply)),
 
     Host ! upload_fin,

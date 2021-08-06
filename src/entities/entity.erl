@@ -77,19 +77,33 @@ handle_entity(#entity{type=user, fields=#{id:=Id, note:=Note}}, _, _) ->
     none;
 
 %% puts a file
-handle_entity(#entity{type=file, fields=#{name:=Name, length:=Length}}, Seq, Ref) ->
+handle_entity(#entity{type=file, fields=Fields=#{name:=Name, length:=Length}}, Seq, Ref) ->
     {_, none} = {{Ref, status_packet:make(one_upload_only,
             "Only one concurrent upload is allowed", Seq)}, get(file_recv_pid)},
     MaxSize = file_storage:max_size(),
+    HasEmojiName = maps:is_key(emoji_name, Fields),
+    EmojiName = if
+        HasEmojiName -> #{emoji_name := EN} = Fields, EN;
+        true -> ""
+    end,
     if
         Length =< MaxSize -> 
             put(file_recv_pid, file_storage:recv_file(Seq,
                 {get(socket), get(protocol), self(), get(cassandra)},
-                {Length, Name})),
+                {Length, Name, EmojiName})),
             none;
         true ->
             status_packet:make(file_too_large, "Max file size is " ++ file_storage:max_size_text())
     end;
+
+
+%% renames an emoji
+handle_entity(#entity{type=file, fields=#{id:=Id, emoji_name:=Name}}, Seq, Ref) ->
+    #{emoji_group := Group} = file_e:get(Id),
+    % write to DB
+    file_e:update(Id, #{emoji_name => Name}),
+    group_e:add_emoji(Group, Id, Name),
+    none;
 
 
 %% (re-)sets the typing status
@@ -307,6 +321,23 @@ handle_entity(#entity{type=group, fields=#{id:=Id, invites:=Invites}}, Seq, Ref)
     lists:foreach(fun(I) -> group_e:remove_invite(Id, I) end, Removed),
     #{invites := NewInvites} = group_e:get(Id),
     entities_packet:make([#entity{type=group, fields=#{id => Id, invites => NewInvites}}], Seq);
+
+
+%% manages emoji
+handle_entity(#entity{type=group, fields=#{id:=Id, emoji:=Emoji}}, Seq, Ref) ->
+    yamka_auth:assert_permission(edit_groups, {Ref, Seq}),
+    group_e:assert_permission(Id, edit_emoji, {Ref, Seq}),
+
+    #{emoji := ExEmoji} = group_e:get(Id),
+    {Added, Removed} = utils:list_diff(Emoji, ExEmoji),
+    lists:foreach(fun(I) ->
+        #{emoji_name := EmojiName} = file_e:get(I),
+        file_e:update(I, #{emoji_group => Id}),
+        group_e:add_emoji(Id, I, EmojiName)
+    end, Added),
+    lists:foreach(fun(I) -> group_e:remove_emoji(Id, I) end, Removed),
+    #{emoji := NewEmoji} = group_e:get(Id),
+    entities_packet:make([#entity{type=group, fields=#{id => Id, emoji => NewEmoji}}], Seq);
 
 
 %% creates a poll

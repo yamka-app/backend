@@ -108,5 +108,6 @@
 -define(SEARCH_TARGET_MAP, #{
     0 => user,
     1 => group,
-    2 => group_member
+    2 => group_member,
+    3 => group_emoji
 }).

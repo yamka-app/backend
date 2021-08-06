@@ -12,7 +12,7 @@
 % http://erlang.org/doc/man/file.html#type-file_info
 -record(file_info, {size, type, access, atime, mtime, ctime, mode, links, major_device, minor_device, inode, uid, gid}).
 
--export([register_file/2, send_file/3, recv_file/3, exists/1]).
+-export([register_file/2, register_file/3, send_file/3, recv_file/3, exists/1]).
 -export([max_size/0, max_size_text/0]).
 
 %% determines the file name by its ID
@@ -41,6 +41,8 @@ parse_image(Path) ->
 
 %% moves a file into the storage path and registers it in the DB
 register_file(Path, Name) ->
+    register_file(Path, Name, "").
+register_file(Path, Name, EmojiName) ->
     % read file info
     {ok, #file_info{size=FileSize}} = file:read_file_info(Path),
     % generate an ID
@@ -58,7 +60,8 @@ register_file(Path, Name) ->
             {name,       Name},
             {preview,    Preview},
             {pixel_size, PixelSize},
-            {length,     FileSize}
+            {length,     FileSize},
+            {emoji_name, EmojiName}
         ]
     }),
     Id.
@@ -68,8 +71,8 @@ send_file(Id, Reply, Settings) ->
     spawn(file_client, client_init, [Settings, {send_file, path_in_storage(Id), Reply}]).
 
 %% receives a file from the client
-recv_file(Reply, Settings, {Length, Name}) ->
-    spawn(file_client, client_init, [Settings, {recv_file, Length, Name, Reply}]).
+recv_file(Reply, Settings, {Length, Name, EmojiName}) ->
+    spawn(file_client, client_init, [Settings, {recv_file, Length, Name, EmojiName, Reply}]).
 
 %% checks if a file exists
 exists(Id) -> filelib:is_file(path_in_storage(Id)).

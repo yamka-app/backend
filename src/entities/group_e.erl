@@ -12,6 +12,7 @@
 -export([get_channels/1, get_roles/1, get/1, get/2, create/2, delete/1]).
 -export([get_invites/1, add_invite/1, remove_invite/2, resolve_invite/1]).
 -export([find_users/3, cache_user_name/3]).
+-export([find_emoji/3, all_emoji/1, add_emoji/3, remove_emoji/2]).
 -export([assert_permission/3, has_permission/2]).
 
 get_channels(Id) ->
@@ -54,7 +55,8 @@ get(Id, IncludeExtra) ->
             maps:merge(Map, #{
                 channels => get_channels(Id),
                 roles    => get_roles(Id),
-                invites  => get_invites(Id)})
+                invites  => get_invites(Id),
+                emoji    => all_emoji(Id)})
     end.
 
 create(Name, Owner) ->
@@ -106,7 +108,7 @@ find_users(Id, Name, Max) ->
     IdStr = integer_to_binary(Id),
     % don't be afraid, come here...
     % it's not actually that complicated,
-    % we ask Elasticsearch (or rather Elassandra in our case)
+    % we're asking Elasticsearch (or rather Elassandra in our case)
     % to find user IDs that belong to the group with ID `Id`
     % and whose names start with `Name`
     %
@@ -136,11 +138,49 @@ cache_user_name(Id, User, Name) ->
       [{<<"name">>, Name},
        {<<"group">>, integer_to_binary(Id)}]).
 
+find_emoji(Group, Name, Max) when is_list(Name) ->
+    find_emoji(Group, unicode:characters_to_binary(Name), Max);
+find_emoji(Group, Name, Max) when Max > 10 ->
+    find_emoji(Group, Name, 10);
+find_emoji(Group, Name, Max) ->
+    GroupStr = integer_to_binary(Group),
+    {ok, Response} = erlastic_search:search(<<"emoji">>, <<"group_local">>,
+      [{<<"query">>,
+        [{<<"bool">>, [
+          {<<"should">>, [
+           [{<<"term">>, [{<<"group">>, GroupStr}]}],
+           [{<<"query_string">>, [{<<"query">>, <<Name/binary, "*">>}]}]]},
+          {<<"minimum_should_match">>, 2}]}]},
+       {<<"size">>, Max}]),
+    
+    Hits = proplists:get_value(<<"hits">>, proplists:get_value(<<"hits">>, Response)),
+    [binary_to_integer(proplists:get_value(<<"_id">>, Hit)) || Hit <- Hits].
+
+all_emoji(Group) ->
+    GroupStr = integer_to_binary(Group),
+    {ok, Response} = erlastic_search:search(<<"emoji">>, <<"group_local">>,
+      [{<<"query">>,
+        [{<<"bool">>, [
+          {<<"should">>, [
+           [{<<"term">>, [{<<"group">>, GroupStr}]}]]},
+          {<<"minimum_should_match">>, 1}]}]}]),
+    Hits = proplists:get_value(<<"hits">>, proplists:get_value(<<"hits">>, Response)),
+    [binary_to_integer(proplists:get_value(<<"_id">>, Hit)) || Hit <- Hits].
+
+add_emoji(Group, File, Name) ->
+    erlastic_search:index_doc_with_id(<<"emoji">>, <<"group_local">>,
+      integer_to_binary(File),
+      [{<<"name">>, Name},
+       {<<"group">>, integer_to_binary(Group)}]).
+
+remove_emoji(_Group, File) ->
+    erlastic_search:delete_doc(<<"emoji">>, <<"group_local">>, integer_to_binary(File)).
+
 has_permission(Id, Perm) ->
     % group owners have every permission regardless of their roles
     #{owner := Owner} = group_e:get(Id),
     (erlang:get(id) =:= Owner)
-    or
+    orelse
     role_e:perm_has(role_e:perm_waterfall(erlang:get(id), Id), Perm).
 
 assert_permission(Id, Perm, {ScopeRef, Seq}) ->
