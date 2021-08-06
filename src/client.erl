@@ -244,6 +244,17 @@ handle_packet(#packet{type=contacts_manage, seq=Seq,
     % broadcast changes
     icpc_broadcast_entity(get(id), #entity{type=user, fields=user_e:get(get(id))}, [id, blocked]),
     none;
+%% leave group
+handle_packet(#packet{type=contacts_manage, seq=Seq,
+                      fields=#{type:=group, action:=remove, id:=Id}}, ScopeRef) ->
+    {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
+    yamka_auth:assert_permission(edit_relationships, {ScopeRef, Seq}),
+    % write to DB
+    #{everyone_role := Everyone} = group_e:get(Id),
+    role_e:remove(Everyone, get(id)),
+    % broadcast changes
+    icpc_broadcast_entity(get(id), #entity{type=user, fields=user_e:get(get(id))}, [id, groups]),
+    none;
 %% invalid request
 handle_packet(#packet{type=contacts_manage, seq=Seq}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},

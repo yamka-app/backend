@@ -75,7 +75,7 @@ remove(Id, Group, User) ->
     }).
 
 get_members(_Id, _StartId, _Limit, down) -> not_implemented;
-get_members(Id, StartId, Limit, up)      -> get_members_worker(Id, StartId, Limit, "users_by_role_view", ">").
+get_members(Id, StartId, Limit, up)      -> get_members_worker(Id, StartId, Limit, "users_by_role", ">").
 get_members_worker(Id, StartId, Limit, Tab, Operator) ->
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = "SELECT role, user FROM " ++ Tab ++ " WHERE role=? AND user" ++ Operator ++ "? LIMIT ? ALLOW FILTERING",
