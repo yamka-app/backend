@@ -12,6 +12,7 @@
 -define(CASSANDRA_PORT, 9042).
 
 -export([start/2, stop/1, app_worker/0]).
+-export([node_stats/0]).
 
 app_worker() ->
     {ok, _} = logging:start(),
@@ -43,3 +44,11 @@ start(_StartType, _StartArgs) ->
 
 stop(_State) ->
     ok.
+
+node_stats() ->
+    #{
+        processes => erlang:system_info(process_count),
+        atoms     => erlang:system_info(atom_count),
+        clients   => listeners:client_count(),
+        io        => erlang:statistics(io)
+    }.

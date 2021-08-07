@@ -9,7 +9,7 @@
 
 -define(TIMEOUT, 30*1000).
 -define(MIN_PROTO, 12).
--define(MAX_PROTO, 13).
+-define(MAX_PROTO, 14).
 -include("entities/entity.hrl").
 -include("packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
