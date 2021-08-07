@@ -257,12 +257,13 @@
                 members     => {6, num_list, {8}}
             },
         file => #{
-                id         => {0, number, {8}},
-                name       => {1, string, {128}},
-                pixel_size => {2, string, {16}},
-                preview    => {3, string, {128}},
-                length     => {4, number, {4}},
-                emoji_name => {5, string, {32}}
+                id          => {0, number, {8}},
+                name        => {1, string, {128}},
+                pixel_size  => {2, string, {16}},
+                preview     => {3, string, {128}},
+                length      => {4, number, {4}},
+                emoji_name  => {5, string, {32}},
+                emoji_group => {6, number, {8}}
             },
         message_state => #{
                 id        => {0, number, {8}},

@@ -337,7 +337,8 @@ handle_entity(#entity{type=group, fields=#{id:=Id, emoji:=Emoji}}, Seq, Ref) ->
         #{emoji_name := EmojiName} = file_e:get(I),
         file_e:update(I, #{emoji_group => Id})
     end, Added),
-    lists:foreach(fun(I) -> file_e:delete(I) end, Removed),
+    % don't delete the file, just deasscoiate it
+    lists:foreach(fun(I) -> file_e:update(I, #{emoji_group => null}) end, Removed),
     #{emoji := NewEmoji} = group_e:get(Id),
     entities_packet:make([#entity{type=group, fields=#{id => Id, emoji => NewEmoji}}], Seq);
 

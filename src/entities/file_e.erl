@@ -19,12 +19,13 @@ get(Id) ->
     }),
     1 = cqerl:size(Rows),
     Row = maps:from_list(cqerl:head(Rows)),
+    maps:filter(fun(_K, V) -> V =/= null end,
     maps:map(fun(K, V) ->
         case K of
             emoji_name when V =:= null -> "";
             _ -> V
         end
-    end, Row).
+    end, Row)).
 
 delete(Id) ->
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
