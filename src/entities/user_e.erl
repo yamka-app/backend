@@ -200,11 +200,11 @@ accept_friend_rq(From, To) ->
 remove_friend(User1, User2) ->
     % we don't know the order here
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "DELETE FROM friendships(u1, u2) VALUES(?, ?)",
+        statement = "DELETE FROM friendships WHERE u1=? AND u2=?",
         values = [{u1, User1}, {u2, User2}]
     }),
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "DELETE FROM friendships(u1, u2) VALUES(?, ?)",
+        statement = "DELETE FROM friendships WHERE u1=? AND u2=?",
         values = [{u1, User2}, {u2, User1}]
     }).
 %% blocks a user

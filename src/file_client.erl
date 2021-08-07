@@ -5,7 +5,7 @@
 -module(file_client).
 -author("Yamka").
 -license("MPL-2.0").
--description("File process. Sends and receives files. Depends on a \"normal client\" process. In fact, it's using").
+-description("File process. Sends and receives files. Depends on a \"normal client\" process").
 
 -define(CHUNK_SIZE, 1024 * 4). % bytes
 -include("packets/packet.hrl").

@@ -7,12 +7,15 @@
 -license("MPL-2.0").
 -description("Accepts TLS clients").
 
--export([normal_listener/3]).
+-export([normal_listener/3, client_count/0]).
 
 -define(NORMAL_PORT, 1746).
 
+client_count() -> length(ets:match(id_of_processes, '_')).
+
 cleanup(Pid) ->
     [{Pid, Id, Agent}] = ets:lookup(id_of_processes, Pid),
+    ets:match_delete(id_of_processes, {Pid, Id, Agent}),
     ets:match_delete(icpc_processes,  {Id, Agent, '_'}),
     ets:match_delete(user_awareness,  {'_', {Id, Pid}}),
     ets:match_delete(chan_awareness,  {'_', {Id, Pid}}),
