@@ -102,7 +102,10 @@ handle_entity(#entity{type=file, fields=#{id:=Id, emoji_name:=Name}}, Seq, Ref) 
     #{emoji_group := Group} = file_e:get(Id),
     % write to DB
     file_e:update(Id, #{emoji_name => Name}),
-    group_e:add_emoji(Group, Id, Name),
+    % broadcast
+    ets:insert(file_awareness, {Id, {get(id), self()}}),
+    client:icpc_broadcast_to_aware(file_awareness,
+        #entity{type=file, fields=#{id => Id, emoji_name => Name}}, [id, emoji_name]),
     none;
 
 
@@ -332,10 +335,9 @@ handle_entity(#entity{type=group, fields=#{id:=Id, emoji:=Emoji}}, Seq, Ref) ->
     {Added, Removed} = utils:list_diff(Emoji, ExEmoji),
     lists:foreach(fun(I) ->
         #{emoji_name := EmojiName} = file_e:get(I),
-        file_e:update(I, #{emoji_group => Id}),
-        group_e:add_emoji(Id, I, EmojiName)
+        file_e:update(I, #{emoji_group => Id})
     end, Added),
-    lists:foreach(fun(I) -> group_e:remove_emoji(Id, I) end, Removed),
+    lists:foreach(fun(I) -> file_e:delete(I) end, Removed),
     #{emoji := NewEmoji} = group_e:get(Id),
     entities_packet:make([#entity{type=group, fields=#{id => Id, emoji => NewEmoji}}], Seq);
 
@@ -503,6 +505,7 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
 
 %% gets a file
 handle_get_request(#entity_get_rq{type=file, id=Id, pagination=none, context=none, key=none}, _Ref) ->
+    ets:insert(file_awareness, {Id, {get(id), self()}}),
     % there are no permission restrictions on file accesses
     #entity{type=file, fields=file_e:get(Id)};
 

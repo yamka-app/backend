@@ -9,7 +9,7 @@
 
 -include_lib("cqerl/include/cqerl.hrl").
 
--export([get/1, update/2]).
+-export([get/1, delete/1, update/2]).
 
 %% gets a file by ID
 get(Id) ->
@@ -25,6 +25,12 @@ get(Id) ->
             _ -> V
         end
     end, Row).
+
+delete(Id) ->
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "DELETE FROM blob_store WHERE id=?",
+        values    = [{id, Id}]
+    }).
 
 %% updates a channel record
 update(Id, Fields) ->

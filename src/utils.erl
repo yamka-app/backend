@@ -14,7 +14,7 @@
 -export([broadcast/2, safe_call/2, safe_call/3]).
 -export([ms_since/1]).
 -export([list_diff/2, list_set/3]).
--export([filter_text/1]).
+-export([filter_text/1, starts_with/2]).
 
 %% broadcasts some value to a list of processes
 broadcast(_, []) -> ok;
@@ -143,3 +143,5 @@ list_set(List, Where, What) ->
     Before ++ [What] ++ After.
 
 filter_text(Text) -> string:trim(string:slice(Text, 0, 4096), both, "\r\n\t ").
+
+starts_with(Str, Sub) -> string:prefix(Str, Sub) =/= nomatch.

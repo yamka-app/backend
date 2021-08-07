@@ -12,7 +12,7 @@
 -export([get_channels/1, get_roles/1, get/1, get/2, create/2, delete/1]).
 -export([get_invites/1, add_invite/1, remove_invite/2, resolve_invite/1]).
 -export([find_users/3, cache_user_name/3]).
--export([find_emoji/3, all_emoji/1, add_emoji/3, remove_emoji/2]).
+-export([find_emoji/3, all_emoji/1]).
 -export([assert_permission/3, has_permission/2]).
 
 get_channels(Id) ->
@@ -56,7 +56,7 @@ get(Id, IncludeExtra) ->
                 channels => get_channels(Id),
                 roles    => get_roles(Id),
                 invites  => get_invites(Id),
-                emoji    => all_emoji(Id)})
+                emoji    => [I || #{id := I} <- all_emoji(Id)]})
     end.
 
 create(Name, Owner) ->
@@ -138,43 +138,23 @@ cache_user_name(Id, User, Name) ->
       [{<<"name">>, Name},
        {<<"group">>, integer_to_binary(Id)}]).
 
-find_emoji(Group, Name, Max) when is_list(Name) ->
-    find_emoji(Group, unicode:characters_to_binary(Name), Max);
 find_emoji(Group, Name, Max) when Max > 10 ->
     find_emoji(Group, Name, 10);
 find_emoji(Group, Name, Max) ->
-    GroupStr = integer_to_binary(Group),
-    {ok, Response} = erlastic_search:search(<<"emoji">>, <<"group_local">>,
-      [{<<"query">>,
-        [{<<"bool">>, [
-          {<<"should">>, [
-           [{<<"term">>, [{<<"group">>, GroupStr}]}],
-           [{<<"query_string">>, [{<<"query">>, <<Name/binary, "*">>}]}]]},
-          {<<"minimum_should_match">>, 2}]}]},
-       {<<"size">>, Max}]),
-    
-    Hits = proplists:get_value(<<"hits">>, proplists:get_value(<<"hits">>, Response)),
-    [binary_to_integer(proplists:get_value(<<"_id">>, Hit)) || Hit <- Hits].
+    % listen, I tried using Elasticsearch for this
+    % but it just refused to work
+    % we shouldn't have much emoji anyways
+    All = all_emoji(Group),
+    Filtered = lists:filter(fun(#{emoji_name := E}) -> utils:starts_with(E, Name) end, All),
+    Ids = lists:map(fun(#{id := Id}) -> Id end, Filtered),
+    lists:sublist(Ids, Max).
 
 all_emoji(Group) ->
-    GroupStr = integer_to_binary(Group),
-    {ok, Response} = erlastic_search:search(<<"emoji">>, <<"group_local">>,
-      [{<<"query">>,
-        [{<<"bool">>, [
-          {<<"should">>, [
-           [{<<"term">>, [{<<"group">>, GroupStr}]}]]},
-          {<<"minimum_should_match">>, 1}]}]}]),
-    Hits = proplists:get_value(<<"hits">>, proplists:get_value(<<"hits">>, Response)),
-    [binary_to_integer(proplists:get_value(<<"_id">>, Hit)) || Hit <- Hits].
-
-add_emoji(Group, File, Name) ->
-    erlastic_search:index_doc_with_id(<<"emoji">>, <<"group_local">>,
-      integer_to_binary(File),
-      [{<<"name">>, Name},
-       {<<"group">>, integer_to_binary(Group)}]).
-
-remove_emoji(_Group, File) ->
-    erlastic_search:delete_doc(<<"emoji">>, <<"group_local">>, integer_to_binary(File)).
+    {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "SELECT * FROM group_emoji WHERE emoji_group=?",
+        values    = [{emoji_group, Group}]
+    }),
+    [maps:from_list(E) || E <- cqerl:all_rows(Rows)].
 
 has_permission(Id, Perm) ->
     % group owners have every permission regardless of their roles
