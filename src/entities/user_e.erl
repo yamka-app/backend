@@ -179,22 +179,22 @@ finish_email_confirmation(Id, Code) ->
 send_friend_rq(From, To) ->
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = "INSERT INTO friend_requests(user, subject) VALUES(?, ?)",
-        values    = [{user, To}, {subject, From}]
+        values    = [{user, From}, {subject, To}]
     }).
 %% declines or removes a friend request
 decline_friend_rq(From, To) ->
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "DELETE FROM friend_requests(user, subject) VALUES(?, ?)",
-        values    = [{user, To}, {subject, From}]
+        statement = "DELETE FROM friend_requests WHERE user=? AND subject=?",
+        values    = [{user, From}, {subject, To}]
     }).
 %% accepts a friend request
 accept_friend_rq(From, To) ->
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = "BEGIN BATCH "
-            "DELETE FROM friend_requests(user, subject) VALUES(?, ?); "
+            "DELETE FROM friend_requests WHERE subject=? AND user=?; "
             "INSERT INTO friendships(u1, u2) VALUES(?, ?); "
             "APPLY BATCH",
-        values = [{user, To}, {subject, From}, {u1, To}, {u2, From}]
+        values = [{user, From}, {subject, To}, {u1, To}, {u2, From}]
     }).
 %% removes friend
 remove_friend(User1, User2) ->
@@ -233,7 +233,7 @@ get_friends(Id) ->
     [U || [{u1, U}] <- cqerl:all_rows(From2)].
 get_pending_in(Id) ->
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "SELECT user FROM friend_requests WHERE subject=?",
+        statement = "SELECT user FROM friend_requests_by_subject WHERE subject=?",
         values = [{subject, Id}]
     }), [U || [{user, U}] <- cqerl:all_rows(Rows)].
 get_pending_out(Id) ->

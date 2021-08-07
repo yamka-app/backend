@@ -201,7 +201,7 @@ handle_packet(#packet{type=contacts_manage, seq=Seq,
     icpc_broadcast_entity(Id,      #entity{type=user, fields=user_e:get(Id)},      [id, friends]),
     icpc_broadcast_entity(get(id), #entity{type=user, fields=user_e:get(get(id))}, [id, friends, blocked]),
     none;
-%% decline a friend request
+%% decline friend request
 handle_packet(#packet{type=contacts_manage, seq=Seq,
                       fields=#{type:=pending_in, action:=remove, id:=Id}}, ScopeRef) ->
     {_, normal} = {{ScopeRef, status_packet:make_invalid_state(normal, Seq)}, get(state)},
