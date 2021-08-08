@@ -26,7 +26,7 @@ powerup(Port) ->
     logging:log("Connected to the Cassandra node at ~s:~p", [?CASSANDRA_IP, ?CASSANDRA_PORT]),
 
     % start protocol listeners
-    listeners:start(Cassandra, Port),
+    sweet_listener:start(Cassandra, Port),
 
     % start stat logger
     register(stat_logger, spawn(stats, writer_start, [Cassandra])),
@@ -35,7 +35,7 @@ powerup(Port) ->
 powerdown() ->
     stat_logger ! {'EXIT', self(), normal},
     unregister(stat_logger),
-    listeners:stop(),
+    sweet_listener:stop(),
     ok.
 
 app_worker() ->

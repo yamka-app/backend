@@ -16,26 +16,31 @@
     socket :: ssl:socket(),
     cassandra,
     conn_state :: atom(),
-    proto_ver :: number()
+    proto_ver :: number(),
+    comp :: boolean()
 }).
 
 -export([start/2]).
 -export([switch_state/2, switch_state/3, send_packet/2, route_packet/3, stop/1]).
 
-spawn_helper(encoder, Socket, Proto) -> spawn_monitor(sweet_encoder, start, [self(), Socket, Proto]);
+spawn_helper(encoder, Socket, Setup={_,_}) -> spawn_monitor(sweet_encoder, start, [self(), Socket, Setup]);
 spawn_helper(decoder, Socket, Proto) -> spawn_monitor(sweet_decoder, start, [self(), Socket, Proto]).
 
 %% starts a main process
-start(Socket, Cassandra) ->
+start(TransportSocket, Cassandra) ->
+    % set up TLS
+    {ok, Socket} = ssl:handshake(TransportSocket),
+
     % start some processes
-    Encoder = spawn_helper(encoder, Socket, 12),
-    Decoder = spawn_helper(decoder, Socket, 12),
+    Encoder = spawn_helper(encoder, Socket, {?MIN_PROTO, false}),
+    Decoder = spawn_helper(decoder, Socket, ?MIN_PROTO),
     loop(#state{
         encoder = Encoder,
         decoder = Decoder,
         socket = Socket,
         cassandra = Cassandra,
-        conn_state = awaiting_identification
+        conn_state = awaiting_identification,
+        comp = false
     }).
 
 %% main loop
@@ -46,7 +51,8 @@ loop(State) ->
         socket = Socket,
         cassandra = Cassandra,
         conn_state = ConnState,
-        proto_ver = ProtoVer
+        proto_ver = ProtoVer,
+        comp = SupportsCompression
     } = State,
 
     receive
@@ -59,7 +65,7 @@ loop(State) ->
         % restart the encoder when it fails
         {'DOWN', EncRef, process, EncPid, Reason} ->
             logging:err("Encoder down (~p)", [Reason]),
-            loop(State#state{encoder = spawn_helper(encoder, Socket, ProtoVer)});
+            loop(State#state{encoder = spawn_helper(encoder, Socket, {ProtoVer, SupportsCompression})});
 
         % handle packets decoded by the decoder
         {packet, DecPid, Packet} ->
@@ -68,11 +74,12 @@ loop(State) ->
             loop(State);
 
         % switch the state (and possible the protocol version) of the protocol processes when the handler asks for it
-        {switch_state, _From, awaiting_login, NewVersion} ->
+        {switch_state, _From, awaiting_login, {NewVersion, NewCompression}} ->
             loop(State#state{
-                decoder = spawn_helper(decoder, Socket, ProtoVer),
-                encoder = spawn_helper(encoder, Socket, ProtoVer),
-                proto_ver = NewVersion
+                decoder = spawn_helper(decoder, Socket, NewVersion),
+                encoder = spawn_helper(encoder, Socket, {NewVersion, NewCompression}),
+                proto_ver = NewVersion,
+                comp = NewCompression
             });
         {switch_state, _From, NewState} ->
             loop(State#state{conn_state = NewState});
@@ -85,7 +92,7 @@ loop(State) ->
 
         % route packets to another main process when asked by a handler process of ours
         {route, _From, DestSpec, Packet} ->
-            % stub
+            % TODO
             loop(State);
 
         % shutdown when asked
@@ -97,7 +104,7 @@ loop(State) ->
 %%% API functions so that other modules don't have to remember the message format spec
 %%% 
 
-switch_state(Pid, awaiting_login, Ver) -> Pid ! {switch_state, self(), awaiting_login, Ver}.
+switch_state(Pid, awaiting_login, Setup={_,_}) -> Pid ! {switch_state, self(), awaiting_login, Setup}.
 switch_state(Pid, Target) -> Pid ! {switch_state, self(), Target}.
 
 send_packet(Pid, P) -> Pid ! {transmit, self(), P}.

@@ -16,7 +16,7 @@ stats() ->
     #{
         processes => erlang:system_info(process_count),
         atoms     => erlang:system_info(atom_count),
-        clients   => listeners:client_count(),
+        clients   => sweet_listener:client_count(),
         io        => erlang:statistics(io)
     }.
 
