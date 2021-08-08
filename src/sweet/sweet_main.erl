@@ -31,6 +31,10 @@ start(TransportSocket, Cassandra) ->
     % set up TLS
     {ok, Socket} = ssl:handshake(TransportSocket),
 
+    % create rate limiters
+    ratelimit:make(encoder_respawn, {1, 1000}),
+    ratelimit:make(decoder_respawn, {3, 1000}),
+
     % start some processes
     Encoder = spawn_helper(encoder, Socket, {?MIN_PROTO, false}),
     Decoder = spawn_helper(decoder, Socket, ?MIN_PROTO),
@@ -59,13 +63,25 @@ loop(State) ->
         % restart the decoder when it fails
         {'DOWN', DecRef, process, DecPid, Reason} ->
             logging:err("Decoder down (~p)", [Reason]),
-            self() ! {transmit, self(), status_packet:make(packet_parsing_error, "Packet parsing error")},
-            loop(State#state{decoder = spawn_helper(decoder, Socket, ProtoVer)});
+            case ratelimit:hit(decoder_respawn) of
+                1 ->
+                    self() ! {transmit, self(), status_packet:make(packet_parsing_error, "Packet parsing error")},
+                    loop(State#state{decoder = spawn_helper(decoder, Socket, ProtoVer)});
+                0 ->
+                    logging:err("Decoder respawn rate limit reached", []),
+                    exit(respawn_limit_reached)
+            end;
 
         % restart the encoder when it fails
         {'DOWN', EncRef, process, EncPid, Reason} ->
             logging:err("Encoder down (~p)", [Reason]),
-            loop(State#state{encoder = spawn_helper(encoder, Socket, {ProtoVer, SupportsCompression})});
+            case ratelimit:hit(decoder_respawn) of
+                1 ->
+                    loop(State#state{encoder = spawn_helper(encoder, Socket, {ProtoVer, SupportsCompression})});
+                0 ->
+                    logging:err("Encoder respawn rate limit reached", []),
+                    exit(respawn_limit_reached)
+            end;
 
         % handle packets decoded by the decoder
         {packet, DecPid, Packet} ->
