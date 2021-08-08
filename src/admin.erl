@@ -7,7 +7,7 @@
 -license("MPL-2.0").
 -description("Console administration commands").
 
--export([seed_nodes/1, powerdown/0, powerup/0]).
+-export([seed_nodes/1, powerdown/0, powerup/0, powerup/1]).
 
 %% connects to nodes in the cluster
 seed_nodes(Nodes) when is_list(Nodes) ->
@@ -17,8 +17,9 @@ seed_nodes(Nodes) when is_list(Nodes) ->
     ok.
 
 %% starts accepting Sweet connections and performs other startup tasks
-powerup() ->
-    yamkabackend_app:powerup().
+powerup() -> powerup(1746).
+powerup(Port) ->
+    yamkabackend_app:powerup(Port).
 
 %% stops accepting Sweet connections and performs other shutdown tasks
 powerdown() ->

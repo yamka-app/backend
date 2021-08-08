@@ -11,10 +11,10 @@
 -define(CASSANDRA_IP, "elassandra").
 -define(CASSANDRA_PORT, 9042).
 
--export([powerup/0, powerdown/0]).
+-export([powerup/1, powerdown/0]).
 -export([start/2, stop/1, app_worker/0]).
 
-powerup() ->
+powerup(Port) ->
     tasty_sup:start_link(),
 
     % connect to the Cassandra cluster
@@ -26,7 +26,7 @@ powerup() ->
     logging:log("Connected to the Cassandra node at ~s:~p", [?CASSANDRA_IP, ?CASSANDRA_PORT]),
 
     % start protocol listeners
-    listeners:start(Cassandra),
+    listeners:start(Cassandra, Port),
 
     % start stat logger
     register(stat_logger, spawn(stats, writer_start, [Cassandra])),

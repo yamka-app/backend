@@ -1,4 +1,4 @@
-# Erlang Yamka backend :tada:
+# Erlang Yamka backend
 
 ![Top language](https://img.shields.io/github/languages/top/yamka-app/backend)
 ![License](https://img.shields.io/github/license/yamka-app/backend)
@@ -37,6 +37,7 @@ Three secrets are required:
 ## Control
 The `admin` module provides some functions you can call from the shell:
   - `admin:powerup/0` starts this instance, begins accepting Sweet connections and doing other stuff
+  - `admin:powerup/1` starts the instance, but listens to the port provided as the argument to this function instead of the default (1746).
   - `admin:powerdown/0` stops this instance, stops accepting Sweet connections, etc.
   - `admin:seed_nodes/1` with a `list(atom())` as its argument connects to other nodes in the cluster
   - `stats:stats/0` prints some stats

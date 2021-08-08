@@ -7,10 +7,8 @@
 -license("MPL-2.0").
 -description("Accepts TLS clients").
 
--export([sweet_listener/3, client_count/0, stop/0, start/1]).
+-export([sweet_listener/4, client_count/0, stop/0, start/2]).
 -export([setup_tables/0, destroy_tables/0]).
-
--define(NORMAL_PORT, 1746).
 
 client_count() -> length(ets:match(id_of_processes, '_')).
 
@@ -46,7 +44,7 @@ sweet_listener_loop(Socket, Cassandra) ->
     sweet_server ! {start, [TransportSocket, Cassandra]},
     sweet_listener_loop(Socket, Cassandra).
 
-sweet_listener(Cassandra, CertPath, KeyPath) ->
+sweet_listener(Cassandra, CertPath, KeyPath, Port) ->
     % start the listener message server
     register(sweet_server, spawn(fun sweet_listener_server/0)),
 
@@ -54,7 +52,7 @@ sweet_listener(Cassandra, CertPath, KeyPath) ->
     setup_tables(),
 
     % listen for new clients
-    {ok, ListenSocket} = ssl:listen(?NORMAL_PORT, [
+    {ok, ListenSocket} = ssl:listen(Port, [
         {certfile,   CertPath},
         {cacertfile, CertPath},
         {keyfile,    KeyPath},
@@ -64,15 +62,16 @@ sweet_listener(Cassandra, CertPath, KeyPath) ->
         {active,     false}
     ]),
 
-    logging:log("Sweet server listening on port ~w", [?NORMAL_PORT]),
+    logging:log("Sweet server listening on port ~w", [Port]),
     sweet_listener_loop(ListenSocket, Cassandra).
 
-start(Cassandra) ->
+start(Cassandra, Port) ->
     ssl:start(),
     {Pid, _Mon} = spawn_monitor(listeners, sweet_listener, [
         Cassandra,
         "/run/secrets/tls_fullchain",
-        "/run/secrets/tls_privkey"
+        "/run/secrets/tls_privkey",
+        Port
     ]),
     register(sweet_listener, Pid).
 
