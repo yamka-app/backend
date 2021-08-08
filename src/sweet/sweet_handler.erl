@@ -43,7 +43,7 @@ handle_packet(#packet{type=login,
     % ensure proper connection state
     assert_state(Main, awaiting_login, Scope),
     % rate limiting
-    {_, 1} = {{Scope, status_packet:make(rate_limiting, "Too many attempts. Please try again in a minute", Seq)}, ratelimit:hit(login)},
+    {_, 1} = {{Scope, status_packet:make(rate_limiting, "Too many attempts. Please try again in a minute")}, sweet_main:ratelimit(Main, login)},
     % get the user and ensure they're the only one with this email (could be none)
     {ok, User} = cqerl:run_query(get(cassandra), #cql_query{
         statement = "SELECT salt, password, mfa_secret, id FROM users_by_email WHERE email=?",
