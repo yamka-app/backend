@@ -20,9 +20,10 @@
 assert_state(Wanted) ->
     {_, {ok, Wanted, _}} = {{get(scope), status_packet:make_invalid_state(Wanted)}, sweet_main:get_state(get(main))}.
 
+
 %% registers protocol information
-handle_packet(#packet{type=identification,
-                      fields=#{supports_comp := SupportsComp,
+handle_packet(#packet{type = identification,
+                      fields = #{supports_comp := SupportsComp,
                                protocol := Protocol}}) ->
     assert_state(awaiting_identification),
 
@@ -37,8 +38,8 @@ handle_packet(#packet{type=identification,
 
 
 %% acquires an access token
-handle_packet(#packet{type=login,
-                      fields=#{email := Email,
+handle_packet(#packet{type = login,
+                      fields = #{email := Email,
                                password := SentPass,
                                perms := Permissions,
                                agent := #entity{type = agent, fields = Agent}}}) ->
@@ -74,8 +75,8 @@ handle_packet(#packet{type=login,
 
 
 %% completes authentication when using 2FA
-handle_packet(#packet{type=mfa_secret,
-                      fields=#{secret := Token}}) ->
+handle_packet(#packet{type = mfa_secret,
+                      fields = #{secret := Token}}) ->
     assert_state(awaiting_mfa),
 
     % rate limiting
@@ -83,20 +84,26 @@ handle_packet(#packet{type=mfa_secret,
             sweet_main:ratelimit(get(main), login)},
 
     % verify sent token
-    {_, true} = {{get(scope), status_packet:make(login_error, "Invalid 2FA token", Seq)},
+    {_, true} = {{get(scope), status_packet:make(login_error, "Invalid 2FA token")},
             yamka_auth:totp_verify(get(mfa_secret), Token)},
 
-    put(mfa_secret, none),
-    put(state, awaiting_login),
-    access_token_packet:make(yamka_auth:create_token(get(mfa_perms), get(mfa_agent)), Seq);
+    % get prevviously stored metadata
+    {ok, _, {_, Agent, Perms, _}} = sweet_main:get_state(get(main)),
+
+    % update state
+    sweet_main:switch_state(get(main), awaiting_mfa, {}), % erase MFA state
+    sweet_main:switch_state(get(main), awaiting_login),
+
+    % generate and send token
+    access_token_packet:make(yamka_auth:create_token(Perms, Agent));
 
 
 %% signup packet (to create an account)
-handle_packet(#packet{type=signup,
-                      fields=#{email   :=EMail,
-                               password:=SentPass,
-                               name    :=Name,
-                               agent:=#entity{type=agent, fields=Agent}}}, Main, Scope) ->
+handle_packet(#packet{type = signup,
+                      fields = #{email := EMail,
+                               password := SentPass,
+                               name := Name,
+                               agent :=# entity{type = agent, fields = Agent}}}, Main, Scope) ->
     % ensure proper connection state
     {_, awaiting_login} = {{Scope, status_packet:make_invalid_state(awaiting_login, Seq)}, get(state)},
     % check if the E-Mail is valid
