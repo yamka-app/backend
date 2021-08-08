@@ -13,6 +13,7 @@
     socket :: ssl:socket(),
     cassandra,
     conn_state :: atom(),
+    mfa_state :: term(),
     proto_ver :: number(),
     comp :: boolean()
 }).
@@ -49,6 +50,8 @@ start(TransportSocket, Cassandra) ->
         socket = Socket,
         cassandra = Cassandra,
         conn_state = awaiting_identification,
+        mfa_state = {},
+        proto_ver = 0,
         comp = false
     }).
 
@@ -60,6 +63,7 @@ loop(State) ->
         socket = Socket,
         cassandra = Cassandra,
         conn_state = ConnState,
+        mfa_state = MfaState,
         proto_ver = ProtoVer,
         comp = SupportsCompression
     } = State,
@@ -99,9 +103,12 @@ loop(State) ->
             loop(State#state{
                 decoder = spawn_helper(decoder, Socket, NewVersion),
                 encoder = spawn_helper(encoder, Socket, {NewVersion, NewCompression}),
+                conn_state = awaiting_login,
                 proto_ver = NewVersion,
                 comp = NewCompression
             });
+        {switch_state, _From, awaiting_mfa, NewMfa} ->
+            loop(State#state{conn_state = awaiting_mfa, mfa_state = NewMfa});
         {switch_state, _From, NewState} ->
             loop(State#state{conn_state = NewState});
 
@@ -122,7 +129,7 @@ loop(State) ->
 
         % gets the connection state
         {get_state, From} ->
-            From ! {result, self(), ConnState};
+            From ! {result, self(), ConnState, MfaState};
 
         % shutdown when asked
         {stop, _From} ->
@@ -134,7 +141,8 @@ loop(State) ->
 %%% API functions so that other modules don't have to remember the message format spec
 %%% 
 
-switch_state(Pid, awaiting_login, Setup={_,_}) -> Pid ! {switch_state, self(), awaiting_login, Setup}.
+switch_state(Pid, awaiting_login, Setup={_,_}) -> Pid ! {switch_state, self(), awaiting_login, Setup};
+switch_state(Pid, awaiting_mfa, Mfa) -> Pid ! {switch_state, self(), awaiting_mfa, Mfa}.
 switch_state(Pid, Target) -> Pid ! {switch_state, self(), Target}.
 
 send_packet(Pid, P) -> Pid ! {transmit, self(), P}.
@@ -154,7 +162,7 @@ ratelimit(Pid, Name, Times) ->
 get_state(Pid) ->
     Pid ! {get_state, self()},
     receive
-        {result, Pid, Result} -> {ok, Result}
+        {result, Pid, Conn, Mfa} -> {ok, Conn, Mfa}
     after 100 ->
         {error, timeout}
     end.

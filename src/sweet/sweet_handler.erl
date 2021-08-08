@@ -17,18 +17,20 @@
 -export([start/5]).
 
 %% asserts a connection state
-assert_state(Main, Wanted, Scope) ->
-    {_, {ok, Wanted}} = {{Scope, status_packet:make_invalid_state(Wanted)}, sweet_main:get_state(Main)}.
+assert_state(Wanted) ->
+    {_, {ok, Wanted, _}} = {{get(scope), status_packet:make_invalid_state(Wanted)}, sweet_main:get_state(get(main))}.
 
 %% registers protocol information
 handle_packet(#packet{type=identification,
                       fields=#{supports_comp := SupportsComp,
-                               protocol := Protocol}}, Main, Scope) ->
-    assert_state(Main, awaiting_identification, Scope),
+                               protocol := Protocol}}) ->
+    assert_state(awaiting_identification),
+
     if
         (Protocol > ?MAX_PROTO) or (Protocol < ?MIN_PROTO) ->
             status_packet:make(unsupported_proto, "Unsupported protocol version");
         true ->
+            % successful
             sweet_main:switch_state(Main, awaiting_login, {Protocol, SupportsComp}),
             none
     end;
@@ -39,52 +41,51 @@ handle_packet(#packet{type=login,
                       fields=#{email := Email,
                                password := SentPass,
                                perms := Permissions,
-                               agent := #entity{type = agent, fields = Agent}}}, Main, Scope) ->
-    % ensure proper connection state
-    assert_state(Main, awaiting_login, Scope),
+                               agent := #entity{type = agent, fields = Agent}}}) ->
+    assert_state(awaiting_login),
+
     % rate limiting
-    {_, 1} = {{Scope, status_packet:make(rate_limiting, "Too many attempts. Please try again in a minute")}, sweet_main:ratelimit(Main, login)},
-    % get the user and ensure they're the only one with this email (could be none)
-    {ok, User} = cqerl:run_query(get(cassandra), #cql_query{
-        statement = "SELECT salt, password, mfa_secret, id FROM users_by_email WHERE email=?",
-        values    = [{email, Email}]
-    }),
-    {_, 1} = {{Scope, status_packet:make(login_error, "Invalid E-Mail", Seq)}, cqerl:size(User)},
-    Row = cqerl:head(User),
-    % check the password the user sent us
-    Salt      = proplists:get_value(salt, Row),
-    Password  = proplists:get_value(password, Row),
-    MfaSecret = proplists:get_value(mfa_secret, Row),
-    Id        = proplists:get_value(id, Row),
-    {_, Password} = {{Scope, status_packet:make(login_error, "Invalid password", Seq)}, utils:hash_password(SentPass, Salt)},
+    {_, 1} = {{Scope, status_packet:make(rate_limiting, "Too many attempts. Please try again in a minute")},
+            sweet_main:ratelimit(get(main), login)},
+
+    % get user 
+    {_, #{salt := Salt, password := Password, mfa_secret := MfaSecret, id := Id}}
+            = {{Scope, status_packet:make(login_error, "Invalid E-Mail")},
+            cassandra:select_one("users_by_email", #{email => Email})},
+    
+    % check password
+    {_, Password} = {{Scope, status_packet:make(login_error, "Invalid password")},
+            utils:hash_password(SentPass, Salt)},
+
     % create an agent or use an existing one
     AgentId = case Agent of
         #{id := Existing}             -> Existing;
         #{type := Type, name := Name} -> agent_e:create(Id, Type, Name)
     end,
+
     % generate the token depending on whether the client has 2FA enabled or not
     case MfaSecret of
-        null -> access_token_packet:make(yamka_auth:create_token(Permissions, AgentId), Seq);
+        null ->
+            access_token_packet:make(yamka_auth:create_token(Permissions, AgentId));
         Secret ->
-            put(mfa_id, Id),
-            put(mfa_agent, AgentId),
-            put(mfa_perms, Permissions),
-            put(mfa_secret, Secret),
-            put(state, awaiting_mfa),
-            status_packet:make(mfa_required, "2FA is enabled on this account", Seq)
+            sweet_main:switch_state(get(main), awaiting_mfa, {Id, AgentId, Permissions, Secret}),
+            status_packet:make(mfa_required, "2FA is enabled on this account")
     end;
 
 
-%% MFA "secret" packet (to finish 2FA authentication)
+%% completes authentication when using 2FA
 handle_packet(#packet{type=mfa_secret,
-                      fields=#{secret:=Token}}, Main, Scope) ->
-    % ensure proper connection state
-    {_, awaiting_mfa} = {{Scope, status_packet:make_invalid_state(awaiting_login, Seq)}, get(state)},
+                      fields=#{secret := Token}}) ->
+    assert_state(awaiting_mfa),
+
     % rate limiting
-    {_, 1} = {{Scope, status_packet:make(rate_limiting, "Please try again in a minute", Seq)}, ratelimit:hit(login)},
-    % verify 2FA token
-    {_, true} = {{Scope, status_packet:make(login_error, "Invalid 2FA token", Seq)},
+    {_, 1} = {{get(scope), status_packet:make(rate_limiting, "Too many attempts. Please try again in a minute")},
+            sweet_main:ratelimit(get(main), login)},
+
+    % verify sent token
+    {_, true} = {{get(scope), status_packet:make(login_error, "Invalid 2FA token", Seq)},
             yamka_auth:totp_verify(get(mfa_secret), Token)},
+
     put(mfa_secret, none),
     put(state, awaiting_login),
     access_token_packet:make(yamka_auth:create_token(get(mfa_perms), get(mfa_agent)), Seq);
@@ -396,11 +397,18 @@ handle_packet(_, _, _) ->
     status_packet:make(unknown_packet, "Unknown packet type").
 
 start(Main, ConnState, ProtoVer, Cassandra, Packet) ->
-    put(cassandra, Cassandra),
     % thanks to José M at https://stackoverflow.com/a/65711977/8074626
     % for this cool match error handling technique
     Scope = make_ref(),
     Seq = Packet#packet.seq,
+
+    % put some things into the process dictionary
+    % hey, pure functional programming can be quite cool... sometimes...
+    % but I like Erlang for having an option to have something like this
+    % for things that have to be referenced five function calls deep
+    put(cassandra, Cassandra),
+    put(main, Main),
+    put(scope, Scope),
 
     % handle the packet and catch errors in doing so
     Result = try
