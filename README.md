@@ -34,8 +34,12 @@ Three secrets are required:
 
 :construction: Your server instance is going to redirect your voice clients to our server because the domain names are hard coded in (at the moment). We're working on that. _While_ we're working on that, feel free to change the return value of `server_name/0` in `src/tasty/tasty.erl`.
 
+## Control
+The `admin` module provides some functions you can call from the shell:
+  - `admin:powerup/0` starts this instance, begins accepting Sweet connections and doing other stuff
+  - `admin:powerdown/0` stops this instance, stops accepting Sweet connections, etc.
+  - `admin:seed_nodes/1` with a `list(atom())` as its argument connects to other nodes in the cluster
+  - `stats:stats/0` prints some stats
+
 ## Development and testing
-You don't want to rebuild the whole project every time you've made a small change to the source tree, then restart all three main containers. Me too. To develop locally,
-  - Add `127.0.0.1 elassandra` to `/etc/hosts`
-  - Start the Elassandra and Gluster containers up
-  - Run `launch.sh`
+`sync` is declared as a rebar dependency for this project, so you should be able to just edit your files, save the changes and watch your code get reloaded in the shell after you have started the project with `rebar3 shell`. You can also run `rebar3 check` to run xref and dialyzer.

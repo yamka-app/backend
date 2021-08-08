@@ -8,6 +8,7 @@
 -description("Accepts TLS clients").
 
 -export([sweet_listener/3, client_count/0, stop/0, start/1]).
+-export([setup_tables/0, destroy_tables/0]).
 
 -define(NORMAL_PORT, 1746).
 
@@ -48,15 +49,10 @@ sweet_listener_loop(Socket, Cassandra) ->
 sweet_listener(Cassandra, CertPath, KeyPath) ->
     % start the listener message server
     register(sweet_server, spawn(fun sweet_listener_server/0)),
+
     % create a handful of tables
-    ets:new(id_of_processes, [set, public, named_table]),
-    ets:new(icpc_processes,  [bag, public, named_table]),
-    ets:new(user_awareness,  [bag, public, named_table]),
-    ets:new(chan_awareness,  [bag, public, named_table]),
-    ets:new(poll_awareness,  [bag, public, named_table]),
-    ets:new(file_awareness,  [bag, public, named_table]),
-    ets:new(group_awareness, [bag, public, named_table]),
-    ets:new(typing,          [bag, public, named_table]),
+    setup_tables(),
+
     % listen for new clients
     {ok, ListenSocket} = ssl:listen(?NORMAL_PORT, [
         {certfile,   CertPath},
@@ -85,4 +81,25 @@ stop() ->
     unregister(sweet_listener),
     sweet_server ! {'EXIT', self(), normal},
     unregister(sweet_server),
+    destroy_tables(),
     ssl:stop().
+
+setup_tables() ->
+    ets:new(id_of_processes, [set, public, named_table]),
+    ets:new(icpc_processes,  [bag, public, named_table]),
+    ets:new(user_awareness,  [bag, public, named_table]),
+    ets:new(chan_awareness,  [bag, public, named_table]),
+    ets:new(poll_awareness,  [bag, public, named_table]),
+    ets:new(file_awareness,  [bag, public, named_table]),
+    ets:new(group_awareness, [bag, public, named_table]),
+    ets:new(typing,          [bag, public, named_table]).
+
+destroy_tables() ->
+    ets:delete(id_of_processes),
+    ets:delete(icpc_processes),
+    ets:delete(user_awareness),
+    ets:delete(chan_awareness),
+    ets:delete(poll_awareness),
+    ets:delete(file_awareness),
+    ets:delete(group_awareness),
+    ets:delete(typing).
