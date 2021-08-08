@@ -7,9 +7,6 @@
 -license("MPL-2.0").
 -description("Main server process for each client").
 
--define(MIN_PROTO, 12). % lowest and highest allowed versions
--define(MAX_PROTO, 14).
-
 -record(state, {
     encoder :: pid(),
     decoder :: pid(),
@@ -21,7 +18,8 @@
 }).
 
 -export([start/2]).
--export([switch_state/2, switch_state/3, send_packet/2, route_packet/3, stop/1]).
+-export([switch_state/2, switch_state/3, send_packet/2, route_packet/3, stop/1,
+         ratelimit/2, ratelimit/3, get_state/1]).
 
 spawn_helper(encoder, Socket, Setup={_,_}) -> spawn_monitor(sweet_encoder, start, [self(), Socket, Setup]);
 spawn_helper(decoder, Socket, Proto) -> spawn_monitor(sweet_decoder, start, [self(), Socket, Proto]).
@@ -32,12 +30,19 @@ start(TransportSocket, Cassandra) ->
     {ok, Socket} = ssl:handshake(TransportSocket),
 
     % create rate limiters
-    ratelimit:make(encoder_respawn, {1, 1000}),
-    ratelimit:make(decoder_respawn, {3, 1000}),
+    ratelimit:make(encoder_respawn, {1,   1000  }),
+    ratelimit:make(decoder_respawn, {3,   1000  }),
+    ratelimit:make(packet,          {100, 1000  }),
+    ratelimit:make(close,           {105, 1000  }),
+    ratelimit:make(login,           {5,   30000 }),
+    ratelimit:make(entity,          {300, 1000  }),
+    ratelimit:make(message,         {20,  10000 }),
+    ratelimit:make(bot_create,      {1,   120000}),
+    ratelimit:make(voice,           {2,   1000  }),
 
     % start some processes
-    Encoder = spawn_helper(encoder, Socket, {?MIN_PROTO, false}),
-    Decoder = spawn_helper(decoder, Socket, ?MIN_PROTO),
+    Encoder = spawn_helper(encoder, Socket, {0, false}),
+    Decoder = spawn_helper(decoder, Socket, 0),
     loop(#state{
         encoder = Encoder,
         decoder = Decoder,
@@ -86,7 +91,7 @@ loop(State) ->
         % handle packets decoded by the decoder
         {packet, DecPid, Packet} ->
             logging:dbg("--> ~p", [Packet]),
-            spawn(sweet_handler, start, [self(), ConnState, ProtoVer, Cassandra]),
+            spawn(sweet_handler, start, [self(), ConnState, ProtoVer, Cassandra, Packet]),
             loop(State);
 
         % switch the state (and possible the protocol version) of the protocol processes when the handler asks for it
@@ -111,8 +116,17 @@ loop(State) ->
             % TODO
             loop(State);
 
+        % hits a rate limiter
+        {ratelimit, From, Name, Times} ->
+            From ! {result, self(), ratelimit:hit(Name, Times)};
+
+        % gets the connection state
+        {get_state, From} ->
+            From ! {result, self(), ConnState};
+
         % shutdown when asked
         {stop, _From} ->
+            ssl:close(Socket),
             ok
     end.
 
@@ -126,5 +140,23 @@ switch_state(Pid, Target) -> Pid ! {switch_state, self(), Target}.
 send_packet(Pid, P) -> Pid ! {transmit, self(), P}.
 
 route_packet(Pid, DestSpec, P) -> Pid ! {route, self(), DestSpec, P}.
+
+ratelimit(Pid, Name) ->
+    ratelimit(Pid, Name, 1).
+ratelimit(Pid, Name, Times) ->
+    Pid ! {ratelimit, self(), Name, Times},
+    receive
+        {result, Pid, Result} -> {ok, Result}
+    after 100 ->
+        {error, timeout}
+    end.
+
+get_state(Pid) ->
+    Pid ! {get_state, self()},
+    receive
+        {result, Pid, Result} -> {ok, Result}
+    after 100 ->
+        {error, timeout}
+    end.
 
 stop(Pid) -> Pid ! {stop, self()}.
