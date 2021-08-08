@@ -5,7 +5,7 @@
 -module(stats).
 -author("Yamka").
 -license("MPL-2.0").
--description("The main file").
+-description("Stats collection").
 
 -define(INTERVAL, 30 * 1000).
 -include_lib("cqerl/include/cqerl.hrl").

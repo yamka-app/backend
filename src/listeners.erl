@@ -7,7 +7,7 @@
 -license("MPL-2.0").
 -description("Accepts TLS clients").
 
--export([normal_listener/3, client_count/0]).
+-export([sweet_listener/3, client_count/0, stop/0, start/1]).
 
 -define(NORMAL_PORT, 1746).
 
@@ -25,24 +25,29 @@ cleanup(Pid) ->
     ets:match_delete(typing,          {'_', {Id, '_'}}),
     user_e:broadcast_status(Id, offline).
 
-listener_server() ->
+sweet_listener_server() ->
     receive
-        {start, Args} -> spawn_monitor(client, client_init, Args);
+        {start, Args} ->
+            spawn_monitor(client, client_init, Args),
+            sweet_listener_server();
+        {stop} ->
+            logging:log("Sweet server shutting down", []),
+            ok;
         {'DOWN', _, process, Pid, _} ->
             spawn(fun() -> cleanup(Pid) end),
-            logging:log("Listener server: ~p died", [Pid])
-    end,
-    listener_server().
+            logging:log("Sweet server: ~p died", [Pid]),
+            sweet_listener_server()
+    end.
 
-normal_listener_loop(Socket, Cassandra) ->
+sweet_listener_loop(Socket, Cassandra) ->
     % accept the client and spawn the client loop
     {ok, TransportSocket} = ssl:transport_accept(Socket),
-    listener_server ! {start, [TransportSocket, Cassandra]},
-    normal_listener_loop(Socket, Cassandra).
+    sweet_server ! {start, [TransportSocket, Cassandra]},
+    sweet_listener_loop(Socket, Cassandra).
 
-normal_listener(Cassandra, CertPath, KeyPath) ->
+sweet_listener(Cassandra, CertPath, KeyPath) ->
     % start the listener message server
-    register(listener_server, spawn(fun listener_server/0)),
+    register(sweet_server, spawn(fun sweet_listener_server/0)),
     % create a handful of tables
     ets:new(id_of_processes, [set, public, named_table]),
     ets:new(icpc_processes,  [bag, public, named_table]),
@@ -61,8 +66,23 @@ normal_listener(Cassandra, CertPath, KeyPath) ->
         {reuseaddr,  true},
         {versions,   ['tlsv1.2', 'tlsv1.3']},
         {active,     false}
-       ]),
+    ]),
 
-    logging:log("Normal server listening on port ~w", [?NORMAL_PORT]),
+    logging:log("Sweet server listening on port ~w", [?NORMAL_PORT]),
+    sweet_listener_loop(ListenSocket, Cassandra).
 
-    normal_listener_loop(ListenSocket, Cassandra).
+start(Cassandra) ->
+    ssl:start(),
+    {Pid, _Mon} = spawn_monitor(listeners, sweet_listener, [
+        Cassandra,
+        "/run/secrets/tls_fullchain",
+        "/run/secrets/tls_privkey"
+    ]),
+    register(sweet_listener, Pid).
+
+stop() ->
+    sweet_listener ! {'EXIT', self(), normal},
+    unregister(sweet_listener),
+    sweet_server ! {'EXIT', self(), normal},
+    unregister(sweet_server),
+    ssl:stop().

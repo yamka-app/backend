@@ -8,7 +8,7 @@
 -license("MPL-2.0").
 -description("Logging gen_server").
 
--export([start/0, stop/1, start_link/1]).
+-export([start/0, stop/0, start_link/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -export([dbg/2, log/2, warn/2, err/2]).
 -record(state, {level, file}).
@@ -30,7 +30,7 @@ maybe_write(Lvl, Format, Args, #state{level=Tlvl, file=File}) ->
             file:write(File, ToWrite)
     end.
 
-stop(Name)       -> gen_server:call(Name, stop).
+stop()           -> gen_server:call(?MODULE, stop).
 start()          -> start_link(?MODULE).
 start_link(Name) -> gen_server:start_link({local, Name}, ?MODULE, [], []).
 init(_Args) ->

@@ -11,38 +11,46 @@
 -define(CASSANDRA_IP, "elassandra").
 -define(CASSANDRA_PORT, 9042).
 
+-export([powerup/0, powerdown/0]).
 -export([start/2, stop/1, app_worker/0]).
 
-app_worker() ->
-    {ok, _} = logging:start(),
-    {ok, _} = tasty_sup:start_link(),
-    {ok, _} = email:start(),
+powerup() ->
+    tasty_sup:start_link(),
 
     % connect to the Cassandra cluster
     {ok, Password} = file:read_file("/run/secrets/cassandra_password"),
     {ok, Cassandra} = cqerl:get_client({?CASSANDRA_IP, ?CASSANDRA_PORT}, [
         {auth, {cqerl_auth_plain_handler, [{"yamkadb", Password}]}},
         {keyspace, "yamkadb"}
-       ]),
+    ]),
     logging:log("Connected to the Cassandra node at ~s:~p", [?CASSANDRA_IP, ?CASSANDRA_PORT]),
 
     % start protocol listeners
-    ssl:start(),
-    spawn_monitor(listeners, normal_listener, [
-        Cassandra,
-        "/run/secrets/tls_fullchain",
-        "/run/secrets/tls_privkey"
-    ]),
+    listeners:start(Cassandra),
 
     % start stat logger
-    spawn_monitor(stats, writer_start, [Cassandra]),
+    register(stat_logger, spawn(stats, writer_start, [Cassandra])),
+    ok.
 
-    receive
-        die -> ok
-    end.
+powerdown() ->
+    stat_logger ! {'EXIT', self(), normal},
+    unregister(stat_logger),
+    listeners:stop(),
+    ok.
+
+app_worker() ->
+    app_worker().
 
 start(_StartType, _StartArgs) ->
+    sync:go(),
+
+    {ok, _} = logging:start(),
+    {ok, _} = email:start(),
+
     {ok, spawn(?MODULE, app_worker, [])}.
 
 stop(_State) ->
+    powerdown(),
+    logging:stop(),
+    email:stop(),
     ok.
