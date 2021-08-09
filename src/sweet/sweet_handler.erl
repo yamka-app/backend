@@ -150,20 +150,25 @@ handle_packet(#packet{type = entity_get,
     entities_packet:make([entity:handle_get_request(R, {Scope, Seq}) || R <- Entities]);
 
 
-%% entity packet (to put a set of entities)
-handle_packet(#packet{type=entities,
-                      fields=#{entities := Entities}}, Main, Scope) ->
-    {_, normal} = {{Scope, status_packet:make_invalid_state(normal, Seq)}, get(state)},
-    {_, false} = {{Scope, status_packet:make_excessive_data(Seq)}, entity:check_excessivity(Entities)},
+%% puts entities
+handle_packet(#packet{type = entities,
+                      fields = #{entities := Entities}}) ->
+    assert_state(normal),
+
+    % check if the client sent too much data
+    {_, false} = {{Scope, status_packet:make_excessive_data()},
+            entity:check_excessivity(Entities)},
     [entity:handle_entity(R, Seq, Scope) || R <- Entities];
 
 
-%% file download request (to download a file)
-handle_packet(#packet{type=file_download_request,
-                      fields=#{id := Id}}, Main, Scope) ->
-    {_, normal} = {{Scope, status_packet:make_invalid_state(normal, Seq)}, get(state)},
-    {_, true} = {{Scope, status_packet:make(invalid_id, "Unknown ID", Seq)}, file_storage:exists(Id)},
-    file_storage:send_file(Id, Seq, {get(socket), get(protocol)}),
+%% starts a file download
+handle_packet(#packet{type = file_download_request,
+                      fields = #{id := Id}}) ->
+    assert_state(normal),
+
+    {_, true} = {{Scope, status_packet:make(invalid_id, "Unknown ID", Seq)},
+            file_storage:exists(Id)},
+    file_storage:send_file(Id, Seq, get(main)),
     none;
 
 
