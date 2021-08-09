@@ -13,6 +13,7 @@
     socket :: ssl:socket(),
     cassandra,
     conn_state :: atom(),
+    user_info :: tuple(),
     mfa_state :: term(),
     proto_ver :: number(),
     comp :: boolean()
@@ -50,6 +51,7 @@ start(TransportSocket, Cassandra) ->
         socket = Socket,
         cassandra = Cassandra,
         conn_state = awaiting_identification,
+        user_info = {},
         mfa_state = {},
         proto_ver = 0,
         comp = false
@@ -109,6 +111,8 @@ loop(State) ->
             });
         {switch_state, _From, awaiting_mfa, NewMfa} ->
             loop(State#state{conn_state = awaiting_mfa, mfa_state = NewMfa});
+        {switch_state, _From, normal, UserInfo} ->
+            loop(State#state{conn_state = normal, user_info = UserInfo});
         {switch_state, _From, NewState} ->
             loop(State#state{conn_state = NewState});
 
@@ -142,7 +146,8 @@ loop(State) ->
 %%% 
 
 switch_state(Pid, awaiting_login, Setup={_,_}) -> Pid ! {switch_state, self(), awaiting_login, Setup};
-switch_state(Pid, awaiting_mfa, Mfa) -> Pid ! {switch_state, self(), awaiting_mfa, Mfa}.
+switch_state(Pid, awaiting_mfa, Mfa) -> Pid ! {switch_state, self(), awaiting_mfa, Mfa};
+switch_state(Pid, normal, UserInfo) -> Pid ! {switch_state, self(), normal, UserInfo}.
 switch_state(Pid, Target) -> Pid ! {switch_state, self(), Target}.
 
 send_packet(Pid, P) -> Pid ! {transmit, self(), P}.

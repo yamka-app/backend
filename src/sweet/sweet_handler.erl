@@ -129,23 +129,18 @@ handle_packet(#packet{type = signup,
 
 %% access token packet (to identify the user and permissions)
 handle_packet(#packet{type=access_token,
-                      fields=#{token := Token}}, Main, Scope) ->
-    % ensure proper connection state
-    {_, awaiting_login} = {{Scope, status_packet:make_invalid_state(awaiting_login, Seq)}, get(state)},
-    % get the token
-    {_, {AgentId, Perms}} = {{Scope, status_packet:make(invalid_access_token, "Invalid token")}, yamka_auth:get_token(Token)},
+                      fields=#{token := Token}}) ->
+    assert_state(awaiting_login),
+
+    % get token and agent
+    {_, {AgentId, Perms}} = {{Scope, status_packet:make(invalid_access_token, "Invalid token")},
+            yamka_auth:get_token(Token)},
     #{owner := Id} = agent_e:get(AgentId),
-    % create an ICPC process
-    spawn_link(?MODULE, icpc_init, [self(), get(socket),
-            {Id, AgentId, Perms, get(protocol), get(supports_comp)}]),
-    % save state
-    put(state, normal),
-    put(id, Id),
-    put(agent, AgentId),
-    put(perms, Perms),
-    ets:insert(id_of_processes, {self(), Id, AgentId}),
+
+    % save state, tell others and send an identity packet
+    sweet_main:switch_state(get(main), normal, {Id, AgentId, Perms}),
     user_e:broadcast_status(Id),
-    client_identity_packet:make(Id, AgentId, Seq);
+    client_identity_packet:make(Id, AgentId);
 
 
 %% entity get packet (to request a set of entities)
