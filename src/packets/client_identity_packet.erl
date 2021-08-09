@@ -7,9 +7,10 @@
 -license("MPL-2.0").
 
 -include("packet.hrl").
--export([encode/2, make/3]).
+-export([encode/2, make/3, make/2]).
 
 encode(#{user := User, agent := Agent}, Proto) when Proto >= 9 ->
     <<User:64/unsigned, Agent:64/unsigned>>.
 
 make(U, A, R) -> #packet{type = client_identity, reply = R, fields = #{user => U, agent => A}}.
+make(U, A) -> make(U, A, 0).

@@ -143,11 +143,11 @@ handle_packet(#packet{type=access_token,
     client_identity_packet:make(Id, AgentId);
 
 
-%% entity get packet (to request a set of entities)
-handle_packet(#packet{type=entity_get,
-                      fields=#{entities := Entities}}, Main, Scope) ->
-    {_, normal} = {{Scope, status_packet:make_invalid_state(normal, Seq)}, get(state)},
-    entities_packet:make([entity:handle_get_request(R, {Scope, Seq}) || R <- Entities], Seq);
+%% requests entities
+handle_packet(#packet{type = entity_get,
+                      fields = #{entities := Entities}}) ->
+    assert_state(normal),
+    entities_packet:make([entity:handle_get_request(R, {Scope, Seq}) || R <- Entities]);
 
 
 %% entity packet (to put a set of entities)
