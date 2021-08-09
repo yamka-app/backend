@@ -24,7 +24,7 @@ assert_state(Wanted) ->
 %% registers protocol information
 handle_packet(#packet{type = identification,
                       fields = #{supports_comp := SupportsComp,
-                               protocol := Protocol}}) ->
+                                 protocol := Protocol}}) ->
     assert_state(awaiting_identification),
 
     if
@@ -40,9 +40,9 @@ handle_packet(#packet{type = identification,
 %% acquires an access token
 handle_packet(#packet{type = login,
                       fields = #{email := Email,
-                               password := SentPass,
-                               perms := Permissions,
-                               agent := #entity{type = agent, fields = Agent}}}) ->
+                                 password := SentPass,
+                                 perms := Permissions,
+                                 agent := #entity{type = agent, fields = Agent}}}) ->
     assert_state(awaiting_login),
 
     % rate limiting
@@ -98,30 +98,33 @@ handle_packet(#packet{type = mfa_secret,
     access_token_packet:make(yamka_auth:create_token(Perms, Agent));
 
 
-%% signup packet (to create an account)
+%% creates an account
 handle_packet(#packet{type = signup,
                       fields = #{email := EMail,
-                               password := SentPass,
-                               name := Name,
-                               agent :=# entity{type = agent, fields = Agent}}}, Main, Scope) ->
-    % ensure proper connection state
-    {_, awaiting_login} = {{Scope, status_packet:make_invalid_state(awaiting_login, Seq)}, get(state)},
-    % check if the E-Mail is valid
-    {_, true} = {{Scope, status_packet:make(signup_error, "Invalid E-Mail", Seq)},
-        email:is_valid(EMail)},
-    {_, true} = {{Scope, status_packet:make(signup_error, "Use a longer password", Seq)},
-        length(SentPass) >= 6},
-    {_, true} = {{Scope, status_packet:make(signup_error, "The name is too long or too short", Seq)},
-        (length(Name) >= 3) and (length(Name) =< 64)},
-    {_, false} = {{Scope, status_packet:make(signup_error, "E-Mail is already in use", Seq)},
-        user_e:email_in_use(EMail)},
+                                 password := SentPass,
+                                 name := Name,
+                                 agent := #entity{type = agent, fields = Agent}}}) ->
+    assert_state(awaiting_login),
+
+    % check fields
+    {_, true} = {{Scope, status_packet:make(signup_error, "Invalid E-Mail")},
+            email:is_valid(EMail)},
+    {_, true} = {{Scope, status_packet:make(signup_error, "Use a longer password")},
+            length(SentPass) >= 6},
+    {_, true} = {{Scope, status_packet:make(signup_error, "The name is too long or too short")},
+            (length(Name) >= 3) and (length(Name) =< 64)},
+    {_, false} = {{Scope, status_packet:make(signup_error, "E-Mail is already in use")},
+            user_e:email_in_use(EMail)},
+
+    % create the user
     Id = user_e:create(Name, EMail, SentPass),
+
     % create an agent or use an existing one
     AgentId = case Agent of
         #{id := Existing}              -> Existing;
         #{type := Type, name := AName} -> agent_e:create(Id, Type, AName)
     end,
-    access_token_packet:make(yamka_auth:create_token(?ALL_PERMISSIONS_EXCEPT_BOT, AgentId), Seq);
+    access_token_packet:make(yamka_auth:create_token(?ALL_PERMISSIONS_EXCEPT_BOT, AgentId));
 
 
 %% access token packet (to identify the user and permissions)
