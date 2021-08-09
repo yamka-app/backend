@@ -173,9 +173,9 @@ handle_packet(#packet{type = file_download_request,
 
 
 %% file data chunk (to upload a file)
-handle_packet(#packet{type=file_data_chunk,
-                      fields=#{data := Data}}, Main, Scope) ->
-    {_, normal} = {{Scope, status_packet:make_invalid_state(normal, Seq)}, get(state)},
+handle_packet(#packet{type = file_data_chunk,
+                      fields = #{data := Data}}) ->
+    assert_state(normal),
     get(file_recv_pid) ! Data,
     none;
 
