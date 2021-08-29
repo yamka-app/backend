@@ -13,7 +13,7 @@
 -include_lib("cqerl/include/cqerl.hrl").
 
 -export([create_token/2, get_token/1, revoke_agent/1]).
--export([has_permission/1, assert_permission/2]).
+-export([has_permission/1, assert_permission/1]).
 -export([totp_secret/0, totp_verify/2]).
 -export([pass_verify/2]).
 
@@ -72,9 +72,9 @@ revoke_agent(A) ->
 has_permission(Perm) -> lists:member(Perm, get(perms)).
 
 %% "asserts" a permission
-assert_permission(Perm, {ScopeRef, Seq}) ->
-    {_, true} = {{ScopeRef,
-        status_packet:make(permission_denied, "Missing " ++ atom_to_list(Perm) ++ " token permission", Seq)},
+assert_permission(Perm) ->
+    {_, true} = {{get(scope),
+        status_packet:make(permission_denied, "Missing " ++ atom_to_list(Perm) ++ " token permission")},
         has_permission(Perm)}.
 
 %% creates a TOTP secret

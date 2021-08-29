@@ -9,9 +9,14 @@
 -include("../packets/packet.hrl").
 -include("entity.hrl").
 
+-export([get_record/2]).
 -export([handle_get_request/2, handle_entity/3]).
 -export([encode_field/2, encode/2, len_decode/2, check_excessivity/1]).
 -export([construct_kv_str/1, filter/2]).
+
+get_record(Type, Id) ->
+    Module = list_to_atom(atom_to_list(Type) ++ "_e"),
+    #entity{type=Type, fields=(Module):get(Id)}.
 
 structure(Proto, EntityType) ->
     #{Proto := #{EntityType := Structure}} = ?ENTITY_STRUCTURE,

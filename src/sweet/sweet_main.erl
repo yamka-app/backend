@@ -7,6 +7,8 @@
 -license("MPL-2.0").
 -description("Main server process for each client").
 
+-include("../entities/entity.hrl")
+
 -record(state, {
     encoder :: pid(),
     decoder :: pid(),
@@ -153,6 +155,11 @@ switch_state(Pid, Target) -> Pid ! {switch_state, self(), Target}.
 send_packet(Pid, P) -> Pid ! {transmit, self(), P}.
 
 route_packet(Pid, DestSpec, P) -> Pid ! {route, self(), DestSpec, P}.
+route_entity(Pid, DestSpec, E=#entity{fields=F}, Allowed) ->
+    route_entity(Pid, DestSpec, E#entity{fields=maps:filter(fun(K, _) ->
+        lists:member(K, Allowed) end)}).
+route_entity(Pid, DestSpec, E) ->
+    route_packet(Pid, DestSpec, entities_packet:make([E])).
 
 ratelimit(Pid, Name) ->
     ratelimit(Pid, Name, 1).

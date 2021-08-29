@@ -172,7 +172,7 @@ handle_packet(#packet{type = file_download_request,
     none;
 
 
-%% file data chunk (to upload a file)
+%% writes a data chunk to the file that's being currently uploaded
 handle_packet(#packet{type = file_data_chunk,
                       fields = #{data := Data}}) ->
     assert_state(normal),
@@ -181,91 +181,119 @@ handle_packet(#packet{type = file_data_chunk,
 
 
 %% accept friend request
-handle_packet(#packet{type=contacts_manage,
-                      fields=#{type:=friend, action:=add, id:=Id}}, Main, Scope) ->
-    {_, normal} = {{Scope, status_packet:make_invalid_state(normal, Seq)}, get(state)},
-    yamka_auth:assert_permission(edit_relationships, {Scope, Seq}),
+handle_packet(#packet{type = contacts_manage,
+                      fields = #{type := friend, action := add, id := Id}}) ->
+    assert_state(normal),
+    yamka_auth:assert_permission(edit_relationships),
+
     % check if that user has, in fact, sent a friend request
     #{pending_in := Requests} = user_e:get(get(id)),
-    {_, true} = {{Scope, status_packet:make(contact_action_not_applicable, "This user has not issued a friend request", Seq)},
-        lists:member(Id, Requests)},
+    {_, true} = {{Scope, status_packet:make(contact_action_not_applicable, "This user has not issued a friend request")},
+            lists:member(Id, Requests)},
+            
     % write to DB
     DmId = channel_e:create("DM", 0, null, true),
     user_e:add_dm_channel([Id, get(id)], DmId),
     user_e:accept_friend_rq(Id, get(id)),
-    % broadcast changes
-    icpc_broadcast_entity(Id,      #entity{type=user, fields=user_e:get(Id)},      [id, friends, pending_out]),
-    icpc_broadcast_entity(get(id), #entity{type=user, fields=user_e:get(get(id))}, [id, friends, pending_in]),
+
+    % broadcast the changes
+    sweet_main:route_entity(get(main), {aware, {user, Id}}, entity:get_record(user, Id),      [id, friends, pending_out]),
+    sweet_main:route_entity(get(main), {aware, {user, Id}}, entity:get_record(user, get(id)), [id, friends, pending_in]),
     none;
+
+
 %% block
-handle_packet(#packet{type=contacts_manage,
-                      fields=#{type:=blocked, action:=add, id:=Id}}, Main, Scope) ->
-    {_, normal} = {{Scope, status_packet:make_invalid_state(normal, Seq)}, get(state)},
-    yamka_auth:assert_permission(edit_relationships, {Scope, Seq}),
+handle_packet(#packet{type = contacts_manage,
+                      fields = #{type := blocked, action := add, id := Id}}) ->
+    assert_state(normal),
+    yamka_auth:assert_permission(edit_relationships),
+    
     % write to DB
     user_e:remove_dm_channel([Id, get(id)]),
     user_e:remove_friend(Id, get(id)),
     user_e:block(Id, get(id)),
+
     % broadcast changes
-    icpc_broadcast_entity(Id,      #entity{type=user, fields=user_e:get(Id)},      [id, friends]),
-    icpc_broadcast_entity(get(id), #entity{type=user, fields=user_e:get(get(id))}, [id, friends, blocked]),
+    sweet_main:route_entity(get(main), {aware, {user, Id}}, entity:get_record(user, Id),      [id, firends]),
+    sweet_main:route_entity(get(main), {aware, {user, Id}}, entity:get_record(user, get(id)), [id, friends, blocked]),
     none;
+
+
 %% decline friend request
 handle_packet(#packet{type=contacts_manage,
-                      fields=#{type:=pending_in, action:=remove, id:=Id}}, Main, Scope) ->
-    {_, normal} = {{Scope, status_packet:make_invalid_state(normal, Seq)}, get(state)},
-    yamka_auth:assert_permission(edit_relationships, {Scope, Seq}),
+                      fields=#{type:=pending_in, action:=remove, id:=Id}}) ->
+    assert_state(normal),
+    yamka_auth:assert_permission(edit_relationships),
+
     % write to DB
     user_e:decline_friend_rq(Id, get(id)),
+
     % broadcast changes
-    icpc_broadcast_entity(Id,      #entity{type=user, fields=user_e:get(Id)},      [id, pending_out]),
-    icpc_broadcast_entity(get(id), #entity{type=user, fields=user_e:get(get(id))}, [id, pending_in]),
+    sweet_main:route_entity(get(main), {aware, {user, Id}}, entity:get_record(user, Id),      [id, pending_out]),
+    sweet_main:route_entity(get(main), {aware, {user, Id}}, entity:get_record(user, get(id)), [id, pending_in]),
     none;
+
+
 %% cancel a friend request we sent
 handle_packet(#packet{type=contacts_manage,
-                      fields=#{type:=pending_out, action:=remove, id:=Id}}, Main, Scope) ->
-    {_, normal} = {{Scope, status_packet:make_invalid_state(normal, Seq)}, get(state)},
-    yamka_auth:assert_permission(edit_relationships, {Scope, Seq}),
+                      fields=#{type:=pending_out, action:=remove, id:=Id}}) ->
+    assert_state(normal),
+    yamka_auth:assert_permission(edit_relationships),
+
     % write to DB
     user_e:decline_friend_rq(get(id), Id),
+
     % broadcast changes
-    icpc_broadcast_entity(get(id), #entity{type=user, fields=user_e:get(get(id))}, [id, pending_out]),
-    icpc_broadcast_entity(Id,      #entity{type=user, fields=user_e:get(Id)},      [id, pending_in]),
+    sweet_main:route_entity(get(main), {aware, {user, Id}}, entity:get_record(user, Id),      [id, pending_in]),
+    sweet_main:route_entity(get(main), {aware, {user, Id}}, entity:get_record(user, get(id)), [id, pending_out]),
     none;
+
+
 %% remove friend
 handle_packet(#packet{type=contacts_manage,
-                      fields=#{type:=friend, action:=remove, id:=Id}}, Main, Scope) ->
-    {_, normal} = {{Scope, status_packet:make_invalid_state(normal, Seq)}, get(state)},
-    yamka_auth:assert_permission(edit_relationships, {Scope, Seq}),
+                      fields=#{type:=friend, action:=remove, id:=Id}}) ->
+    assert_state(normal),
+    yamka_auth:assert_permission(edit_relationships),
+
     % write to DB
     user_e:remove_friend(Id, get(id)),
+
     % broadcast changes
-    icpc_broadcast_entity(get(id), #entity{type=user, fields=user_e:get(get(id))}, [id, friends]),
-    icpc_broadcast_entity(Id,      #entity{type=user, fields=user_e:get(Id)},      [id, friends]),
+    sweet_main:route_entity(get(main), {aware, {user, Id}}, entity:get_record(user, Id),      [id, friends]),
+    sweet_main:route_entity(get(main), {aware, {user, Id}}, entity:get_record(user, get(id)), [id, friends]),
     none;
+
+
 %% unblock
 handle_packet(#packet{type=contacts_manage,
-                      fields=#{type:=blocked, action:=remove, id:=Id}}, Main, Scope) ->
-    {_, normal} = {{Scope, status_packet:make_invalid_state(normal, Seq)}, get(state)},
-    yamka_auth:assert_permission(edit_relationships, {Scope, Seq}),
+                      fields=#{type:=blocked, action:=remove, id:=Id}}) ->
+    assert_state(normal),
+    yamka_auth:assert_permission(edit_relationships),
+
     % write to DB
     user_e:unblock(Id, get(id)),
+
     % broadcast changes
-    icpc_broadcast_entity(get(id), #entity{type=user, fields=user_e:get(get(id))}, [id, blocked]),
+    sweet_main:route_entity(get(main), {aware, {user, Id}}, entity:get_record(user, get(id)), [id, blocked]),
     none;
+
+
 %% leave group
 handle_packet(#packet{type=contacts_manage,
-                      fields=#{type:=group, action:=remove, id:=Id}}, Main, Scope) ->
-    {_, normal} = {{Scope, status_packet:make_invalid_state(normal, Seq)}, get(state)},
-    yamka_auth:assert_permission(edit_relationships, {Scope, Seq}),
+                      fields=#{type:=group, action:=remove, id:=Id}}) ->
+    assert_state(normal),
+    yamka_auth:assert_permission(edit_relationships),
+
     % write to DB
     #{everyone_role := Everyone} = group_e:get(Id),
     role_e:remove(Everyone, get(id)),
+    
     % broadcast changes
-    icpc_broadcast_entity(get(id), #entity{type=user, fields=user_e:get(get(id))}, [id, groups]),
+    sweet_main:route_entity(get(main), {aware, {user, Id}}, entity:get_record(user, get(id)), [id, groups]),
     none;
+
 %% invalid request
-handle_packet(#packet{type=contacts_manage}, Main, Scope) ->
+handle_packet(#packet{type=contacts_manage}) ->
     {_, normal} = {{Scope, status_packet:make_invalid_state(normal, Seq)}, get(state)},
     yamka_auth:assert_permission(edit_relationships, {Scope, Seq}),
     status_packet:make(contact_action_not_applicable, "Invalid request (check type and target id)", Seq);
