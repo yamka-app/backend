@@ -44,3 +44,6 @@ The `admin` module provides some functions you can call from the shell:
 
 ## Development and testing
 `sync` is declared as a rebar dependency for this project, so you should be able to just edit your files, save the changes and watch your code get reloaded in the shell after you have started the project with `rebar3 shell`. You can also run `rebar3 check` to run xref and dialyzer.
+
+## Credits
+  - Website and backend hosting kindly provided by [FossHost](https://fosshost.org)

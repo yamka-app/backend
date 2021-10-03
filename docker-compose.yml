@@ -13,7 +13,6 @@ services:
       - IPC_LOCK
     ulimits:
       memlock: -1
-    mem_limit: 2000m
     ports:
       - "9042:9042"
       - "9200:9200"
