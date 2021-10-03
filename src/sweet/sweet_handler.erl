@@ -30,7 +30,7 @@ handle_packet(#packet{type = identification,
             status_packet:make(unsupported_proto, "Unsupported protocol version");
         true ->
             % successful
-            sweet_main:switch_state(Main, awaiting_login, {Protocol, SupportsComp}),
+            sweet_main:switch_state(get(main), awaiting_login, {Protocol, SupportsComp}),
             none
     end;
 
@@ -44,16 +44,16 @@ handle_packet(#packet{type = login,
     assert_state(awaiting_login),
 
     % rate limiting
-    {_, 1} = {{Scope, status_packet:make(rate_limiting, "Too many attempts. Please try again in a minute")},
+    {_, 1} = {{if_failed, status_packet:make(rate_limiting, "Too many attempts. Please try again in a minute")},
             sweet_main:ratelimit(get(main), login)},
 
     % get user 
     {_, #{salt := Salt, password := Password, mfa_secret := MfaSecret, id := Id}}
-            = {{Scope, status_packet:make(login_error, "Invalid E-Mail")},
-            cassandra:select_one("users_by_email", #{email => Email})},
+            = {{if_failed, status_packet:make(login_error, "Invalid E-Mail")},
+                cassandra:select_one("users_by_email", #{email => Email})},
     
     % check password
-    {_, Password} = {{Scope, status_packet:make(login_error, "Invalid password")},
+    {_, Password} = {{if_failed, status_packet:make(login_error, "Invalid password")},
             utils:hash_password(SentPass, Salt)},
 
     % create an agent or use an existing one
@@ -105,13 +105,13 @@ handle_packet(#packet{type = signup,
     assert_state(awaiting_login),
 
     % check fields
-    {_, true} = {{Scope, status_packet:make(signup_error, "Invalid E-Mail")},
+    {_, true} = {{if_failed, status_packet:make(signup_error, "Invalid E-Mail")},
             email:is_valid(EMail)},
-    {_, true} = {{Scope, status_packet:make(signup_error, "Use a longer password")},
+    {_, true} = {{if_failed, status_packet:make(signup_error, "Use a longer password")},
             length(SentPass) >= 6},
-    {_, true} = {{Scope, status_packet:make(signup_error, "The name is too long or too short")},
+    {_, true} = {{if_failed, status_packet:make(signup_error, "The name is too long or too short")},
             (length(Name) >= 3) and (length(Name) =< 64)},
-    {_, false} = {{Scope, status_packet:make(signup_error, "E-Mail is already in use")},
+    {_, false} = {{if_failed, status_packet:make(signup_error, "E-Mail is already in use")},
             user_e:email_in_use(EMail)},
 
     % create the user
@@ -131,7 +131,7 @@ handle_packet(#packet{type=access_token,
     assert_state(awaiting_login),
 
     % get token and agent
-    {_, {AgentId, Perms}} = {{Scope, status_packet:make(invalid_access_token, "Invalid token")},
+    {_, {AgentId, Perms}} = {{if_failed, status_packet:make(invalid_access_token, "Invalid token")},
             yamka_auth:get_token(Token)},
     #{owner := Id} = agent_e:get(AgentId),
 
@@ -145,7 +145,7 @@ handle_packet(#packet{type=access_token,
 handle_packet(#packet{type = entity_get,
                       fields = #{entities := Entities}}) ->
     assert_state(normal),
-    entities_packet:make([entity:handle_get_request(R, {Scope, Seq}) || R <- Entities]);
+    entities_packet:make([entity:handle_get_request(R) || R <- Entities]);
 
 
 %% puts entities
@@ -154,9 +154,9 @@ handle_packet(#packet{type = entities,
     assert_state(normal),
 
     % check if the client sent too much data
-    {_, false} = {{Scope, status_packet:make_excessive_data()},
+    {_, false} = {{if_failed, status_packet:make_excessive_data()},
             entity:check_excessivity(Entities)},
-    [entity:handle_entity(R, Seq, Scope) || R <- Entities];
+    [entity:handle_entity(R) || R <- Entities];
 
 
 %% starts a file download
@@ -164,9 +164,9 @@ handle_packet(#packet{type = file_download_request,
                       fields = #{id := Id}}) ->
     assert_state(normal),
 
-    {_, true} = {{Scope, status_packet:make(invalid_id, "Unknown ID", Seq)},
+    {_, true} = {{if_failed, status_packet:make(invalid_id, "Unknown ID")},
             file_storage:exists(Id)},
-    file_storage:send_file(Id, Seq, get(main)),
+    file_storage:send_file(Id, get(seq), get(main)),
     none;
 
 
@@ -186,7 +186,7 @@ handle_packet(#packet{type = contacts_manage,
 
     % check if that user has, in fact, sent a friend request
     #{pending_in := Requests} = user_e:get(get(id)),
-    {_, true} = {{Scope, status_packet:make(contact_action_not_applicable, "This user has not issued a friend request")},
+    {_, true} = {{if_failed, status_packet:make(contact_action_not_applicable, "This user has not issued a friend request")},
             lists:member(Id, Requests)},
             
     % write to DB
@@ -195,8 +195,8 @@ handle_packet(#packet{type = contacts_manage,
     user_e:accept_friend_rq(Id, get(id)),
 
     % broadcast the changes
-    sweet_main:route_entity(get(main), {aware, {user, Id}}, entity:get_record(user, Id),      [id, friends, pending_out]),
-    sweet_main:route_entity(get(main), {aware, {user, Id}}, entity:get_record(user, get(id)), [id, friends, pending_in]),
+    sweet_main:route_to_owners(get(main), Id,      [id, friends, pending_out]),
+    sweet_main:route_to_owners(get(main), get(id), [id, friends, pending_in]),
     none;
 
 
@@ -212,8 +212,8 @@ handle_packet(#packet{type = contacts_manage,
     user_e:block(Id, get(id)),
 
     % broadcast changes
-    sweet_main:route_entity(get(main), {aware, {user, Id}}, entity:get_record(user, Id),      [id, firends]),
-    sweet_main:route_entity(get(main), {aware, {user, Id}}, entity:get_record(user, get(id)), [id, friends, blocked]),
+    sweet_main:route_to_owners(get(main), Id,      [id, firends]),
+    sweet_main:route_to_owners(get(main), get(id), [id, friends, blocked]),
     none;
 
 
@@ -227,8 +227,8 @@ handle_packet(#packet{type=contacts_manage,
     user_e:decline_friend_rq(Id, get(id)),
 
     % broadcast changes
-    sweet_main:route_entity(get(main), {aware, {user, Id}}, entity:get_record(user, Id),      [id, pending_out]),
-    sweet_main:route_entity(get(main), {aware, {user, Id}}, entity:get_record(user, get(id)), [id, pending_in]),
+    sweet_main:route_to_owners(get(main), Id,      [id, pending_out]),
+    sweet_main:route_to_owners(get(main), get(id), [id, pending_in]),
     none;
 
 
@@ -242,8 +242,8 @@ handle_packet(#packet{type=contacts_manage,
     user_e:decline_friend_rq(get(id), Id),
 
     % broadcast changes
-    sweet_main:route_entity(get(main), {aware, {user, Id}}, entity:get_record(user, Id),      [id, pending_in]),
-    sweet_main:route_entity(get(main), {aware, {user, Id}}, entity:get_record(user, get(id)), [id, pending_out]),
+    sweet_main:route_to_owners(get(main), Id,      [id, pending_in]),
+    sweet_main:route_to_owners(get(main), get(id), [id, pending_out]),
     none;
 
 
@@ -257,8 +257,8 @@ handle_packet(#packet{type=contacts_manage,
     user_e:remove_friend(Id, get(id)),
 
     % broadcast changes
-    sweet_main:route_entity(get(main), {aware, {user, Id}}, entity:get_record(user, Id),      [id, friends]),
-    sweet_main:route_entity(get(main), {aware, {user, Id}}, entity:get_record(user, get(id)), [id, friends]),
+    sweet_main:route_to_owners(get(main), Id,      [id, friends]),
+    sweet_main:route_to_owners(get(main), get(id), [id, friends]),
     none;
 
 
@@ -272,7 +272,7 @@ handle_packet(#packet{type=contacts_manage,
     user_e:unblock(Id, get(id)),
 
     % broadcast changes
-    sweet_main:route_entity(get(main), {aware, {user, Id}}, entity:get_record(user, get(id)), [id, blocked]),
+    sweet_main:route_to_owners(get(main), Id, [id, blocked]),
     none;
 
 
@@ -287,55 +287,58 @@ handle_packet(#packet{type=contacts_manage,
     role_e:remove(Everyone, get(id)),
     
     % broadcast changes
-    sweet_main:route_entity(get(main), {aware, {user, Id}}, entity:get_record(user, get(id)), [id, groups]),
+    sweet_main:route_to_owners(get(main), Id, [id, groups]),
     none;
 
 %% invalid request
 handle_packet(#packet{type=contacts_manage}) ->
-    {_, normal} = {{Scope, status_packet:make_invalid_state(normal, Seq)}, get(state)},
-    yamka_auth:assert_permission(edit_relationships, {Scope, Seq}),
-    status_packet:make(contact_action_not_applicable, "Invalid request (check type and target id)", Seq);
+    assert_state(normal),
+    yamka_auth:assert_permission(edit_relationships),
+    status_packet:make(contact_action_not_applicable, "Invalid request (check type and target id)");
 
 
 %% user search packet (send a friend request using their name and tag)
 handle_packet(#packet{type=search,
-                      fields=#{type:=user, name:=Name}}, Main, Scope) ->
-    {_, normal} = {{Scope, status_packet:make_invalid_state(normal, Seq)}, get(state)},
-    yamka_auth:assert_permission(edit_relationships, {Scope, Seq}),
-    {_, {ok, Id}} = {{Scope, status_packet:make(invalid_username, "Invalid username", Seq)},
-        utils:safe_call(fun user_e:search/1, [Name], [{cassandra, get(cassandra)}])},
-    % write and broadcast changes
+                     fields=#{type:=user, name:=Name}}) ->
+    assert_state(normal),
+    yamka_auth:assert_permission(edit_relationships),
+    {_, {ok, Id}} = {{if_failed, status_packet:make(invalid_username, "Invalid username")}, user_e:search(Name)},
+
+    % write to DB
     user_e:send_friend_rq(get(id), Id),
-    icpc_broadcast_entity(get(id), #entity{type=user, fields=user_e:get(get(id))}, [pending_out]),
-    icpc_broadcast_entity(Id,      #entity{type=user, fields=user_e:get(Id)},      [pending_in]),
-    status_packet:make(friend_request_sent, "Friend request sent", Seq);
+
+    % broadcast changes
+    sweet_main:route_to_owners(get(main), get(id), [id, pending_out]),
+    sweet_main:route_to_owners(get(main), Id,      [id, pending_in]),
+    status_packet:make(friend_request_sent, "Friend request sent");
 
 
 %% group member search
 handle_packet(#packet{type=search,
-                      fields=#{type:=group_member, name:=Name, ref:=Id}}, Main, Scope) ->
-    {_, normal} = {{Scope, status_packet:make_invalid_state(normal, Seq)}, get(state)},
-    yamka_auth:assert_permission(see_groups, {Scope, Seq}),
+                      fields=#{type:=group_member, name:=Name, ref:=Id}}) ->
+    assert_state(normal),
+    yamka_auth:assert_permission(see_groups),
     Users = group_e:find_users(Id, Name, 5),
-    search_result_packet:make(Users, Seq);
+    search_result_packet:make(Users);
 
 
 %% group emoji search
 handle_packet(#packet{type=search,
-                      fields=#{type:=group_emoji, name:=Name, ref:=Id}}, Main, Scope) ->
-    {_, normal} = {{Scope, status_packet:make_invalid_state(normal, Seq)}, get(state)},
-    yamka_auth:assert_permission(see_groups, {Scope, Seq}),
+                      fields=#{type:=group_emoji, name:=Name, ref:=Id}}) ->
+    assert_state(normal),
+    yamka_auth:assert_permission(see_groups),
     Emoji = group_e:find_emoji(Id, Name, 10),
-    search_result_packet:make(Emoji, Seq);
+    search_result_packet:make(Emoji);
 
 
 %% invite resolution packet (to get the group by one of its invites)
 handle_packet(#packet{type=invite_resolve,
-                      fields=#{code:=Code, add:=Add}}, Main, Scope) ->
-    {_, normal} = {{Scope, status_packet:make_invalid_state(normal, Seq)}, get(state)},
-    yamka_auth:assert_permission(join_groups, {Scope, Seq}),
-    {_, {ok, Id}} = {{Scope, status_packet:make(invalid_invite, "Invalid invite", Seq)},
+                      fields=#{code:=Code, add:=Add}}) ->
+    assert_state(normal),
+    yamka_auth:assert_permission(join_groups),
+    {_, {ok, Id}} = {{if_failed, status_packet:make(invalid_invite, "Invalid invite")},
         group_e:resolve_invite(Code)},
+    % add user to the group if asked to
     case Add of
         false -> ok;
         true ->
@@ -343,100 +346,92 @@ handle_packet(#packet{type=invite_resolve,
             #{everyone_role := Everyone} = group_e:get(Id),
             role_e:add(Everyone, get(id)),
             group_e:cache_user_name(Id, get(id), SelfName),
-            icpc_broadcast_entity(get(id),
-                #entity{type=user, fields=user_e:get(get(id))}, [groups])
+            sweet_main:route_to_owners(get(main), get(id), [id, groups])
     end,
-    entities_packet:make([#entity{type=group, fields=group_e:get(Id, false)}], Seq);
+    entities_packet:make([#entity{type=group, fields=group_e:get(Id, false)}]);
 
 
 %% voice join packet
 handle_packet(#packet{type=voice_join,
-                      fields=#{channel:=Chan, crypto:=Key}}, Main, Scope) ->
-    {_, normal} = {{Scope, status_packet:make_invalid_state(normal, Seq)}, get(state)},
-    {_, 1} = {{Scope, status_packet:make(rate_limiting, "Rate limiting")}, ratelimit:hit(voice)},
+                      fields=#{channel:=Chan, crypto:=Key}}) ->
+    assert_state(normal),
+    yamka_auth:assert_permission(join_groups),
+    {_, {ok, 1}} = {{if_failed, status_packet:make(rate_limiting, "Rate limiting")}, sweet_main:ratelimit(get(main), voice)},
     Session = tasty:create_session(Key, get(id), Chan),
     Server = tasty:server_name(),
     logging:log("Redirecting voice client to ~p", [Server]),
-    voice_join_packet:make(Session, Server, Seq);
+    voice_join_packet:make(Session, Server);
 
 
 %% email confirmation packet
 handle_packet(#packet{type=email_confirmation,
-                      fields=#{code:=Code}}, Main, Scope) ->
-    {_, normal} = {{Scope, status_packet:make_invalid_state(normal, Seq)}, get(state)},
-    {_, ok} = {{Scope, status_packet:make(invalid_confirmation_code,
-                          "Invalid email address confirmation code", Seq)},
+                      fields=#{code:=Code}}) ->
+    assert_state(normal),
+    {_, ok} = {{if_failed, status_packet:make(invalid_confirmation_code,
+                          "Invalid email address confirmation code")},
         user_e:finish_email_confirmation(get(id), Code)},
     entities_packet:make([#entity{type=user, fields=#{id => get(id), email_confirmed => true}}]);
 
 
 %% password change packet
 handle_packet(#packet{type=password_change,
-                      fields=#{old_pass:=OldPass, mfa_code:=MfaCode, pass:=Pass}}, Main, Scope) ->
-    {_, normal} = {{Scope, status_packet:make_invalid_state(normal, Seq)}, get(state)},
-    {_, true} = {{Scope, status_packet:make(invalid_credential, "Use a longer password", Seq)},
+                      fields=#{old_pass:=OldPass, mfa_code:=MfaCode, pass:=Pass}}) ->
+    assert_state(normal),
+    {_, true} = {{if_failed, status_packet:make(invalid_credential, "Use a longer password")},
         length(Pass) >= 6},
     % make sure the old password is correct
+    {_, true} = {{if_failed, status_packet:make(invalid_credential, "Invalid old password")},
+        yamka_auth:pass_verify(get(id), OldPass)},
+    % check the 2FA code
     {ok, Rows} = cqerl:run_query(get(cassandra), #cql_query{
-        statement = "SELECT salt, password, mfa_secret FROM users WHERE id=?",
+        statement = "SELECT salt, mfa_secret FROM users WHERE id=?",
         values    = [{id, get(id)}]
     }),
-    User = cqerl:head(Rows),
-    Salt       = proplists:get_value(salt, User),
-    ExPassword = proplists:get_value(password, User),
-    MfaSecret  = proplists:get_value(mfa_secret, User),
-    {_, ExPassword} = {{Scope, status_packet:make(invalid_credential, "Invalid current password", Seq)},
-        utils:hash_password(OldPass, Salt)},
-    % check the 2FA code
+    [{salt, Salt}, {mfa_secret, MfaSecret}] = cqerl:head(Rows),
     MfaCheckPassed = case MfaSecret of
         null -> true;
         _ -> yamka_auth:totp_verify(MfaSecret, MfaCode)
     end,
-    {_, true} = {{Scope, status_packet:make(invalid_credential, "Invalid 2FA code", Seq)},
+    {_, true} = {{if_failed, status_packet:make(invalid_credential, "Invalid 2FA code")},
         MfaCheckPassed},
     % change the password if all checks passed
     NewHash = utils:hash_password(Pass, Salt),
-    {ok, _} = cqerl:run_query(get(cassandra), #cql_query{
-        statement = "UPDATE users SET password=? WHERE id=?",
-        values    = [{id, get(id)}, {password, NewHash}]
-    }),
-    status_packet:make(password_changed, "Changed password successfully", Seq);
+    user_e:update(get(id), #{password => NewHash}),
+    status_packet:make(password_changed, "Changed password successfully");
 
 
 %% 2FA change packet
 handle_packet(#packet{type=mfa_toggle,
-                      fields=#{pass:=Pass, enable:=Enable}}, Main, Scope) ->
-    {_, normal} = {{Scope, status_packet:make_invalid_state(normal, Seq)}, get(state)},
+                      fields=#{pass:=Pass, enable:=Enable}}) ->
+    assert_state(normal),
     % make sure the password is correct
-    {_, true} = {{Scope, status_packet:make(invalid_credential, "Invalid password", Seq)},
+    {_, true} = {{if_failed, status_packet:make(invalid_credential, "Invalid password")},
         yamka_auth:pass_verify(get(id), Pass)},
     % broadcast the changes
-    icpc_broadcast_entity(get(id), #entity{type=user,
-        fields=#{id => get(id), mfa_enabled => Enable}}, [mfa_enabled]),
+    sweet_main:route_entity(get(main), {aware, {user, get(id)}}, #entity{type=user,
+        fields=#{id => get(id), mfa_enabled => Enable}}, [id, mfa_enabled]),
     % reply with nothing or with our newly generated secret
     if
         Enable ->
             Secret = yamka_auth:totp_secret(),
             user_e:update(get(id), #{mfa_secret => Secret}),
-            mfa_secret_packet:make(Secret, Seq);
+            mfa_secret_packet:make(Secret);
         true ->
             user_e:update(get(id), #{mfa_secret => null}),
-            status_packet:make(mfa_toggled, "2FA disabled", Seq)
+            status_packet:make(mfa_toggled, "2FA disabled")
     end;
 
 %% ping packet (to signal to the server that the connection is alive)
 handle_packet(#packet{type=ping,
-                      fields=#{echo := Echo}}, _Main, _Scope) ->
-    #packet{type = pong, reply = Seq, fields = #{echo => Echo}};
+                      fields=#{echo := Echo}}) ->
+    #packet{type = pong, fields = #{echo => Echo}};
 
-handle_packet(_, _, _) ->
+handle_packet(_) ->
     status_packet:make(unknown_packet, "Unknown packet type").
 
-start(Main, ConnState, ProtoVer, Cassandra, Packet) ->
+start(Main, _, _, Cassandra, Packet) ->
     % thanks to José M at https://stackoverflow.com/a/65711977/8074626
     % for this cool match error handling technique
-    Scope = make_ref(),
-    Seq = Packet#packet.seq,
 
     % put some things into the process dictionary
     % hey, pure functional programming can be quite cool... sometimes...
@@ -444,15 +439,15 @@ start(Main, ConnState, ProtoVer, Cassandra, Packet) ->
     % for things that have to be referenced five function calls deep
     put(cassandra, Cassandra),
     put(main, Main),
-    put(scope, Scope),
+    put(seq, Packet#packet.seq),
 
     % handle the packet and catch errors in doing so
     Result = try
-        handle_packet(Packet, Main, Scope)
+        handle_packet(Packet)
     of
         Value -> Value
     catch
-        error:{badmatch, {{Scope, ErrResult}, _}} -> ErrResult
+        error:{badmatch, {{if_failed, ErrResult}, _}} -> ErrResult
     end,
 
     case Result of
@@ -460,10 +455,10 @@ start(Main, ConnState, ProtoVer, Cassandra, Packet) ->
             sweet_main:stop(self());
         
         Packets when is_list(Packets) ->
-            [sweet_main:send_packet(self(), P#packet{reply = Seq}) || P <- Packets];
+            [sweet_main:send_packet(Main, P#packet{reply=get(seq)}) || P <- Packets];
 
-        Packet when is_record(Packet, packet) ->
-            sweet_main:send_packet(self(), Packet#packet{reply = Seq});
+        #packet{}=Packet ->
+            sweet_main:send_packet(Main, Packet#packet{reply=get(seq)});
 
         _ -> ok
     end.

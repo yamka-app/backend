@@ -23,7 +23,9 @@
 
 -export([start/2]).
 -export([switch_state/2, switch_state/3, send_packet/2, route_packet/3, stop/1,
-         ratelimit/2, ratelimit/3, get_state/1]).
+         ratelimit/2, ratelimit/3, get_state/1,
+         route_to_aware/2, route_to_aware/3,
+         route_to_owners/3, route_to_owners/4]).
 
 spawn_helper(encoder, Socket, Setup={_,_}) -> spawn_monitor(sweet_encoder, start, [self(), Socket, Setup]);
 spawn_helper(decoder, Socket, Proto) -> spawn_monitor(sweet_decoder, start, [self(), Socket, Proto]).
@@ -56,7 +58,8 @@ start(TransportSocket, Cassandra) ->
         user_info = {},
         mfa_state = {},
         proto_ver = 0,
-        comp = false
+        comp = false,
+        seq = 0,
     }).
 
 %% main loop
@@ -69,11 +72,12 @@ loop(State) ->
         conn_state = ConnState,
         mfa_state = MfaState,
         proto_ver = ProtoVer,
-        comp = SupportsCompression
+        comp = SupportsCompression,
+        seq = Seq
     } = State,
 
     receive
-        % restart the decoder when it fails
+        % restart the decoder if it fails
         {'DOWN', DecRef, process, DecPid, Reason} ->
             logging:err("Decoder down (~p)", [Reason]),
             case ratelimit:hit(decoder_respawn) of
@@ -85,7 +89,7 @@ loop(State) ->
                     exit(respawn_limit_reached)
             end;
 
-        % restart the encoder when it fails
+        % restart the encoder if it fails
         {'DOWN', EncRef, process, EncPid, Reason} ->
             logging:err("Encoder down (~p)", [Reason]),
             case ratelimit:hit(decoder_respawn) of
@@ -99,10 +103,10 @@ loop(State) ->
         % handle packets decoded by the decoder
         {packet, DecPid, Packet} ->
             logging:dbg("--> ~p", [Packet]),
-            spawn(sweet_handler, start, [self(), ConnState, ProtoVer, Cassandra, Packet]),
+            spawn_monitor(sweet_handler, start, [self(), ConnState, ProtoVer, Cassandra, Packet]),
             loop(State);
 
-        % switch the state (and possible the protocol version) of the protocol processes when the handler asks for it
+        % switch the state (and possibly the protocol version) of the protocol processes when the handler asks for it
         {switch_state, _From, awaiting_login, {NewVersion, NewCompression}} ->
             loop(State#state{
                 decoder = spawn_helper(decoder, Socket, NewVersion),
@@ -120,9 +124,10 @@ loop(State) ->
 
         % send packets when asked by a packet handler or another main process
         {transmit, _From, Packet} ->
-            logging:dbg("<-- ~p", [Packet]),
-            EncPid ! {packet, self(), Packet},
-            loop(State);
+            Seqd = Packet#packet{seq=Seq + 1}, % write seq
+            logging:dbg("<-- ~p", [Seqd]),
+            EncPid ! {packet, self(), Seqd},
+            loop(State#state{seq=Seq + 1});
 
         % route packets to another main process when asked by a handler process of ours
         {route, _From, DestSpec, Packet} ->
@@ -140,20 +145,27 @@ loop(State) ->
         % shutdown when asked
         {stop, _From} ->
             ssl:close(Socket),
-            ok
+            ok;
+
+        Unknown ->
+            logging:warn("Unknown sweet_main request: ~p", [Unknown]),
+            loop(State)
     end.
 
 %%%
 %%% API functions so that other modules don't have to remember the message format spec
 %%% 
 
+%% switches the connection state
 switch_state(Pid, awaiting_login, Setup={_,_}) -> Pid ! {switch_state, self(), awaiting_login, Setup};
 switch_state(Pid, awaiting_mfa, Mfa) -> Pid ! {switch_state, self(), awaiting_mfa, Mfa};
 switch_state(Pid, normal, UserInfo) -> Pid ! {switch_state, self(), normal, UserInfo}.
 switch_state(Pid, Target) -> Pid ! {switch_state, self(), Target}.
 
+%% sends a packet to the connected user
 send_packet(Pid, P) -> Pid ! {transmit, self(), P}.
 
+%% routes a packet/entity using the destination spec
 route_packet(Pid, DestSpec, P) -> Pid ! {route, self(), DestSpec, P}.
 route_entity(Pid, DestSpec, E=#entity{fields=F}, Allowed) ->
     route_entity(Pid, DestSpec, E#entity{fields=maps:filter(fun(K, _) ->
@@ -161,6 +173,19 @@ route_entity(Pid, DestSpec, E=#entity{fields=F}, Allowed) ->
 route_entity(Pid, DestSpec, E) ->
     route_packet(Pid, DestSpec, entities_packet:make([E])).
 
+%% routes an entity to users that have requested it before
+route_to_aware(Pid, Entity={Type, Id}, Allowed) ->
+    route_entity(Pid, {aware, Entity, entity:get_record(Type, Id), Allowed).
+route_to_aware(Pid, {Type, Id}) ->
+    route_entity(Pid, {aware, Entity}, entity:get_record(Type, Id)).
+
+%% routes a user entity to the owners (there might be multiple devices the user is logged in from)
+route_to_owners(Pid, Id, Allowed) ->
+    route_entity(Pid, {owners, Id}, entity:get_record(user, Id), Allowed).
+route_to_owners(Pid, {Type, Id}) ->
+    route_entity(Pid, {owners, Id}, entity:get_record(user, Id)).
+
+%% hits a rate limiter
 ratelimit(Pid, Name) ->
     ratelimit(Pid, Name, 1).
 ratelimit(Pid, Name, Times) ->
@@ -171,6 +196,7 @@ ratelimit(Pid, Name, Times) ->
         {error, timeout}
     end.
 
+%% gets the connection state
 get_state(Pid) ->
     Pid ! {get_state, self()},
     receive
@@ -179,4 +205,5 @@ get_state(Pid) ->
         {error, timeout}
     end.
 
+%% disconnects the client
 stop(Pid) -> Pid ! {stop, self()}.

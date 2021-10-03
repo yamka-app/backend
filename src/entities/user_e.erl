@@ -119,9 +119,10 @@ search(NameTag) ->
         statement = "SELECT id FROM user_ids_by_name WHERE name=? AND tag=? ALLOW FILTERING",
         values    = [{name, Name}, {tag, Tag}]
     }),
-    1 = cqerl:size(Rows),
-    [{id, Id}] = cqerl:head(Rows),
-    Id.
+    case cqerl:head(Rows) of
+        [{id, Id}] -> {ok, Id};
+        [] -> {error, nouser}
+    end.
 
 %% updates a user record
 update(Id, Fields) ->
