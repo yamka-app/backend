@@ -8,7 +8,6 @@
 -description("Packet encoder process for each client").
 
 -include("../packets/packet.hrl").
--define(COMPRESSION_THRESHOLD, 128). % used when sending only
 
 -export([start/3]).
 
@@ -40,7 +39,7 @@ encode_packet_data(Packet, Proto) ->
 
 write_packet_data(Socket, Data, Comp) ->
     % compress the data
-    ShouldCompress = Comp andalso (byte_size(Data) >= ?COMPRESSION_THRESHOLD),
+    ShouldCompress = Comp andalso (byte_size(Data) >= application:get_env(yamkabackend, sweet_comp_threshold)),
     Compressed = if
         ShouldCompress -> zlib:gzip(Data);
         true -> Data

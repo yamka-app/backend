@@ -7,8 +7,6 @@
 -license("MPL-2.0").
 -description("Handles access tokens").
 
--define(TOKEN_TTL, 3600*24*365).
-
 -include("packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
@@ -37,7 +35,7 @@ create_token(Permissions, AgentId) ->
     % write it to the database
     {ok, _} = cqerl:run_query(get(cassandra), #cql_query{
         statement = "INSERT INTO tokens (agent, hash, permissions) VALUES (?,?,?) "
-            "USING TTL " ++ integer_to_list(?TOKEN_TTL),
+            "USING TTL " ++ integer_to_list(application:get_env(yamkabackend, token_ttl)),
         values    = [
             {agent, AgentId},
             {hash, TokenHash},

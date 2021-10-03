@@ -37,10 +37,30 @@ Three secrets are required:
 ## Control
 The `admin` module provides some functions you can call from the shell:
   - `admin:powerup/0` starts this instance, begins accepting Sweet connections and doing other stuff
-  - `admin:powerup/1` starts the instance, but listens to the port provided as the argument to this function instead of the default (1746).
+  - `admin:powerup/1` starts the instance but listens to the port provided as the argument to this function instead of the default one (1746).
   - `admin:powerdown/0` stops this instance, stops accepting Sweet connections, etc.
   - `admin:seed_nodes/1` with a `list(atom())` as its argument connects to other nodes in the cluster
   - `stats:stats/0` prints some stats
+
+## Configuration
+`app.config` in this project's root:
+  - `sweet_port`: Sweet (main protocol) port (TCP)
+  - `sweet_client_timeout`: clients get disconnected if they do not send packets for that many milliseconds
+  - `sweet_comp_threshold`: server-to-client compression threshold (bytes)
+  - `sweet_protocol_between`: `{MinimumProtocolVersion, MaximumProtocolVerion}` (inclusive)
+  - `sweet_file_chunk_size`: server-to-client `FileDataChunk` packet payload size
+  - `tasty_port`: Tasty (real-time, e.g. voice protocol) port (UDP)
+  - `tasty_client_timeout`: clients get disconnected if they do not send packets for that many milliseconds
+  - `tasty_packet_rate_limit`: packet rate limit (Hz)
+  - `tasty_packet_sz_limit`: packet size limit (bytes)
+  - `tasty_speaking_ind_threshold`: the "speaking" flag gets reset after that many milliseconds pass without the client sending voice
+  packets
+  - `email_relay`: e-mail server to send emails from
+  - `stat_interval`: stat logging period (ms)
+  - `token_ttl`: default access token expiration time (s)
+  - `cassandra`: `{CassandraInstanceHostname, CassandraInstancePort}`
+  - `typing_reset_threshold`: the "typing" flag gets reset after that many milliseconds pass without the client sending typing notifications
+  - `file_storage_path`: user uploaded file storage path (preferrably distributed)
 
 ## Development and testing
 `sync` is declared as a rebar dependency for this project, so you should be able to just edit your files, save the changes and watch your code get reloaded in the shell after you have started the project with `rebar3 shell`. You can also run `rebar3 check` to run xref and dialyzer.

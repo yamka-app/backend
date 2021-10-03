@@ -7,7 +7,6 @@
 -license("MPL-2.0").
 -description("File process. Sends and receives files. Depends on a \"normal client\" process").
 
--define(CHUNK_SIZE, 1024 * 4). % bytes
 -include("packets/packet.hrl").
 -include("entities/entity.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
@@ -30,10 +29,11 @@ recv_chunk(Handle, Length) ->
     end.
 
 send_chunk(Handle, Position, Reply) ->
-    {ok, Data} = file:read(Handle, ?CHUNK_SIZE),
+    ChunkSize = application:get_env(yamkabackend, sweet_file_chunk_size),
+    {ok, Data} = file:read(Handle, ChunkSize),
     sweet_main:send_packet(get(main), file_data_chunk_packet:make(Position, Data, Reply)),
     case byte_size(Data) of
-        ?CHUNK_SIZE -> send_chunk(Handle, Position + byte_size(Data), Reply);
+        ChunkSize -> send_chunk(Handle, Position + byte_size(Data), Reply);
         _ -> sweet_main:send_packet(get(main), status_packet:make(stream_end, "File transfer finished", Reply))
     end.
 

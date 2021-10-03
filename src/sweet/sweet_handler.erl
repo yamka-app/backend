@@ -7,9 +7,6 @@
 -license("MPL-2.0").
 -description("Packet handler process for each packet").
 
--define(MIN_PROTO, 12). % lowest and highest allowed versions
--define(MAX_PROTO, 14).
-
 -include("../packets/packet.hrl").
 -include("../entities/entity.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
@@ -26,9 +23,10 @@ handle_packet(#packet{type = identification,
                       fields = #{supports_comp := SupportsComp,
                                  protocol := Protocol}}) ->
     assert_state(awaiting_identification),
+    {Min, Max} = application:get_env(yamkabackend, sweet_protocol_between),
 
     if
-        (Protocol > ?MAX_PROTO) or (Protocol < ?MIN_PROTO) ->
+        (Protocol > Max) or (Protocol < Min) ->
             status_packet:make(unsupported_proto, "Unsupported protocol version");
         true ->
             % successful

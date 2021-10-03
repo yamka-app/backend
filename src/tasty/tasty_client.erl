@@ -7,11 +7,6 @@
 -license("MPL-2.0").
 -description("The Tasty (voice/video protocol) UDP listener").
 
--define(TIMEOUT, 15000).
--define(PACKET_RATE_LIMIT, 150).
--define(PACKET_SIZE_LIMIT, 128).
--define(SPEAKING_IND_THRESHOLD, 250).
-
 -export([handle_packet/2, handler/2, controller_init/2]).
 -export([speaking_status_timeout/1, session_timeout/1]).
 
@@ -58,7 +53,7 @@ dec_handler(_, _) ->
 
 %% checks voice data packet limits
 check_data_lims(Data) ->
-    (byte_size(Data) =< ?PACKET_SIZE_LIMIT) and
+    (byte_size(Data) =< application:get_env(yamkabackend, tasty_packet_sz_limit)) and
     (ratelimit:hit(packet) =:= 1).
 
 %%% the controller is responsible for receiving, decrypting and parsing
@@ -68,7 +63,7 @@ check_data_lims(Data) ->
 
 %% controller init function
 controller_init(Session={Id, Key, _, _, _}, Src) ->
-    ratelimit:make(packet, {?PACKET_RATE_LIMIT, 1000}),
+    ratelimit:make(packet, {application:get_env(yamkabackend, tasty_packet_rate_limit), 1000}),
     tasty_listener ! {send, Src, enc_chunk(<<0>>, Key)},
     SpeakTimeout = spawn_link(?MODULE, speaking_status_timeout, [Id]),
     Timeout = spawn_link(?MODULE, session_timeout, [self()]),
@@ -107,7 +102,7 @@ speaking_status_timeout(Session) ->
         packet ->
             % repeating requests are ignored
             tasty:add_speaking_flag(Session)
-    after ?SPEAKING_IND_THRESHOLD ->
+    after application:get_env(yamkabackend, tasty_speaking_ind_threshold) ->
         tasty:rm_speaking_flag(Session)
     end,
     speaking_status_timeout(Session).
@@ -115,7 +110,7 @@ speaking_status_timeout(Session) ->
 session_timeout(Parent) ->
     receive
         packet -> ok
-    after ?TIMEOUT ->
+    after application:get_env(yamkabackend, tasty_client_timeout) ->
         Parent ! timeout
     end,
     session_timeout(Parent).

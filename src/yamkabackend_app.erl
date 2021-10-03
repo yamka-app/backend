@@ -8,9 +8,6 @@
 -license("MPL-2.0").
 -description("The main file").
 
--define(CASSANDRA_IP, "elassandra").
--define(CASSANDRA_PORT, 9042).
-
 -export([powerup/1, powerdown/0]).
 -export([start/2, stop/1, app_worker/0]).
 
@@ -19,11 +16,11 @@ powerup(Port) ->
 
     % connect to the Cassandra cluster
     {ok, Password} = file:read_file("/run/secrets/cassandra_password"),
-    {ok, Cassandra} = cqerl:get_client({?CASSANDRA_IP, ?CASSANDRA_PORT}, [
+    {ok, Cassandra} = cqerl:get_client(application:get_env(yamkabackend, cassandra), [
         {auth, {cqerl_auth_plain_handler, [{"yamkadb", Password}]}},
         {keyspace, "yamkadb"}
     ]),
-    logging:log("Connected to the Cassandra node at ~s:~p", [?CASSANDRA_IP, ?CASSANDRA_PORT]),
+    logging:log("Connected to the Cassandra node at ~p", [application:get_env(yamkabackend, cassandra)]),
 
     % start protocol listeners
     sweet_listener:start(Cassandra, Port),

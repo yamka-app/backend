@@ -7,8 +7,6 @@
 -license("MPL-2.0").
 -description("The Tasty (voice/video protocol) UDP listener").
 
--define(PORT, 1747).
-
 -export([start/0]).
 -export([init/0, run/1]).
 -record(state, {socket}).
@@ -16,8 +14,9 @@
 start() -> {ok, spawn_link(?MODULE, init, [])}.
 
 init() ->
-    {ok, Socket} = gen_udp:open(?PORT, [inet, inet6, binary, {tos, 184}]),
-    logging:log("Tasty listener running (node ~p, port ~p)", [node(), ?PORT]),
+    Port = application:get_env(yamkabackend, tasty_port),
+    {ok, Socket} = gen_udp:open(Port, [inet, inet6, binary, {tos, 184}]),
+    logging:log("Tasty listener running (node ~p, port ~p)", [node(), Port]),
     register(tasty_listener, self()),
 
     run(#state{socket=Socket}).

@@ -7,7 +7,6 @@
 -license("MPL-2.0").
 -description("Stats collection").
 
--define(INTERVAL, 30 * 1000).
 -include_lib("cqerl/include/cqerl.hrl").
 
 -export([stats/0, writer_start/1]).
@@ -36,7 +35,7 @@ writer_start(Cassandra) ->
 writer() ->
     receive
         _ -> ok
-    after ? INTERVAL ->
+    after stat_interval ->
         write_current()
     end,
     writer().
