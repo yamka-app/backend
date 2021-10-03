@@ -7,7 +7,8 @@
 -license("MPL-2.0").
 -description("Main server process for each client").
 
--include("../entities/entity.hrl")
+-include("../entities/entity.hrl").
+-include("../packets/packet.hrl").
 
 -record(state, {
     encoder :: pid(),
@@ -18,14 +19,15 @@
     user_info :: tuple(),
     mfa_state :: term(),
     proto_ver :: number(),
-    comp :: boolean()
+    comp :: boolean(),
+    seq :: number()
 }).
 
 -export([start/2]).
 -export([switch_state/2, switch_state/3, send_packet/2, route_packet/3, stop/1,
          ratelimit/2, ratelimit/3, get_state/1,
          route_to_aware/2, route_to_aware/3,
-         route_to_owners/3, route_to_owners/4]).
+         route_to_owners/2, route_to_owners/3]).
 
 spawn_helper(encoder, Socket, Setup={_,_}) -> spawn_monitor(sweet_encoder, start, [self(), Socket, Setup]);
 spawn_helper(decoder, Socket, Proto) -> spawn_monitor(sweet_decoder, start, [self(), Socket, Proto]).
@@ -59,7 +61,7 @@ start(TransportSocket, Cassandra) ->
         mfa_state = {},
         proto_ver = 0,
         comp = false,
-        seq = 0,
+        seq = 0
     }).
 
 %% main loop
@@ -175,8 +177,8 @@ route_entity(Pid, DestSpec, E) ->
 
 %% routes an entity to users that have requested it before
 route_to_aware(Pid, Entity={Type, Id}, Allowed) ->
-    route_entity(Pid, {aware, Entity, entity:get_record(Type, Id), Allowed).
-route_to_aware(Pid, {Type, Id}) ->
+    route_entity(Pid, {aware, Entity}, entity:get_record(Type, Id), Allowed).
+route_to_aware(Pid, Entity={Type, Id}) ->
     route_entity(Pid, {aware, Entity}, entity:get_record(Type, Id)).
 
 %% routes a user entity to the owners (there might be multiple devices the user is logged in from)
