@@ -35,7 +35,7 @@ writer_start(Cassandra) ->
 writer() ->
     receive
         _ -> ok
-    after stat_interval ->
+    after yamka_config:get(stat_interval) ->
         write_current()
     end,
     writer().

@@ -19,7 +19,7 @@ start(Cassandra, Port) ->
     register(sweet_listener, spawn(?MODULE, setup, [Cassandra, Port, TlsConfig])).
 
 stop() ->
-    sweet_listener ! {stop, self},
+    sweet_listener ! {stop, self()},
     unregister(sweet_listener).
 
 setup(Cassandra, Port, {CertPath, CaCertPath, KeyPath}) ->
@@ -46,6 +46,7 @@ loop(Cassandra) ->
     receive
         % start a main process when a client arrives
         {new_client, _From, Socket} ->
+            logging:dbg("Client connected", []),
             spawn_monitor(sweet_main, start, [Socket, Cassandra]),
             loop(Cassandra);
 

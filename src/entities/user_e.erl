@@ -274,22 +274,25 @@ find(Name, Max) when is_list(Name) ->
 find(Name, Max) when Max > 5 ->
     find(Name, 5);
 find(Name, Max) ->
-    {ok, Response} = erlastic_search:search(<<"usernames">>, <<"global">>,
-      [{<<"query">>,
-        [{<<"bool">>, [
-          {<<"should">>, [
-           [{<<"query_string">>, [{<<"query">>, <<Name/binary, "*">>}]}]]},
-          {<<"minimum_should_match">>, 2}]}]},
-       {<<"size">>, Max}]),
+    % TODO: convert to cassandra
     
-    Hits = proplists:get_value(<<"hits">>, proplists:get_value(<<"hits">>, Response)),
-    [binary_to_integer(proplists:get_value(<<"_id">>, Hit)) || Hit <- Hits].
+    % {ok, Response} = erlastic_search:search(<<"usernames">>, <<"global">>,
+    %   [{<<"query">>,
+    %     [{<<"bool">>, [
+    %       {<<"should">>, [
+    %        [{<<"query_string">>, [{<<"query">>, <<Name/binary, "*">>}]}]]},
+    %       {<<"minimum_should_match">>, 2}]}]},
+    %    {<<"size">>, Max}]),
+    %
+    % Hits = proplists:get_value(<<"hits">>, proplists:get_value(<<"hits">>, Response)),
+    % [binary_to_integer(proplists:get_value(<<"_id">>, Hit)) || Hit <- Hits].
+    [].
     
 cache_name(User, Name) when is_list(Name) ->
     cache_name(User, unicode:characters_to_binary(Name));
 cache_name(User, Name) ->
-    % Elassandra uses "upsert" operations for indexations,
-    % so we don't need to explicitly update/delete anything,
-    % just provide a new document with the same ID
-    erlastic_search:index_doc_with_id(<<"usernames">>, <<"group_local">>,
-        integer_to_binary(User), [{<<"name">>, Name}]).
+    % TODO: convert to cassandra.
+    
+    % erlastic_search:index_doc_with_id(<<"usernames">>, <<"group_local">>,
+    %     integer_to_binary(User), [{<<"name">>, Name}]).
+    [].

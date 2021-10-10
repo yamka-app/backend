@@ -105,38 +105,33 @@ find_users(Id, Name, Max) when is_list(Name) ->
 find_users(Id, Name, Max) when Max > 5 ->
     find_users(Id, Name, 5);
 find_users(Id, Name, Max) ->
-    IdStr = integer_to_binary(Id),
-    % don't be afraid, come here...
-    % it's not actually that complicated,
-    % we're asking Elasticsearch (or rather Elassandra in our case)
-    % to find user IDs that belong to the group with ID `Id`
-    % and whose names start with `Name`
+    % TODO: convert to cassandra
+
+    % IdStr = integer_to_binary(Id),
+    % %
+    % {ok, Response} = erlastic_search:search(<<"usernames">>, <<"group_local">>,
+    %   [{<<"query">>,
+    %     [{<<"bool">>, [
+    %       {<<"should">>, [
+    %        [{<<"term">>, [{<<"group">>, IdStr}]}],
+    %        [{<<"query_string">>, [{<<"query">>, <<Name/binary, "*">>}]}]]},
+    %       {<<"minimum_should_match">>, 2}]}]},
+    %    {<<"size">>, Max}]),
     %
-    % the problem is that Elastic, despite being attached
-    % to Cassandra in our case, stores data separately from
-    % the main DB, so we have to make sure our past selves cache it
-    {ok, Response} = erlastic_search:search(<<"usernames">>, <<"group_local">>,
-      [{<<"query">>,
-        [{<<"bool">>, [
-          {<<"should">>, [
-           [{<<"term">>, [{<<"group">>, IdStr}]}],
-           [{<<"query_string">>, [{<<"query">>, <<Name/binary, "*">>}]}]]},
-          {<<"minimum_should_match">>, 2}]}]},
-       {<<"size">>, Max}]),
-    
-    Hits = proplists:get_value(<<"hits">>, proplists:get_value(<<"hits">>, Response)),
-    [binary_to_integer(proplists:get_value(<<"_id">>, Hit)) || Hit <- Hits].
+    % Hits = proplists:get_value(<<"hits">>, proplists:get_value(<<"hits">>, Response)),
+    % [binary_to_integer(proplists:get_value(<<"_id">>, Hit)) || Hit <- Hits].
+    [].
 
 cache_user_name(Id, User, Name) when is_list(Name) ->
     cache_user_name(Id, User, unicode:characters_to_binary(Name));
 cache_user_name(Id, User, Name) ->
-    % Elassandra uses "upsert" operations for indexations,
-    % so we don't need to explicitly update/delete anything,
-    % just provide a new document with the same ID
-    erlastic_search:index_doc_with_id(<<"usernames">>, <<"group_local">>,
-      integer_to_binary(User),
-      [{<<"name">>, Name},
-       {<<"group">>, integer_to_binary(Id)}]).
+    % TODO: convert to cassandra
+
+    % erlastic_search:index_doc_with_id(<<"usernames">>, <<"group_local">>,
+    %   integer_to_binary(User),
+    %   [{<<"name">>, Name},
+    %    {<<"group">>, integer_to_binary(Id)}]).
+    ok.
 
 find_emoji(Group, Name, Max) when Max > 10 ->
     find_emoji(Group, Name, 10);
