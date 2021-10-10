@@ -17,7 +17,7 @@ seed_nodes(Nodes) when is_list(Nodes) ->
     ok.
 
 %% starts accepting Sweet connections and performs other startup tasks
-powerup() -> powerup(1746).
+powerup() -> powerup(yamka_config:get(sweet_port)).
 powerup(Port) ->
     yamkabackend_app:powerup(Port).
 

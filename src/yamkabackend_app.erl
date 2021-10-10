@@ -12,17 +12,16 @@
 -export([start/2, stop/1, app_worker/0]).
 
 powerup(Port) ->
-    tasty_sup:start_link(),
-
     % connect to the Cassandra cluster
     {ok, Password} = file:read_file("/run/secrets/cassandra_password"),
-    {ok, Cassandra} = cqerl:get_client(application:get_env(yamkabackend, cassandra), [
+    {ok, Cassandra} = cqerl:get_client(yamka_config:get(cassandra), [
         {auth, {cqerl_auth_plain_handler, [{"yamkadb", Password}]}},
         {keyspace, "yamkadb"}
     ]),
-    logging:log("Connected to the Cassandra node at ~p", [application:get_env(yamkabackend, cassandra)]),
+    logging:log("Connected to the Cassandra node at ~p", [yamka_config:get(cassandra)]),
 
     % start protocol listeners
+    tasty_sup:start_link(),
     sweet_listener:start(Cassandra, Port),
 
     % start stat logger
@@ -43,6 +42,8 @@ start(_StartType, _StartArgs) ->
 
     {ok, _} = logging:start(),
     {ok, _} = email:start(),
+
+    admin:powerup(),
 
     {ok, spawn(?MODULE, app_worker, [])}.
 

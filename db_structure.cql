@@ -47,7 +47,7 @@ CREATE TABLE yamkadb.agents (
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -67,7 +67,7 @@ CREATE TABLE yamkadb.blob_store (
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -84,7 +84,7 @@ CREATE TABLE yamkadb.blocked (
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -106,7 +106,7 @@ CREATE TABLE yamkadb.channels (
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -123,7 +123,7 @@ CREATE TABLE yamkadb.dm_channels (
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -140,7 +140,7 @@ CREATE TABLE yamkadb.email_conf (
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -157,7 +157,7 @@ CREATE TABLE yamkadb.friend_requests (
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -174,7 +174,7 @@ CREATE TABLE yamkadb.friendships (
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -194,7 +194,7 @@ CREATE TABLE yamkadb.groups (
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -211,7 +211,7 @@ CREATE TABLE yamkadb.invites (
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -228,7 +228,7 @@ CREATE TABLE yamkadb.key_limiter (
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 900 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -247,7 +247,7 @@ CREATE TABLE yamkadb.mentions (
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -266,7 +266,7 @@ CREATE TABLE yamkadb.message_states (
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -285,7 +285,7 @@ CREATE TABLE yamkadb.messages (
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -305,7 +305,7 @@ CREATE TABLE yamkadb.pkeys (
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -323,7 +323,7 @@ CREATE TABLE yamkadb.poll_votes (
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -342,7 +342,7 @@ CREATE TABLE yamkadb.polls (
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -363,7 +363,7 @@ CREATE TABLE yamkadb.roles (
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -381,7 +381,7 @@ CREATE TABLE yamkadb.roles_by_user (
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -399,7 +399,7 @@ CREATE TABLE yamkadb.tokens (
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -422,7 +422,7 @@ CREATE TABLE yamkadb.unread (
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -440,7 +440,7 @@ CREATE TABLE yamkadb.user_notes (
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -476,7 +476,7 @@ CREATE TABLE yamkadb.users (
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -508,7 +508,7 @@ WITH
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -528,7 +528,7 @@ WITH
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -548,7 +548,7 @@ WITH
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -568,7 +568,7 @@ WITH
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -588,7 +588,7 @@ WITH
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -608,7 +608,7 @@ WITH
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -628,7 +628,7 @@ WITH
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -649,7 +649,7 @@ CLUSTERING ORDER BY (id DESC) AND
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -669,7 +669,7 @@ WITH
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -689,7 +689,7 @@ WITH
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -709,7 +709,7 @@ WITH
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -729,7 +729,7 @@ WITH
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -749,7 +749,7 @@ WITH
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -769,7 +769,7 @@ WITH
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 
@@ -789,7 +789,7 @@ WITH
 	caching = { 'keys': 'ALL', 'rows_per_partition': 'NONE' } AND 
 	comment = '' AND 
 	compaction = { 'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4' } AND 
-	compression = { 'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor' } AND 
+	
 	default_time_to_live = 0 AND 
 	speculative_retry = '99PERCENTILE' AND 
 	min_index_interval = 128 AND 

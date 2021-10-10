@@ -10,9 +10,11 @@
   {applications,
    [kernel,
     stdlib,
-    cqerl
+    cqerl,
+    pot,
+    png
    ]},
-  {env,[]},
+  {env, []},
   {modules, []},
 
   {licenses, ["MPL 2.0"]},

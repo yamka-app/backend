@@ -22,7 +22,7 @@ start()          -> start_link(?MODULE).
 start_link(Name) -> gen_server:start_link({local, Name}, ?MODULE, [], []).
 init(_Args) ->
     logging:log("Email gen_server running (node ~p)", [node()]),
-    {ok, Confirm}  = file:read_file("/run/email_templates/email_confirmation.html"),
+    {ok, Confirm}  = file:read_file("/etc/yamka/email_templates/email_confirmation.html"),
     {ok, Password} = file:read_file("/run/secrets/smtp_pass"),
     {ok, #state{password=Password, confirmation_template=Confirm}}.
 
@@ -41,13 +41,13 @@ terminate(_Reason, _State) -> ok.
 code_change(_OldVsn, State, _Extra) -> {ok, State}.
 
 send_html({Text, Subj}, To, Pass) ->
-    Relay = application:get_env(yamkabackend, email_relay),
+    Relay = yamka_config:get(email_relay),
     gen_smtp_client:send({"noreply@" ++ Relay, [To],
         "Subject: " ++ Subj ++ "\r\n"
         "Content-Type: text/html;\r\n"
         "\tcharset=UTF-8\r\n\r\n"
         ++ unicode:characters_to_binary(Text)},
-        [{relay, application:get_env(yamkabackend, email_relay)},
+        [{relay, yamka_config:get(email_relay)},
          {username, "noreply"},
          {password, Pass},
          {tls, always}]).

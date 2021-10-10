@@ -29,7 +29,7 @@ recv_chunk(Handle, Length) ->
     end.
 
 send_chunk(Handle, Position, Reply) ->
-    ChunkSize = application:get_env(yamkabackend, sweet_file_chunk_size),
+    ChunkSize = yamka_config:get(sweet_file_chunk_size),
     {ok, Data} = file:read(Handle, ChunkSize),
     sweet_main:send_packet(get(main), file_data_chunk_packet:make(Position, Data, Reply)),
     case byte_size(Data) of

@@ -35,7 +35,7 @@ create_token(Permissions, AgentId) ->
     % write it to the database
     {ok, _} = cqerl:run_query(get(cassandra), #cql_query{
         statement = "INSERT INTO tokens (agent, hash, permissions) VALUES (?,?,?) "
-            "USING TTL " ++ integer_to_list(application:get_env(yamkabackend, token_ttl)),
+            "USING TTL " ++ integer_to_list(yamka_config:get(token_ttl)),
         values    = [
             {agent, AgentId},
             {hash, TokenHash},

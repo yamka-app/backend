@@ -53,7 +53,7 @@ dec_handler(_, _) ->
 
 %% checks voice data packet limits
 check_data_lims(Data) ->
-    (byte_size(Data) =< application:get_env(yamkabackend, tasty_packet_sz_limit)) and
+    (byte_size(Data) =< yamka_config:get(tasty_packet_sz_limit)) and
     (ratelimit:hit(packet) =:= 1).
 
 %%% the controller is responsible for receiving, decrypting and parsing
@@ -63,7 +63,7 @@ check_data_lims(Data) ->
 
 %% controller init function
 controller_init(Session={Id, Key, _, _, _}, Src) ->
-    ratelimit:make(packet, {application:get_env(yamkabackend, tasty_packet_rate_limit), 1000}),
+    ratelimit:make(packet, {yamka_config:get(tasty_packet_rate_limit), 1000}),
     tasty_listener ! {send, Src, enc_chunk(<<0>>, Key)},
     SpeakTimeout = spawn_link(?MODULE, speaking_status_timeout, [Id]),
     Timeout = spawn_link(?MODULE, session_timeout, [self()]),
@@ -102,7 +102,7 @@ speaking_status_timeout(Session) ->
         packet ->
             % repeating requests are ignored
             tasty:add_speaking_flag(Session)
-    after application:get_env(yamkabackend, tasty_speaking_ind_threshold) ->
+    after yamka_config:get(tasty_speaking_ind_threshold) ->
         tasty:rm_speaking_flag(Session)
     end,
     speaking_status_timeout(Session).
@@ -110,7 +110,7 @@ speaking_status_timeout(Session) ->
 session_timeout(Parent) ->
     receive
         packet -> ok
-    after application:get_env(yamkabackend, tasty_client_timeout) ->
+    after yamka_config:get(tasty_client_timeout) ->
         Parent ! timeout
     end,
     session_timeout(Parent).

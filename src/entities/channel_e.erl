@@ -141,7 +141,7 @@ delete(Id) ->
 get_typing_filter([]) -> [];
 get_typing_filter([{_, {User, Time}}|T]) ->
     MsSince = utils:ms_since(Time),
-    Thres = application:get_env(yamkabackend, typing_reset_threshold),
+    Thres = yamka_config:get(typing_reset_threshold),
     if MsSince >= Thres -> get_typing_filter(T);
        true -> [User|get_typing_filter(T)]
     end.

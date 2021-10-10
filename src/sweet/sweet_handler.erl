@@ -23,7 +23,7 @@ handle_packet(#packet{type = identification,
                       fields = #{supports_comp := SupportsComp,
                                  protocol := Protocol}}) ->
     assert_state(awaiting_identification),
-    {Min, Max} = application:get_env(yamkabackend, sweet_protocol_between),
+    {Min, Max} = yamka_config:get(sweet_protocol_between),
 
     if
         (Protocol > Max) or (Protocol < Min) ->

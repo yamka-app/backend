@@ -1,40 +1,23 @@
 version: '3.7'
 
 services:
-  elassandra:
-    image: strapdata/elassandra:6.8.4.3
-    environment:
-      - "JVM_OPTS=-Dcassandra.custom_query_handler_class=org.elassandra.index.ElasticQueryHandler"
-      - "MAX_HEAP_SIZE=1200m"
-      - "HEAP_NEWSIZE=300m"
-      - "CASSANDRA_CGROUP_MEMORY_LIMIT=true"
-      - "DEBUG=true"
+  scylla:
+    image: scylladb/scylla:4.3.6
     cap_add:
       - IPC_LOCK
     ulimits:
       memlock: -1
     ports:
-      - "9042:9042"
-      - "9200:9200"
+      - 9042:9042
+      - 7000:7000
+      - 7001:7001
+      - 7199:7199
+      - 9160:9160
+      - 9180:9180
+      - 10000:10000
     volumes:
-      - /var/lib/cassandra/data:/var/lib/cassandra/data
-      - /etc/cassandra/conf:/etc/cassandra
-
-  gluster:
-    image: gluster/gluster-centos:gluster4u0_centos7
-    ports:
-      - "24007:24007"
-      - "24008:24008"
-      - "49152:49152"
-      - "2049:2049"
-    restart: unless-stopped
-    volumes:
-      - /etc/glusterfs:/etc/glusterfs:z
-      - /var/lib/glusterd:/var/lib/glusterd:z
-      - /var/log/glusterfs:/var/log/glusterfs:z
-      - /sys/fs/cgroup:/sys/fs/cgroup:ro
-      - /dev/:/dev
-      - /data/brick1/gv0:/data/brick1/gv0
+      - /var/lib/scylla:/var/lib/scylla
+      - /etc/scylla:/etc/scylla
 
   yamka:
     image: yamka/backend:latest
@@ -42,26 +25,21 @@ services:
       context: .
       dockerfile: ./Dockerfile
     ports:
-      - "1746:1746"
-      - "1747:1747/udp"
+      - 1746:1746
+      - 1747:1747/udp
     links:
-      - elassandra
+      - scylla
     restart: unless-stopped
     volumes:
       - /var/log/yamka:/var/log/yamka
       - /data/brick1/gv0/file_storage:/data/brick1/gv0/file_storage
     depends_on:
-      - elassandra
-      - gluster
+      - scylla
     secrets:
       - tls_fullchain
       - tls_privkey
       - cassandra_password
       - smtp_pass
-
-networks:
-  default:
-    driver: "overlay"
 
 secrets:
   tls_fullchain:

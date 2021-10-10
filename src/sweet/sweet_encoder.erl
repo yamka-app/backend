@@ -39,7 +39,7 @@ encode_packet_data(Packet, Proto) ->
 
 write_packet_data(Socket, Data, Comp) ->
     % compress the data
-    ShouldCompress = Comp andalso (byte_size(Data) >= application:get_env(yamkabackend, sweet_comp_threshold)),
+    ShouldCompress = Comp andalso (byte_size(Data) >= yamka_config:get(sweet_comp_threshold)),
     Compressed = if
         ShouldCompress -> zlib:gzip(Data);
         true -> Data

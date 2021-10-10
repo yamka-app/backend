@@ -15,7 +15,7 @@
 -export([max_size/0, max_size_text/0]).
 
 %% determines the file name by its ID
-path_in_storage(Id) -> string:concat(application:get_env(yamkabackend, file_storage_path), integer_to_list(Id)).
+path_in_storage(Id) -> string:concat(yamka_config:get(file_storage_path), integer_to_list(Id)).
 
 extract_size(Path) ->
     case file:read_file(Path) of
