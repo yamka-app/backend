@@ -174,7 +174,8 @@ handle_packet(#packet{type = file_download_request,
 handle_packet(#packet{type = file_data_chunk,
                       fields = #{data := Data}}) ->
     assert_state(normal),
-    get(file_recv_pid) ! Data,
+    {ok, RecvPid} = sweet_main:get_file_recv_pid(get(main)),
+    RecvPid ! Data,
     none;
 
 

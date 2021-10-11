@@ -7,8 +7,8 @@
 -license("MPL-2.0").
 -description("File process. Sends and receives files. Depends on a \"normal client\" process").
 
--include("packets/packet.hrl").
--include("entities/entity.hrl").
+-include("../packets/packet.hrl").
+-include("../entities/entity.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
 -export([client_init/2]).

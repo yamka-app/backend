@@ -20,14 +20,16 @@
     mfa_state :: term(),
     proto_ver :: number(),
     comp :: boolean(),
-    seq :: number()
+    seq :: number(),
+    file_recv_pid :: pid() | nopid
 }).
 
 -export([start/2]).
 -export([switch_state/2, switch_state/3, send_packet/2, route_packet/3, stop/1,
          ratelimit/2, ratelimit/3, get_state/1,
          route_to_aware/2, route_to_aware/3,
-         route_to_owners/2, route_to_owners/3]).
+         route_to_owners/2, route_to_owners/3,
+         get_file_recv_pid/1, set_file_recv_pid/2]).
 
 spawn_helper(encoder, Socket, Setup={_,_}) -> spawn_monitor(sweet_encoder, start, [self(), Socket, Setup]);
 spawn_helper(decoder, Socket, Proto) -> spawn_monitor(sweet_decoder, start, [self(), Socket, Proto]).
@@ -61,7 +63,8 @@ start(TransportSocket, Cassandra) ->
         mfa_state = {},
         proto_ver = 0,
         comp = false,
-        seq = 0
+        seq = 0,
+        file_recv_pid = nopid
     }).
 
 %% main loop
@@ -75,7 +78,8 @@ loop(State) ->
         mfa_state = MfaState,
         proto_ver = ProtoVer,
         comp = SupportsCompression,
-        seq = Seq
+        seq = Seq,
+        file_recv_pid = FileRecvPid
     } = State,
 
     receive
@@ -138,11 +142,22 @@ loop(State) ->
 
         % hits a rate limiter
         {ratelimit, From, Name, Times} ->
-            From ! {result, self(), ratelimit:hit(Name, Times)};
+            From ! {result, self(), ratelimit:hit(Name, Times)},
+            loop(State);
 
         % gets the connection state
         {get_state, From} ->
-            From ! {result, self(), ConnState, MfaState};
+            From ! {result, self(), ConnState, MfaState},
+            loop(State);
+
+        % gets the file receiver PID
+        {get_recv, From} ->
+            From ! {result, self(), FileRecvPid},
+            loop(State);
+
+        % sets the file receiver PID
+        {set_recv, _From, Pid} ->
+            loop(State#state{file_recv_pid=Pid});
 
         % shutdown when asked
         {stop, _From} ->
@@ -206,6 +221,19 @@ get_state(Pid) ->
     after 100 ->
         {error, timeout}
     end.
+
+%% gets the file receiver PID
+get_file_recv_pid(Pid) ->
+    Pid ! {get_recv, self()},
+    receive
+        {result, Pid, RPid} -> {ok, RPid}
+    after 100 ->
+        {error, timeout}
+    end.
+
+%% sets the file receiver PID
+set_file_recv_pid(Pid, Recv) ->
+    Pid ! {set_recv, self(), Recv}.
 
 %% disconnects the client
 stop(Pid) -> Pid ! {stop, self()}.
