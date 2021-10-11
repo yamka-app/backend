@@ -164,18 +164,18 @@ handle_entity(#entity{type=channel, fields=Fields=#{id:=Id}}) ->
 
 %% sends a group message
 handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, latest:=
-              L=#entity{type=message_state, fields=#{sections:=Sections}}}}, Seq, Ref) ->
+              L=#entity{type=message_state, fields=#{sections:=Sections}}}}) ->
     % check permissions
     #{group := Group} = channel_e:get(Channel),
     % group messages should be sent unencrypted
-    {_, true} = {{Ref, status_packet:make(invalid_request, "\"sections\" field in direct message", Seq)}, Group > 0},
-    group_e:assert_permission(Group, send_messages, {Ref, Seq}),
-    yamka_auth:assert_permission(send_group_messages, {Ref, Seq}),
+    {_, true} = {{if_failed, status_packet:make(invalid_request, "\"sections\" field in direct message")}, Group > 0},
+    group_e:assert_permission(Group, send_messages),
+    yamka_auth:assert_permission(send_group_messages),
 
     % filter sections
     Filtered = message_state_e:filter_sections(Sections),
     % check section count
-    {_, true} = {{Ref, status_packet:make(invalid_request, "Message should have at least 1 section", Seq)}, length(Filtered) >= 1},
+    {_, true} = {{if_failed, status_packet:make(invalid_request, "Message should have at least 1 section")}, length(Filtered) >= 1},
     % parse mentions
     Mentions = message_state_e:parse_mentions(Filtered),
     % create entities
@@ -184,9 +184,7 @@ handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, la
     % register mentions
     [channel_e:add_mention(Channel, User, MsgId) || User <- Mentions],
     % broadcast the message
-    client:icpc_broadcast_to_aware(chan_awareness, Channel,
-        M#entity{fields=maps:merge(message_e:get(MsgId), #{states => message_e:get_states(MsgId), latest =>
-            L#entity{fields=message_state_e:get(StateId)}})}, [id, states, channel, sender, latest]),
+    sweet_main:route_to_aware(get(main), {message, MsgId}),
     none;
 
 
