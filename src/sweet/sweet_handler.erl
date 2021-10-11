@@ -145,7 +145,7 @@ handle_packet(#packet{type=access_token,
 handle_packet(#packet{type = entity_get,
                       fields = #{entities := Entities}}) ->
     assert_state(normal),
-    entities_packet:make([entity:handle_get_request(R) || R <- Entities]);
+    entities_packet:make([entity_handler:handle_get_request(R) || R <- Entities]);
 
 
 %% puts entities
@@ -156,7 +156,7 @@ handle_packet(#packet{type = entities,
     % check if the client sent too much data
     {_, false} = {{if_failed, status_packet:make_excessive_data()},
             entity:check_excessivity(Entities)},
-    [entity:handle_entity(R) || R <- Entities];
+    [entity_handler:handle_entity(R) || R <- Entities];
 
 
 %% starts a file download
