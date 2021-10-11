@@ -184,26 +184,24 @@ handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, la
     % register mentions
     [channel_e:add_mention(Channel, User, MsgId) || User <- Mentions],
     % broadcast the message
-    sweet_main:route_to_aware(get(main), {message, MsgId}),
+    sweet_main:route_entity(get(main), {aware, {channel, Channel}}, entity:get_record(message, MsgId)),
     none;
 
 
 %% sends a direct message
 handle_entity(M=#entity{type=message,       fields=#{channel:=Channel, latest:=
-              L=#entity{type=message_state, fields=#{encrypted:=Encrypted}}}}, Seq, Ref) ->
+              L=#entity{type=message_state, fields=#{encrypted:=Encrypted}}}}) ->
     % check permissions
     #{group := Group} = channel_e:get(Channel),
     % DMs should be sent encrypted
-    {_, true} = {{Ref, status_packet:make(invalid_request, "\"encrypted\" field in group message", Seq)}, Group =:= 0},
+    {_, true} = {{if_failed, status_packet:make(invalid_request, "\"encrypted\" field in group message")}, Group =:= 0},
     yamka_auth:assert_permission(send_direct_messages, {Ref, Seq}),
 
     % create entities
     {MsgId, _} = message_e:create(Channel, get(id)),
     StateId = message_state_e:create(MsgId, Encrypted),
     % broadcast the message
-    client:icpc_broadcast_to_aware(chan_awareness, Channel,
-        M#entity{fields=maps:merge(message_e:get(MsgId), #{states => message_e:get_states(MsgId), latest =>
-            L#entity{fields=message_state_e:get(StateId)}})}, [id, states, channel, sender, latest]),
+    sweet_main:route_entity(get(main), {aware, {channel, Channel}}, entity:get_record(message, MsgId)),
     none;
 
 
