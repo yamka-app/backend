@@ -316,27 +316,25 @@ handle_entity(#entity{type=group, fields=#{id:=Id, emoji:=Emoji}}) ->
 
 
 %% creates a poll
-handle_entity(#entity{type=poll, fields=#{id:=0, options:=Options}}, Seq, Ref) ->
-    yamka_auth:assert_permission(create_polls, {Ref, Seq}),
+handle_entity(#entity{type=poll, fields=#{id:=0, options:=Options}}) ->
+    yamka_auth:assert_permission(create_polls),
 
-    {_, false} = {{Ref, status_packet:make(poll_error, "Zero or too many options", Seq)},
+    {_, false} = {{if_failed, status_packet:make(poll_error, "Zero or too many options")},
         (length(Options) > 10) or (length(Options) == 0)},
     Id = poll_e:create(Options),
     ets:insert(poll_awareness, {Id, {get(id), self()}}),
     entities_packet:make([#entity{type=poll, fields=#{
         id => Id, options => Options, total_votes => 0,
-        option_votes => [0 || _ <- Options]}}], Seq);
+        option_votes => [0 || _ <- Options]}}]);
 
 
 %% votes in a poll
-handle_entity(#entity{type=poll, fields=#{id:=Id, self_vote:=Option}}, Seq, Ref) ->
-    yamka_auth:assert_permission(vote_in_polls, {Ref, Seq}),
+handle_entity(#entity{type=poll, fields=#{id:=Id, self_vote:=Option}}) ->
+    yamka_auth:assert_permission(vote_in_polls),
 
-    {_, {error, novote}} = {{Ref, status_packet:make(poll_error, "Already voted", Seq)},
-        poll_e:get_vote(Id, get(id))},
-    {_, ok} = {status_packet:make(poll_error, "Invalid option", Seq), poll_e:vote(Id, get(id), Option)},
-    client:icpc_broadcast_to_aware(poll_awareness,
-        #entity{type=poll, fields=poll_e:get(Id)}, [id, total_votes, option_votes]),
+    {_, {error, novote}} = {{if_failed, status_packet:make(poll_error, "Already voted")}, poll_e:get_vote(Id, get(id))},
+    {_, ok} = {{if_failed, status_packet:make(poll_error, "Invalid option")}, poll_e:vote(Id, get(id), Option)},
+    sweet_main:route_to_aware(get(main), {poll, Id}, [id, total_votes, option_votes]),
     none;
 
 
