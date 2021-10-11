@@ -281,7 +281,7 @@ handle_entity(#entity{type=group, fields=#{id:=Id, owner:=0}}) ->
     lists:foreach(fun channel_e:delete/1, Channels),
     lists:foreach(fun role_e:nuke/1, lists:delete(Everyone, Roles)),
     role_e:nuke(Everyone, true),
-    sweet_main:route_entity(get(main), {aware, {group, Group}}, #entity{type=group, fields=#{id => Id, owner => 0}}),
+    sweet_main:route_entity(get(main), {aware, {group, Id}}, #entity{type=group, fields=#{id => Id, owner => 0}}),
     none;
 
 
@@ -339,7 +339,7 @@ handle_entity(#entity{type=poll, fields=#{id:=Id, self_vote:=Option}}) ->
 
 
 %% publishes keys
-handle_entity(#entity{type=pkey, fields=#{type:=id_sign, key:=KeyBin}}, _Seq, _Ref) ->
+handle_entity(#entity{type=pkey, fields=#{type:=id_sign, key:=KeyBin}}) ->
     % see if there's an identity key already
     case pkey_e:get_by_user(get(id), id_sign) of
         [] -> ok;
@@ -349,7 +349,7 @@ handle_entity(#entity{type=pkey, fields=#{type:=id_sign, key:=KeyBin}}, _Seq, _R
     end,
     pkey_e:create(get(id), id_sign, KeyBin, null),
     none;
-handle_entity(#entity{type=pkey, fields=#{type:=Type, key:=KeyBin, signature:=SignBin}}, _Seq, _Ref)
+handle_entity(#entity{type=pkey, fields=#{type:=Type, key:=KeyBin, signature:=SignBin}})
             when Type =:= identity; Type =:= prekey ->
     % TODO: it would be a good idea to check the signature
     % see if there's a key already
@@ -359,17 +359,17 @@ handle_entity(#entity{type=pkey, fields=#{type:=Type, key:=KeyBin, signature:=Si
     end,
     pkey_e:create(get(id), Type, KeyBin, SignBin),
     none;
-handle_entity(#entity{type=pkey, fields=#{type:=otprekey, key:=KeyBin, signature:=SignBin}}, Seq, Ref) ->
+handle_entity(#entity{type=pkey, fields=#{type:=otprekey, key:=KeyBin, signature:=SignBin}}) ->
     % TODO: again, it would be a good idea to check the signature
     Count = pkey_e:count(get(id), otprekey),
-    {_, false} = {{Ref, status_packet:make(key_error, "Reached the limit of 256 one-time prekeys", Seq)}, Count >= 256},
+    {_, false} = {{if_failed, status_packet:make(key_error, "Reached the limit of 256 one-time prekeys")}, Count >= 256},
     pkey_e:create(get(id), otprekey, KeyBin, SignBin),
     none;
 
 
 %% handle illegal requests
-handle_entity(#entity{}, Seq, _Ref) ->
-    status_packet:make(invalid_request, "Illegal EntityPut request (check type and id)", Seq).
+handle_entity(#entity{}) ->
+    status_packet:make(invalid_request, "Illegal EntityPut request (check type and id)").
 
 
 
