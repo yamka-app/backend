@@ -13,7 +13,7 @@
 -export([get_invites/1, add_invite/1, remove_invite/2, resolve_invite/1]).
 -export([find_users/3, cache_user_name/3]).
 -export([find_emoji/3, all_emoji/1]).
--export([assert_permission/3, has_permission/2]).
+-export([assert_permission/2, has_permission/2]).
 
 get_channels(Id) ->
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
@@ -158,7 +158,7 @@ has_permission(Id, Perm) ->
     orelse
     role_e:perm_has(role_e:perm_waterfall(erlang:get(id), Id), Perm).
 
-assert_permission(Id, Perm, {ScopeRef, Seq}) ->
+assert_permission(Id, Perm) ->
     ok.
     % {_, true} = {{ScopeRef,
     %     status_packet:make(permission_denied, "Missing " ++ atom_to_list(Perm) ++ " group permission", Seq)},

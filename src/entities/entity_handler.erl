@@ -89,14 +89,14 @@ handle_entity(#entity{type=file, fields=Fields=#{name:=Name, length:=Length}}) -
 
 
 %% renames an emoji
-handle_entity(#entity{type=file, fields=#{id:=Id, emoji_name:=Name}}, Seq, Ref) ->
+handle_entity(#entity{type=file, fields=#{id:=Id, emoji_name:=Name}}) ->
     #{emoji_group := Group} = file_e:get(Id),
+    group_e:assert_permission(Group, edit_emoji),
     % write to DB
     file_e:update(Id, #{emoji_name => Name}),
     % broadcast
     ets:insert(file_awareness, {Id, {get(id), self()}}),
-    client:icpc_broadcast_to_aware(file_awareness,
-        #entity{type=file, fields=#{id => Id, emoji_name => Name}}, [id, emoji_name]),
+    sweet_main:route_to_aware(get(main), {file, Id}, [id, emoji_name]),
     none;
 
 
