@@ -59,8 +59,7 @@ handle_entity(#entity{type=user, fields=#{id:=0} = F}) ->
             end, [], OldAgents),
             case RemovedAgents of
                 [] -> ok;
-                _ -> client:icpc_broadcast_entity(get(id), #entity{type=user,
-                    fields=#{id => get(id), agents => NewAgents}}, [agents])
+                _ -> sweet_main:route_to_aware(get(main), {user, get(id)}, [id, agents])
             end;
         true -> ok
     end,
