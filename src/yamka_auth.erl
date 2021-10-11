@@ -71,7 +71,7 @@ has_permission(Perm) -> lists:member(Perm, get(perms)).
 
 %% "asserts" a permission
 assert_permission(Perm) ->
-    {_, true} = {{get(scope),
+    {_, true} = {{if_failed,
         status_packet:make(permission_denied, "Missing " ++ atom_to_list(Perm) ++ " token permission")},
         has_permission(Perm)}.
 

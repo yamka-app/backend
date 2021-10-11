@@ -131,13 +131,12 @@ handle_entity(#entity{type=channel, fields=#{id:=Id, unread:=0}}) ->
 
 
 %% creates a channel
-handle_entity(#entity{type=channel, fields=#{id:=0, group:=Group, name:=Name}}, Seq, Ref) ->
-    yamka_auth:assert_permission(edit_groups, {Ref, Seq}),
-    group_e:assert_permission(Group, edit_channels, {Ref, Seq}),
+handle_entity(#entity{type=channel, fields=#{id:=0, group:=Group, name:=Name}}) ->
+    yamka_auth:assert_permission(edit_groups),
+    group_e:assert_permission(Group, edit_channels),
 
     channel_e:create(Name, Group, [], false),
-    client:icpc_broadcast_to_aware(group_awareness, #entity{
-        type=group, fields=group_e:get(Group)}, [id, channels]),
+    sweet_main:route_to_aware(get(main), {group, Group}, [id, channels]),
     none;
 
 
