@@ -6,7 +6,6 @@
 -author("Yamka").
 -license("MPL-2.0").
 
--include("../packets/packet.hrl").
 -include("entity.hrl").
 
 -export([encode_field/2, encode/2, len_decode/2, check_excessivity/1]).
@@ -20,20 +19,6 @@ get_record(Type, Id) ->
 structure(Proto, EntityType) ->
     #{Proto := #{EntityType := Structure}} = ?ENTITY_STRUCTURE,
     Structure.
-
-
-%% gets a key by id
-handle_get_request(#entity_get_rq{type=key, id=Id, pagination=none, context=none, key=none}, _Ref) ->
-    #entity{type=key, fields=pkey_e:get(Id)};
-
-
-%% handle illegal requests
-handle_get_request(#entity_get_rq{}, {_Ref, Seq}) ->
-    status_packet:make(invalid_request, "Illegal EntityGet request (check type and modifiers)", Seq).
-
-
-
-
 
 %% encodes entities
 encode_field(_Proto, number,   V, {Size})       -> datatypes:enc_num(V, Size);

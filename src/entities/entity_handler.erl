@@ -6,7 +6,6 @@
 -author("Yamka").
 -license("MPL-2.0").
 
--include("../packets/packet.hrl").
 -include("entity.hrl").
 
 -export([handle_get_request/1, handle_entity/1]).
@@ -24,7 +23,6 @@ handle_entity(#entity{type=user, fields=#{id:=0} = F}) ->
             % change DB record
             user_e:update(get(id), AllowedFields),
             % broadcast changes
-            Entity = #entity{type=user, fields=maps:merge(AllowedFields, #{id => get(id)})},
             sweet_main:route_to_aware(get(main), {user, get(id)}, [id] ++ maps:keys(AllowedFields))
     end,
 
@@ -35,10 +33,6 @@ handle_entity(#entity{type=user, fields=#{id:=0} = F}) ->
             Email = maps:get(email, F),
             user_e:update(get(id), #{email => Email, email_confirmed => false}),
             user_e:start_email_confirmation(get(id), Email),
-            NewEntity = #entity{type=user, fields=#{
-                id => get(id),
-                email => Email,
-                email_confirmed => false}},
             sweet_main:route_to_owners(get(main), get(id), [id, email, email_confirmed]);
         true -> ok
     end,
@@ -52,15 +46,8 @@ handle_entity(#entity{type=user, fields=#{id:=0} = F}) ->
             {_, RemovedAgents} = utils:list_diff(maps:get(agents, F), OldAgents),
             [agent_e:delete(A)          || A <- RemovedAgents],
             [yamka_auth:revoke_agent(A) || A <- RemovedAgents],
-            % construct the updated list of agents
-            NewAgents = lists:foldl(fun(A, Acc) -> case
-                lists:member(A, RemovedAgents) of true -> Acc;
-                _ -> [A|Acc] end
-            end, [], OldAgents),
-            case RemovedAgents of
-                [] -> ok;
-                _ -> sweet_main:route_to_aware(get(main), {user, get(id)}, [id, agents])
-            end;
+            % send updates
+            sweet_main:route_to_owners(get(main), get(id), [id, agents]);
         true -> ok
     end,
     none;
@@ -79,7 +66,7 @@ handle_entity(#entity{type=file, fields=Fields=#{name:=Name, length:=Length}}) -
     EmojiName = maps:get(emoji_name, Fields, ""),
     if
         Length =< MaxSize -> 
-            sweet_main:set_file_recv_pid(get(main), file_storage:recv_file(Seq,
+            sweet_main:set_file_recv_pid(get(main), file_storage:recv_file(get(seq),
                 {get(socket), get(protocol), self(), get(cassandra)},
                 {Length, Name, EmojiName})),
             none;
@@ -163,8 +150,8 @@ handle_entity(#entity{type=channel, fields=Fields=#{id:=Id}}) ->
 
 
 %% sends a group message
-handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, latest:=
-              L=#entity{type=message_state, fields=#{sections:=Sections}}}}) ->
+handle_entity(#entity{type=message,       fields=#{id:=0, channel:=Channel, latest:=
+              #entity{type=message_state, fields=#{sections:=Sections}}}}) ->
     yamka_auth:assert_permission(send_group_messages),
     % check permissions
     #{group := Group} = channel_e:get(Channel),
@@ -188,8 +175,8 @@ handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, la
 
 
 %% sends a direct message
-handle_entity(M=#entity{type=message,       fields=#{channel:=Channel, latest:=
-              L=#entity{type=message_state, fields=#{encrypted:=Encrypted}}}}) ->
+handle_entity(#entity{type=message,       fields=#{channel:=Channel, latest:=
+              #entity{type=message_state, fields=#{encrypted:=Encrypted}}}}) ->
     yamka_auth:assert_permission(send_direct_messages),
     % check permissions
     #{group := Group} = channel_e:get(Channel),
@@ -198,14 +185,15 @@ handle_entity(M=#entity{type=message,       fields=#{channel:=Channel, latest:=
 
     % create entities
     {MsgId, _} = message_e:create(Channel, get(id)),
+    message_state_e:create(MsgId, Encrypted),
     % broadcast the message
     sweet_main:route_entity(get(main), {aware, {channel, Channel}}, entity:get_record(message, MsgId)),
     none;
 
 
 %% edits a group message
-handle_entity(M=#entity{type=message,       fields=#{id:=Id, latest:=
-              L=#entity{type=message_state, fields=#{sections:=Sections}}}}) ->
+handle_entity(#entity{type=message,       fields=#{id:=Id, latest:=
+              #entity{type=message_state, fields=#{sections:=Sections}}}}) ->
     yamka_auth:assert_permission(send_group_messages),
     #{channel := Channel} = Existing = message_e:get(Id),
     #{group := Group} = channel_e:get(Channel),
@@ -214,13 +202,14 @@ handle_entity(M=#entity{type=message,       fields=#{id:=Id, latest:=
     {_, true} = {{if_failed, status_packet:make(permission_denied, "This message was sent by another user")},
         SelfSent},
 
+    message_state_e:create(Id, message_state_e:filter_sections(Sections)),
     sweet_main:route_entity(get(main), {aware, {channel, Channel}}, entity:get_record(message, Id)),
     none;
 
 
 %% edits a direct message
-handle_entity(M=#entity{type=message,       fields=#{id:=Id, latest:=
-              L=#entity{type=message_state, fields=#{encrypted:=Encrypted}}}}) ->
+handle_entity(#entity{type=message,       fields=#{id:=Id, latest:=
+              #entity{type=message_state, fields=#{encrypted:=Encrypted}}}}) ->
     yamka_auth:assert_permission(send_direct_messages),
     #{channel := Channel} = Existing = message_e:get(Id),
     #{group := Group} = channel_e:get(Channel),
@@ -229,13 +218,13 @@ handle_entity(M=#entity{type=message,       fields=#{id:=Id, latest:=
     {_, true} = {{if_failed, status_packet:make(permission_denied, "This message was sent by another user")},
         SelfSent},
 
-    StateId = message_state_e:create(Id, Encrypted),
+    message_state_e:create(Id, Encrypted),
     sweet_main:route_entity(get(main), {aware, {channel, Channel}}, entity:get_record(message, Id)),
     none;
 
 
 %% deletes a message
-handle_entity(M=#entity{type=message, fields=#{id:=Id, sender:=0}}) ->
+handle_entity(#entity{type=message, fields=#{id:=Id, sender:=0}}) ->
     #{channel := Channel, sender := Sender} = message_e:get(Id),
     #{group := Group, lcid := Lcid} = channel_e:get(Channel),
     {_, true} = {{if_failed, status_packet:make(permission_denied, "This message was sent by another user")},
@@ -306,7 +295,6 @@ handle_entity(#entity{type=group, fields=#{id:=Id, emoji:=Emoji}}) ->
     #{emoji := ExEmoji} = group_e:get(Id),
     {Added, Removed} = utils:list_diff(Emoji, ExEmoji),
     lists:foreach(fun(I) ->
-        #{emoji_name := EmojiName} = file_e:get(I),
         file_e:update(I, #{emoji_group => Id})
     end, Added),
     % don't delete the file, just deasscoiate it
@@ -560,3 +548,13 @@ handle_get_request(#entity_get_rq{type=poll, id=Id, pagination=none, context=non
 handle_get_request(#entity_get_rq{type=agent, id=Id, pagination=none, context=none, key=none}, _Ref) ->
     Online = #{online => agent_e:online(Id)},
     #entity{type=agent, fields=maps:merge(agent_e:get(Id), Online)};
+
+
+%% gets a key by id
+handle_get_request(#entity_get_rq{type=key, id=Id, pagination=none, context=none, key=none}, _Ref) ->
+    #entity{type=key, fields=pkey_e:get(Id)};
+
+
+%% handle illegal requests
+handle_get_request(#entity_get_rq{}, {_Ref, Seq}) ->
+    status_packet:make(invalid_request, "Illegal EntityGet request (check type and modifiers)", Seq).
