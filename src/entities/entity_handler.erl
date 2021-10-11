@@ -101,15 +101,13 @@ handle_entity(#entity{type=file, fields=#{id:=Id, emoji_name:=Name}}) ->
 
 
 %% (re-)sets the typing status
-handle_entity(#entity{type=channel, fields=#{id:=Id, typing:=[0]}}, _Seq, _Ref) ->
+handle_entity(#entity{type=channel, fields=#{id:=Id, typing:=[0]}}) ->
     channel_e:set_typing(Id, get(id)),
-    client:icpc_broadcast_to_aware(chan_awareness,
-        #entity{type=channel, fields=#{id=>Id, typing=>channel_e:get_typing(Id)}}, [id, typing]),
+    sweet_main:route_to_aware(get(main), {channel, Id}, [id, typing]),
     none;
-handle_entity(#entity{type=channel, fields=#{id:=Id, typing:=[]}}, _Seq, _Ref) ->
-    channel_e:reset_typing(Id, get(id)), 
-    client:icpc_broadcast_to_aware(chan_awareness,
-        #entity{type=channel, fields=#{id=>Id, typing=>channel_e:get_typing(Id)}}, [id, typing]),
+handle_entity(#entity{type=channel, fields=#{id:=Id, typing:=[]}}) ->
+    channel_e:reset_typing(Id, get(id)),
+    sweet_main:route_to_aware(get(main), {channel, Id}, [id, typing]),
     none;
 
 
