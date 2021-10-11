@@ -67,7 +67,7 @@ handle_entity(#entity{type=user, fields=#{id:=0} = F}) ->
 
 
 %% sets a note
-handle_entity(#entity{type=user, fields=#{id:=Id, note:=Note}}, _, _) ->
+handle_entity(#entity{type=user, fields=#{id:=Id, note:=Note}}) ->
     user_e:set_note(Id, get(id), Note),
     none;
 
