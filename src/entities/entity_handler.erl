@@ -152,14 +152,13 @@ handle_entity(#entity{type=channel, fields=#{id:=Id, group:=0}}) ->
 
 
 %% modifies a channel
-handle_entity(#entity{type=channel, fields=Fields=#{id:=Id}}, Seq, Ref) ->
-    yamka_auth:assert_permission(edit_groups, {Ref, Seq}),
+handle_entity(#entity{type=channel, fields=Fields=#{id:=Id}}) ->
+    yamka_auth:assert_permission(edit_groups),
     #{group := Group} = channel_e:get(Id),
-    group_e:assert_permission(Group, edit_channels, {Ref, Seq}),
+    group_e:assert_permission(Group, edit_channels),
     
     channel_e:update(Id, maps:filter(fun(K, _) -> (K =:= name) or (K =:= voice) end, Fields)),
-    client:icpc_broadcast_to_aware(chan_awareness,
-        #entity{type=channel, fields=Fields}, maps:keys(Fields)),
+    sweet_main:route_to_aware(get(main), {channel, Id}),
     none;
 
 
