@@ -118,7 +118,7 @@ handle_entity(#entity{type=channel, fields=#{id:=Id, first_unread:=FirstUnread}}
     channel_e:set_unread(Id, get(id), {Lcid, FirstUnread}),
     none;
 %% marks the channel as read
-handle_entity(#entity{type=channel, fields=#{id:=Id, unread:=0}}, _Seq, _Ref) ->
+handle_entity(#entity{type=channel, fields=#{id:=Id, unread:=0}}) ->
     % get the last message and its LCID
     case channel_e:get_messages(Id, 9223372036854775807, 1, down) of
         [] -> ok;
