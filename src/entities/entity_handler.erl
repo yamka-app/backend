@@ -141,14 +141,13 @@ handle_entity(#entity{type=channel, fields=#{id:=0, group:=Group, name:=Name}}) 
 
 
 %% deletes a channel
-handle_entity(#entity{type=channel, fields=#{id:=Id, group:=0}}, Seq, Ref) ->
-    yamka_auth:assert_permission(edit_groups, {Ref, Seq}),
+handle_entity(#entity{type=channel, fields=#{id:=Id, group:=0}}) ->
+    yamka_auth:assert_permission(edit_groups),
     #{group := Group} = channel_e:get(Id),
-    group_e:assert_permission(Group, edit_channels, {Ref, Seq}),
+    group_e:assert_permission(Group, edit_channels),
 
     channel_e:delete(Id),
-    client:icpc_broadcast_to_aware(group_awareness, #entity{
-        type=group, fields=group_e:get(Group)}, [id, channels]),
+    sweet_main:route_to_aware(get(main), {group, Group}, [id, channels]),
     none;
 
 
