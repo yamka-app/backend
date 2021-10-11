@@ -1,5 +1,7 @@
 # Erlang Yamka backend
 
+<img src="promo/logo_color_on_transparency.png" alt="yamka logo" width="256">
+
 ![Top language](https://img.shields.io/github/languages/top/yamka-app/backend)
 ![License](https://img.shields.io/github/license/yamka-app/backend)
 ![Platforms](https://img.shields.io/badge/platform-linux%20%7C%20windows%20%7C%20macos%20%7C%20freebsd-blueviolet)
