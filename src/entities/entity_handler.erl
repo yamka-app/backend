@@ -165,12 +165,12 @@ handle_entity(#entity{type=channel, fields=Fields=#{id:=Id}}) ->
 %% sends a group message
 handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, latest:=
               L=#entity{type=message_state, fields=#{sections:=Sections}}}}) ->
+    yamka_auth:assert_permission(send_group_messages),
     % check permissions
     #{group := Group} = channel_e:get(Channel),
     % group messages should be sent unencrypted
     {_, true} = {{if_failed, status_packet:make(invalid_request, "\"sections\" field in direct message")}, Group > 0},
     group_e:assert_permission(Group, send_messages),
-    yamka_auth:assert_permission(send_group_messages),
 
     % filter sections
     Filtered = message_state_e:filter_sections(Sections),
@@ -180,7 +180,6 @@ handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, la
     Mentions = message_state_e:parse_mentions(Filtered),
     % create entities
     {MsgId, _} = message_e:create(Channel, get(id)),
-    StateId = message_state_e:create(MsgId, Filtered),
     % register mentions
     [channel_e:add_mention(Channel, User, MsgId) || User <- Mentions],
     % broadcast the message
@@ -191,15 +190,14 @@ handle_entity(M=#entity{type=message,       fields=#{id:=0, channel:=Channel, la
 %% sends a direct message
 handle_entity(M=#entity{type=message,       fields=#{channel:=Channel, latest:=
               L=#entity{type=message_state, fields=#{encrypted:=Encrypted}}}}) ->
+    yamka_auth:assert_permission(send_direct_messages),
     % check permissions
     #{group := Group} = channel_e:get(Channel),
     % DMs should be sent encrypted
     {_, true} = {{if_failed, status_packet:make(invalid_request, "\"encrypted\" field in group message")}, Group =:= 0},
-    yamka_auth:assert_permission(send_direct_messages, {Ref, Seq}),
 
     % create entities
     {MsgId, _} = message_e:create(Channel, get(id)),
-    StateId = message_state_e:create(MsgId, Encrypted),
     % broadcast the message
     sweet_main:route_entity(get(main), {aware, {channel, Channel}}, entity:get_record(message, MsgId)),
     none;
@@ -207,59 +205,53 @@ handle_entity(M=#entity{type=message,       fields=#{channel:=Channel, latest:=
 
 %% edits a group message
 handle_entity(M=#entity{type=message,       fields=#{id:=Id, latest:=
-              L=#entity{type=message_state, fields=#{sections:=Sections}}}}, Seq, Ref) ->
+              L=#entity{type=message_state, fields=#{sections:=Sections}}}}) ->
+    yamka_auth:assert_permission(send_group_messages),
     #{channel := Channel} = Existing = message_e:get(Id),
     #{group := Group} = channel_e:get(Channel),
-    {_, true} = {{Ref, status_packet:make(invalid_request, "\"sections\" field in direct message", Seq)}, Group > 0},
-    yamka_auth:assert_permission(send_group_messages, {Ref, Seq}),
+    {_, true} = {{if_failed, status_packet:make(invalid_request, "\"sections\" field in direct message")}, Group > 0},
     SelfSent = maps:get(sender, Existing) =:= get(id),
-    {_, true} = {{Ref, status_packet:make(permission_denied, "This message was sent by another user", Seq)},
+    {_, true} = {{if_failed, status_packet:make(permission_denied, "This message was sent by another user")},
         SelfSent},
 
-    StateId = message_state_e:create(Id, message_state_e:filter_sections(Sections)),
-    client:icpc_broadcast_to_aware(chan_awareness, maps:get(channel, Existing),
-        M#entity{fields=maps:merge(message_e:get(Id), #{states => message_e:get_states(Id), latest =>
-            L#entity{fields=message_state_e:get(StateId)}})}, [id, states, channel, sender, latest]),
+    sweet_main:route_entity(get(main), {aware, {channel, Channel}}, entity:get_record(message, Id)),
     none;
 
 
 %% edits a direct message
 handle_entity(M=#entity{type=message,       fields=#{id:=Id, latest:=
-              L=#entity{type=message_state, fields=#{encrypted:=Encrypted}}}}, Seq, Ref) ->
+              L=#entity{type=message_state, fields=#{encrypted:=Encrypted}}}}) ->
+    yamka_auth:assert_permission(send_direct_messages),
     #{channel := Channel} = Existing = message_e:get(Id),
     #{group := Group} = channel_e:get(Channel),
-    {_, true} = {{Ref, status_packet:make(invalid_request, "\"encrypted\" field in group message", Seq)}, Group =:= 0},
-    yamka_auth:assert_permission(send_direct_messages, {Ref, Seq}),
+    {_, true} = {{if_failed, status_packet:make(invalid_request, "\"encrypted\" field in group message")}, Group =:= 0},
     SelfSent = maps:get(sender, Existing) =:= get(id),
-    {_, true} = {{Ref, status_packet:make(permission_denied, "This message was sent by another user", Seq)},
+    {_, true} = {{if_failed, status_packet:make(permission_denied, "This message was sent by another user")},
         SelfSent},
 
     StateId = message_state_e:create(Id, Encrypted),
-    client:icpc_broadcast_to_aware(chan_awareness, maps:get(channel, Existing),
-        M#entity{fields=maps:merge(message_e:get(Id), #{states => message_e:get_states(Id), latest =>
-            L#entity{fields=message_state_e:get(StateId)}})}, [id, states, channel, sender, latest]),
+    sweet_main:route_entity(get(main), {aware, {channel, Channel}}, entity:get_record(message, Id)),
     none;
 
 
 %% deletes a message
-handle_entity(M=#entity{type=message, fields=#{id:=Id, sender:=0}}, Seq, Ref) ->
+handle_entity(M=#entity{type=message, fields=#{id:=Id, sender:=0}}) ->
     #{channel := Channel, sender := Sender} = message_e:get(Id),
     #{group := Group, lcid := Lcid} = channel_e:get(Channel),
-    {_, true} = {{Ref, status_packet:make(permission_denied, "This message was sent by another user", Seq)},
+    {_, true} = {{if_failed, status_packet:make(permission_denied, "This message was sent by another user")},
         Sender =:= get(id)},
     #{group := Group} = channel_e:get(Channel),
     yamka_auth:assert_permission(if
         Group =/= 0 ->
-            group_e:assert_permission(Group, delete_others_messages, {Ref, Seq}),
+            group_e:assert_permission(Group, delete_others_messages),
             delete_group_messages;
         true -> delete_direct_messages
-    end, {Ref, Seq}),
+    end),
     % decrease the LCID
     channel_e:update(Channel, #{lcid => Lcid - 1}),
     message_e:delete(Id),
-    client:icpc_broadcast_to_aware(chan_awareness, Channel,
-        #entity{type=message, fields=#{id => Id, channel => Channel, sender => 0}},
-            [id, channel, sender]),
+    sweet_main:route_entity(get(main), {aware, {channel, Channel}}, #entity{type=message,
+        fields=#{channel => Channel, id => Id, sender => 0}}),
     none;
 
 
