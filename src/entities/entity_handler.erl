@@ -112,7 +112,7 @@ handle_entity(#entity{type=channel, fields=#{id:=Id, typing:=[]}}) ->
 
 
 %% sets the unread message
-handle_entity(#entity{type=channel, fields=#{id:=Id, first_unread:=FirstUnread}}, _Seq, _Ref) ->
+handle_entity(#entity{type=channel, fields=#{id:=Id, first_unread:=FirstUnread}}) ->
     % get the message and its LCID
     #{lcid := Lcid} = message_e:get(FirstUnread),
     channel_e:set_unread(Id, get(id), {Lcid, FirstUnread}),
