@@ -199,7 +199,7 @@ route_to_aware(Pid, Entity={Type, Id}) ->
 %% routes a user entity to the owners (there might be multiple devices the user is logged in from)
 route_to_owners(Pid, Id, Allowed) ->
     route_entity(Pid, {owners, Id}, entity:get_record(user, Id), Allowed).
-route_to_owners(Pid, {Type, Id}) ->
+route_to_owners(Pid, Id) ->
     route_entity(Pid, {owners, Id}, entity:get_record(user, Id)).
 
 %% hits a rate limiter

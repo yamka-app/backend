@@ -256,54 +256,52 @@ handle_entity(M=#entity{type=message, fields=#{id:=Id, sender:=0}}) ->
 
 
 %% creates a group
-handle_entity(#entity{type=group, fields=#{id:=0, name:=Name}}, Seq, Ref) ->
-    yamka_auth:assert_permission(create_groups, {Ref, Seq}),
+handle_entity(#entity{type=group, fields=#{id:=0, name:=Name}}) ->
+    yamka_auth:assert_permission(create_groups),
     #{name := Username} = user_e:get(get(id)),
     {Id, Everyone} = group_e:create(Name, get(id)),
     role_e:add(Everyone, get(id)),
     group_e:cache_user_name(Id, get(id), Username),
-    client:icpc_broadcast_entity(get(id),
-        #entity{type=user, fields=user_e:get(get(id))}, [groups]),
+    sweet_main:route_to_owners(get(main), get(id), [id, groups]),
     none;
 
 
 %% deletes a group
-handle_entity(#entity{type=group, fields=#{id:=Id, owner:=0}}, Seq, Ref) ->
-    yamka_auth:assert_permission(delete_groups, {Ref, Seq}),
+handle_entity(#entity{type=group, fields=#{id:=Id, owner:=0}}) ->
+    yamka_auth:assert_permission(delete_groups),
     #{owner := Owner,
       channels := Channels,
       roles := Roles,
       invites := Invites,
       everyone_role := Everyone} = group_e:get(Id),
-    {_, Owner} = {{Ref, status_packet:make(permission_denied, "Only the owner can do this", Seq)}, get(id)},
+    {_, Owner} = {{if_failed, status_packet:make(permission_denied, "Only the owner can do this")}, get(id)},
 
     lists:foreach(fun(R) -> group_e:remove_invite(Id, R) end, Invites),
     group_e:delete(Id),
     lists:foreach(fun channel_e:delete/1, Channels),
     lists:foreach(fun role_e:nuke/1, lists:delete(Everyone, Roles)),
     role_e:nuke(Everyone, true),
-    client:icpc_broadcast_to_aware(group_awareness,
-        #entity{type=group, fields=#{id => Id, owner => 0}}, [id, owner]),
+    sweet_main:route_entity(get(main), {aware, {group, Group}}, #entity{type=group, fields=#{id => Id, owner => 0}}),
     none;
 
 
 %% manages invites
-handle_entity(#entity{type=group, fields=#{id:=Id, invites:=Invites}}, Seq, Ref) ->
-    yamka_auth:assert_permission(edit_groups, {Ref, Seq}),
-    group_e:assert_permission(Id, edit_invites, {Ref, Seq}),
+handle_entity(#entity{type=group, fields=#{id:=Id, invites:=Invites}}) ->
+    yamka_auth:assert_permission(edit_groups),
+    group_e:assert_permission(Id, edit_invites),
 
     #{invites := ExInvites} = group_e:get(Id),
     {Added, Removed} = utils:list_diff(Invites, ExInvites),
     lists:foreach(fun(_) -> group_e:add_invite(Id) end, lists:seq(1, length(Added))),
     lists:foreach(fun(I) -> group_e:remove_invite(Id, I) end, Removed),
     #{invites := NewInvites} = group_e:get(Id),
-    entities_packet:make([#entity{type=group, fields=#{id => Id, invites => NewInvites}}], Seq);
+    entities_packet:make([#entity{type=group, fields=#{id => Id, invites => NewInvites}}]);
 
 
 %% manages emoji
-handle_entity(#entity{type=group, fields=#{id:=Id, emoji:=Emoji}}, Seq, Ref) ->
-    yamka_auth:assert_permission(edit_groups, {Ref, Seq}),
-    group_e:assert_permission(Id, edit_emoji, {Ref, Seq}),
+handle_entity(#entity{type=group, fields=#{id:=Id, emoji:=Emoji}}) ->
+    yamka_auth:assert_permission(edit_groups),
+    group_e:assert_permission(Id, edit_emoji),
 
     #{emoji := ExEmoji} = group_e:get(Id),
     {Added, Removed} = utils:list_diff(Emoji, ExEmoji),
@@ -314,7 +312,7 @@ handle_entity(#entity{type=group, fields=#{id:=Id, emoji:=Emoji}}, Seq, Ref) ->
     % don't delete the file, just deasscoiate it
     lists:foreach(fun(I) -> file_e:update(I, #{emoji_group => null}) end, Removed),
     #{emoji := NewEmoji} = group_e:get(Id),
-    entities_packet:make([#entity{type=group, fields=#{id => Id, emoji => NewEmoji}}], Seq);
+    entities_packet:make([#entity{type=group, fields=#{id => Id, emoji => NewEmoji}}]);
 
 
 %% creates a poll
