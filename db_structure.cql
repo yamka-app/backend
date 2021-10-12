@@ -274,7 +274,8 @@ CREATE TABLE yamkadb.awareness (
     type int,
     id bigint,
     PRIMARY KEY (node, pid, type, id)
-) WITH bloom_filter_fp_chance = 0.01
+) WITH CLUSTERING ORDER BY (pid ASC, type ASC, id ASC)
+    AND bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'ALL'}
     AND comment = ''
     AND compaction = {'class': 'SizeTieredCompactionStrategy'}
@@ -290,11 +291,12 @@ CREATE TABLE yamkadb.awareness (
     AND speculative_retry = '99.0PERCENTILE';
 
 CREATE MATERIALIZED VIEW yamkadb.awareness_by_type_and_id AS
-    SELECT node, type, id, pid
+    SELECT type, id, node, pid
     FROM yamkadb.awareness
     WHERE node IS NOT null AND type IS NOT null AND id IS NOT null AND pid IS NOT null
     PRIMARY KEY ((type, id), node, pid)
-    WITH bloom_filter_fp_chance = 0.01
+    WITH CLUSTERING ORDER BY (node ASC, pid ASC)
+    AND bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'ALL'}
     AND comment = ''
     AND compaction = {'class': 'SizeTieredCompactionStrategy'}
