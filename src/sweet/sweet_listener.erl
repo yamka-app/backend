@@ -53,7 +53,8 @@ loop(Cassandra) ->
         % clean the state up when a main process dies
         {'DOWN', _, process, Pid, _} ->
             logging:log("Main client process died", []),
-            % TODO
+            sweet_awareness:remove(Pid),
+            sweet_owners:remove(Pid),
             loop(Cassandra);
 
         % shutdown when asked
