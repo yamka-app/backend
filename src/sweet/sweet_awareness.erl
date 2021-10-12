@@ -15,7 +15,8 @@
 -include_lib("cqerl/include/cqerl.hrl").
 
 -export([init/1, handle_call/3, handle_cast/2]).
--export([add/2, remove/2, remove/1, notify/1, purge/0]).
+-export([start_link/0, stop/0,
+         add/2, remove/2, remove/1, notify/1, purge/0]).
 
 -record(state, {}).
 
@@ -98,6 +99,14 @@ handle_cast(_, State) ->
     {noreply, State}.
 
 %%% API
+
+%% starts the server
+-spec start_link() -> gen_server:start_link().
+start_link() -> gen_server:start_link({local, awareness_server}, ?MODULE, [], []).
+
+%% stops the server
+-spec stop() -> gen_server:stop().
+stop() -> gen_server:stop(awareness_server, ?MODULE, [], []).
 
 %% Remembers that the specified MainProcess' client has requested
 %% an entity
