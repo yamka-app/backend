@@ -43,6 +43,7 @@ start(_StartType, _StartArgs) ->
     {ok, _} = logging:start(),
     {ok, _} = email:start(),
     {ok, _} = sweet_awareness:start_link(),
+    {ok, _} = sweet_owners:start_link(),
     sweet_awareness:purge(),
 
     admin:powerup(),
@@ -54,4 +55,5 @@ stop(_State) ->
     logging:stop(),
     email:stop(),
     sweet_awareness:stop(),
+    sweet_owners:stop(),
     ok.
