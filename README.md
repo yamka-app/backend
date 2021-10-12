@@ -42,8 +42,6 @@ Required Docker secrets:
 
 Tweak the paths to these secrets in `docker-compose.yml`.
 
-:construction: Your server instance is going to redirect voice clients to our server because the domain names are hard coded. We're working on that. _While_ we're working on that, feel free to change the return value of `server_name/0` in `src/tasty/tasty.erl`.
-
 ## Control
 The `admin` module provides some functions you can call from the shell:
   - `admin:powerup/0` starts this instance, begins accepting Sweet connections and doing other stuff
