@@ -10,7 +10,7 @@
 -export([swap_map/1, map_keys/1, intersect_lists/1,
          hash_token/1, hash_password/2,
          gen_snowflake/0, gen_invite/0, gen_avatar/0,
-         temp_file_name/0]).
+         temp_file_name/0, unique/1]).
 -export([broadcast/2]).
 -export([ms_since/1]).
 -export([list_diff/2, list_set/3]).
@@ -132,3 +132,5 @@ list_set(List, Where, What) ->
 filter_text(Text) -> string:trim(string:slice(Text, 0, 4096), both, "\r\n\t ").
 
 starts_with(Str, Sub) -> string:prefix(Str, Sub) =/= nomatch.
+
+unique(List) -> sets:to_list(sets:from_list(List)).
