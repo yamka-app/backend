@@ -82,7 +82,7 @@ handle_entity(#entity{type=file, fields=#{id:=Id, emoji_name:=Name}}) ->
     % write to DB
     file_e:update(Id, #{emoji_name => Name}),
     % broadcast
-    ets:insert(file_awareness, {Id, {get(id), self()}}),
+    sweet_awareness:add({file, Id}, get(main)),
     sweet_main:route_to_aware(get(main), {file, Id}, [id, emoji_name]),
     none;
 
@@ -310,7 +310,7 @@ handle_entity(#entity{type=poll, fields=#{id:=0, options:=Options}}) ->
     {_, false} = {{if_failed, status_packet:make(poll_error, "Zero or too many options")},
         (length(Options) > 10) or (length(Options) == 0)},
     Id = poll_e:create(Options),
-    ets:insert(poll_awareness, {Id, {get(id), self()}}),
+    sweet_awareness:add({poll, Id}, get(main)),
     entities_packet:make([#entity{type=poll, fields=#{
         id => Id, options => Options, total_votes => 0,
         option_votes => [0 || _ <- Options]}}]);
@@ -364,10 +364,8 @@ handle_entity(#entity{}) ->
 
 
 %% gets a user
-handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=none, key=none}, _Ref) ->
-    ets:insert(user_awareness, {Id, {get(id), self()}}),
-
-    true = yamka_auth:has_permission(see_profile),
+handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=none, key=none}) ->
+    yamka_auth:assert_permission(see_profile),
     Self = user_e:get(get(id)),
     IsSelf = Id == get(id),
     Online = user_e:online(Id),
@@ -427,20 +425,24 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
                 _ -> V
             end
         end, Unfiltered)),
+    sweet_awareness:add({user, Id}, get(main)),
     #entity{type=user, fields=maps:merge(FilteredFields, Agents)};
 
 
 %% gets a user in context of a group
 handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=
-        #entity_context{type=group, id=_Group}, key=none}, _Ref) ->
+        #entity_context{type=group, id=_Group}, key=none}) ->
     % TODO
+    sweet_awareness:add({user, Id}, get(main)),
     #entity{type=user, fields=#{id => Id, color => 0}};
 
 
 %% gets user's keys
-handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=none, key=KeyType}, {Ref, Seq}) ->
+handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=none, key=KeyType}) ->
+    yamka_auth:assert_permission(fetch_keys),
+
     Keys = pkey_e:get_by_user(Id, KeyType),
-    {_, true} = {{Ref, status_packet:make(key_error, "No key(s) of type " ++ atom_to_list(KeyType), Seq)},
+    {_, true} = {{if_failed, status_packet:make(key_error, "No key(s) of type " ++ atom_to_list(KeyType))},
         length(Keys) > 0},
     % delete the key if it's a one-time prekey
     OneTime = KeyType =:= otprekey,
@@ -451,7 +453,7 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
             KeyObj = pkey_e:get(Key),
             if
                 OneTime ->
-                    {_, true} = {{Ref, status_packet:make(key_error, "One-time prekey rate limiting", Seq)},
+                    {_, true} = {{if_failed, status_packet:make(key_error, "One-time prekey rate limiting")},
                         pkey_e:check_rate_limit(Id, get(id))},
                     pkey_e:limit_rate(Id, get(id)),
                     pkey_e:delete(Key);
@@ -463,16 +465,14 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
 
 
 %% gets a file
-handle_get_request(#entity_get_rq{type=file, id=Id, pagination=none, context=none, key=none}, _Ref) ->
-    ets:insert(file_awareness, {Id, {get(id), self()}}),
+handle_get_request(#entity_get_rq{type=file, id=Id, pagination=none, context=none, key=none}) ->
+    sweet_awareness:add({file, Id}, get(main)),
     % there are no permission restrictions on file accesses
     #entity{type=file, fields=file_e:get(Id)};
 
 
 %% gets a channel
-handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=none, context=none, key=none}, _Ref) ->
-    ets:insert(chan_awareness, {Id, {get(id), self()}}),
-
+handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=none, context=none, key=none}) ->
     Unfiltered = channel_e:get(Id),
     {UnreadLcid, UnreadId} = channel_e:get_unread(Id, get(id)),
     Mentions = channel_e:get_mentions(Id, get(id)),
@@ -482,6 +482,7 @@ handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=none, context=
             N when N =< 0 -> #{unread => 0};
             _ -> #{unread => UnreadCnt, first_unread => UnreadId}
         end,
+    sweet_awareness:add({channel, Id}, get(main)),
     #entity{type=channel, fields=maps:merge(
         maps:merge(Filtered, AddMap),
         #{typing   => channel_e:get_typing(Id),
@@ -490,71 +491,73 @@ handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=none, context=
 
 %% gets channel messages
 handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=#entity_pagination{
-        field=4, dir=Dir, from=From, cnt=Cnt}, context=none, key=none}, Ref) ->
+        field=4, dir=Dir, from=From, cnt=Cnt}, context=none, key=none}) ->
     #{group := Group} = channel_e:get(Id),
     yamka_auth:assert_permission(if
         Group =/= 0 ->
-            group_e:assert_permission(Group, read_messages, Ref),
+            group_e:assert_permission(Group, read_messages),
             read_group_message_history;
         true -> read_direct_message_history
-    end, Ref),
+    end),
     #entity{type=channel, fields=#{id => Id, messages => channel_e:get_messages(Id, From, Cnt, Dir)}};
 
 
 %% gets a message by id
-handle_get_request(#entity_get_rq{type=message, id=Id, pagination=none, context=none, key=none}, _Ref) ->
+handle_get_request(#entity_get_rq{type=message, id=Id, pagination=none, context=none, key=none}) ->
     Filtered = maps:filter(fun(K, _) -> K /= lcid end, message_e:get(Id)),
     StateMap = #{states => message_e:get_states(Id), latest => #entity{type=message_state, fields=
         message_state_e:get(message_e:get_latest_state(Id))}},
+    sweet_awareness:add({message, Id}, get(main)),
     #entity{type=message, fields=maps:merge(Filtered, StateMap)};
 
 
 %% gets a message state by id
-handle_get_request(#entity_get_rq{type=message_state, id=Id, pagination=none, context=none, key=none}, _Ref) ->
+handle_get_request(#entity_get_rq{type=message_state, id=Id, pagination=none, context=none, key=none}) ->
     #entity{type=message_state, fields=message_state_e:get(Id)};
 
 
 %% gets a group by id
-handle_get_request(#entity_get_rq{type=group, id=Id, pagination=none, context=none, key=none}, _Ref) ->
-    ets:insert(group_awareness, {Id, {get(id), self()}}),
+handle_get_request(#entity_get_rq{type=group, id=Id, pagination=none, context=none, key=none}) ->
+    sweet_awareness:add({group, Id}, get(main)),
     #entity{type=group, fields=group_e:get(Id)};
 
 
 %% gets a role by id
-handle_get_request(#entity_get_rq{type=role, id=Id, pagination=none, context=none, key=none}, _Ref) ->
+handle_get_request(#entity_get_rq{type=role, id=Id, pagination=none, context=none, key=none}) ->
+    sweet_awareness:add({role, Id}, get(main)),
     #entity{type=role, fields=role_e:get(Id)};
 
 
 %% gets role members
 handle_get_request(#entity_get_rq{type=role, id=Id, pagination=#entity_pagination{
-        field=6, dir=Dir, from=From, cnt=Cnt}, context=none, key=none}, Ref) ->
+        field=6, dir=Dir, from=From, cnt=Cnt}, context=none, key=none}) ->
     #{group := Group} = role_e:get(Id),
-    group_e:assert_permission(Group, see_members, Ref),
+    group_e:assert_permission(Group, see_members),
     #entity{type=role, fields=#{id => Id, members => role_e:get_members(Id, From, Cnt, Dir)}};
 
 
 %% gets a poll by id
-handle_get_request(#entity_get_rq{type=poll, id=Id, pagination=none, context=none, key=none}, _Ref) ->
-    ets:insert(poll_awareness, {Id, {get(id), self()}}),
+handle_get_request(#entity_get_rq{type=poll, id=Id, pagination=none, context=none, key=none}) ->
     Main = poll_e:get(Id),
     Fields = case poll_e:get_vote(Id, get(id)) of
         {error, novote} -> Main;
         {ok, Option}    -> maps:merge(Main, #{self_vote => Option})
     end,
+    sweet_awareness:add({poll, Id}, get(main)),
     #entity{type=poll, fields=Fields};
 
 
 %% gets an agent by id
-handle_get_request(#entity_get_rq{type=agent, id=Id, pagination=none, context=none, key=none}, _Ref) ->
+handle_get_request(#entity_get_rq{type=agent, id=Id, pagination=none, context=none, key=none}) ->
     Online = #{online => agent_e:online(Id)},
     #entity{type=agent, fields=maps:merge(agent_e:get(Id), Online)};
 
 
 %% gets a key by id
-handle_get_request(#entity_get_rq{type=key, id=Id, pagination=none, context=none, key=none}, _Ref) ->
+handle_get_request(#entity_get_rq{type=key, id=Id, pagination=none, context=none, key=none}) ->
     #entity{type=key, fields=pkey_e:get(Id)};
 
 
 %% handle illegal requests
-handle_get_request(#entity_get_rq{}, {_Ref, Seq}) ->
-    status_packet:make(invalid_request, "Illegal EntityGet request (check type and modifiers)", Seq).
+handle_get_request(#entity_get_rq{}) ->
+    status_packet:make(invalid_request, "Illegal EntityGet request (check type and modifiers)").
