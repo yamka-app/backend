@@ -25,7 +25,7 @@
 }).
 
 -export([start/2]).
--export([switch_state/2, switch_state/3, send_packet/2, route_packet/3, stop/1,
+-export([switch_state/2, switch_state/3, send_packet/2, stop/1,
          ratelimit/2, ratelimit/3, get_state/1,
          route_to_aware/2, route_to_aware/3,
          route_to_owners/2, route_to_owners/3,
@@ -135,9 +135,12 @@ loop(State) ->
             EncPid ! {packet, self(), Seqd},
             loop(State#state{seq=Seq + 1});
 
-        % route packets to another main process when asked by a handler process of ours
-        {route, _From, DestSpec, Packet} ->
-            % TODO
+        % route an entity to another main process when asked by a handler process of ours
+        {route, _From, {aware, {_Type, _Id}=Spec}, Entity} ->
+            sweet_awareness:notify(Spec, Entity),
+            loop(State);
+        {route, _From, {owners, Id}, Entity} ->
+            sweet_owners:notify(Id, Entity),
             loop(State);
 
         % updates awareness
@@ -187,13 +190,12 @@ switch_state(Pid, Target) -> Pid ! {switch_state, self(), Target}.
 %% sends a packet to the connected user
 send_packet(Pid, P) -> Pid ! {transmit, self(), P}.
 
-%% routes a packet/entity using the destination spec
-route_packet(Pid, DestSpec, P) -> Pid ! {route, self(), DestSpec, P}.
+%% routes an entity using the destination spec
 route_entity(Pid, DestSpec, E=#entity{fields=F}, Allowed) ->
     route_entity(Pid, DestSpec, E#entity{fields=maps:filter(fun(K, _) ->
-        lists:member(K, Allowed) end)}).
+        lists:member(K, Allowed) end, F)}).
 route_entity(Pid, DestSpec, E) ->
-    route_packet(Pid, DestSpec, entities_packet:make([E])).
+    Pid ! {route, self(), DestSpec, E}.
 
 %% routes an entity to users that have requested it before
 route_to_aware(Pid, Entity={Type, Id}, Allowed) ->

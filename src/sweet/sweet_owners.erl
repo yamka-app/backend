@@ -11,11 +11,12 @@
 -license("MPL-2.0").
 -description("Owner storage (backed by Cassandra)").
 
+-include("../entities/entity.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
 -export([init/1, handle_call/3, handle_cast/2]).
 -export([start_link/0, stop/0,
-         add/2, remove/2, remove/1, notify/1, purge/0]).
+         add/2, remove/2, remove/1, notify/2, purge/0]).
 
 -record(state, {}).
 
@@ -59,7 +60,7 @@ handle_call({remove, MainProcess}, _From, State) ->
     logging:dbg("~p is no longer an owner of anything", [MainProcess]),
     {reply, ok, State};
 
-handle_call({notify, Id}, _From, State) ->
+handle_call({notify, Id, Entity}, _From, State) ->
     {ok, Result} = cqerl:run_query(get(cassandra), #cql_query{
         statement = "SELECT node FROM owners_by_id WHERE id=?",
         values = [
@@ -67,7 +68,7 @@ handle_call({notify, Id}, _From, State) ->
         ]
     }),
     Nodes = utils:unique([list_to_existing_atom(Node) || [{node, Node}] <- cqerl:all_rows(Result)]),
-    [gen_server:cast({owner_server, Node}, {notify, Id}) || Node <- Nodes],
+    [gen_server:cast({owner_server, Node}, {notify, Id, Entity}) || Node <- Nodes],
     logging:dbg("broadcasted updates to owners across ~p nodes", [length(Nodes)]),
     {reply, ok, State};
 
@@ -77,12 +78,9 @@ handle_call(purge, _From, State) ->
         values = [{node, node()}]
     }),
     logging:dbg("ownership purged", []),
-    {reply, ok, State};
+    {reply, ok, State}.
 
-handle_call(_, _From, State) ->
-    {reply, {error, unknown_request}, State}.
-
-handle_cast({notify, Id}, State) ->
+handle_cast({notify, Id, Entity}, State) ->
     {ok, Result} = cqerl:run_query(get(cassandra), #cql_query{
         statement = "SELECT pid FROM owners_by_id WHERE id=? AND node=?",
         values = [
@@ -91,11 +89,8 @@ handle_cast({notify, Id}, State) ->
         ]
     }),
     Pids = [list_to_pid(Pid) || [{pid, Pid}] <- cqerl:all_rows(Result)],
-    Packet = entities_packet:make([entity:get_record(user, Id)]),
+    Packet = entities_packet:make([Entity]),
     [Pid ! {transmit, self(), Packet} || Pid <- Pids],
-    {noreply, State};
-
-handle_cast(_, State) ->
     {noreply, State}.
 
 %%% API
@@ -121,8 +116,8 @@ remove(Id, MainProcess) -> gen_server:call(owner_server, {remove, Id, MainProces
 remove(MainProcess) -> gen_server:call(owner_server, {remove, MainProcess}).
 
 %% Notifies all owners about a user update
--spec notify(integer()) -> ok.
-notify(Id) -> gen_server:call(owner_server, {notify, Id}).
+-spec notify(integer(), #entity{}) -> ok.
+notify(Id, Entity) -> gen_server:call(owner_server, {notify, Id, Entity}).
 
 %% Forgets all processes bound to this node
 -spec purge() -> ok.

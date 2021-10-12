@@ -16,7 +16,7 @@
 
 -export([init/1, handle_call/3, handle_cast/2]).
 -export([start_link/0, stop/0,
-         add/2, remove/2, remove/1, notify/1, purge/0]).
+         add/2, remove/2, remove/1, notify/2, purge/0]).
 
 -record(state, {}).
 
@@ -62,7 +62,7 @@ handle_call({remove, MainProcess}, _From, State) ->
     logging:dbg("~p is now not aware of anything", [MainProcess]),
     {reply, ok, State};
 
-handle_call({notify, #entity{type=TypeAtom, fields=#{id:=Id}}=Entity}, _From, State) ->
+handle_call({notify, {TypeAtom, Id}, #entity{}=Entity}, _From, State) ->
     {ok, Result} = cqerl:run_query(get(cassandra), #cql_query{
         statement = "SELECT node FROM awareness_by_type_and_id WHERE type=? AND id=?",
         values = [
@@ -81,12 +81,9 @@ handle_call(purge, _From, State) ->
         values = [{node, node()}]
     }),
     logging:dbg("awareness purged", []),
-    {reply, ok, State};
+    {reply, ok, State}.
 
-handle_call(_, _From, State) ->
-    {reply, {error, unknown_request}, State}.
-
-handle_cast({notify, #entity{type=TypeAtom, fields=#{id:=Id}}=Entity}, State) ->
+handle_cast({notify, {TypeAtom, Id}, #entity{}=Entity}, State) ->
     {ok, Result} = cqerl:run_query(get(cassandra), #cql_query{
         statement = "SELECT pid FROM awareness_by_type_and_id WHERE type=? AND id=? AND node=?",
         values = [
@@ -98,9 +95,6 @@ handle_cast({notify, #entity{type=TypeAtom, fields=#{id:=Id}}=Entity}, State) ->
     Pids = [list_to_pid(Pid) || [{pid, Pid}] <- cqerl:all_rows(Result)],
     Packet = entities_packet:make([Entity]),
     [Pid ! {transmit, self(), Packet} || Pid <- Pids],
-    {noreply, State};
-
-handle_cast(_, State) ->
     {noreply, State}.
 
 %%% API
@@ -128,8 +122,8 @@ remove({_Type, _Id}=Entity, MainProcess) -> gen_server:call(awareness_server, {r
 remove(MainProcess) -> gen_server:call(awareness_server, {remove, MainProcess}).
 
 %% Notifies all main processes about an entity update
--spec notify(#entity{}) -> ok.
-notify(#entity{}=Entity) -> gen_server:call(awareness_server, {notify, Entity}).
+-spec notify({atom(), integer()}, #entity{}) -> ok.
+notify({_Type, _Id}=Spec, #entity{}=Entity) -> gen_server:call(awareness_server, {notify, Spec, Entity}).
 
 %% Forgets all processes bound to this node
 -spec purge() -> ok.
