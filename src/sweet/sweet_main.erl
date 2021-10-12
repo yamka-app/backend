@@ -140,6 +140,11 @@ loop(State) ->
             % TODO
             loop(State);
 
+        % updates awareness
+        {awareness, _From, Action, {_Type, _Id}=Entity} ->
+            sweet_awareness:Action(Entity, self()),
+            loop(State);
+
         % hits a rate limiter
         {ratelimit, From, Name, Times} ->
             From ! {result, self(), ratelimit:hit(Name, Times)},
