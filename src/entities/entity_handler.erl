@@ -373,8 +373,8 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
 
     OtpHashes = if
         IsSelf ->
-            #{otp_hashes => [pkey_e:fingerprint(Id)
-                || Id <- pkey_e:get_by_user(get(id), otprekey)]};
+            #{otp_hashes => [pkey_e:fingerprint(KeyId)
+                || KeyId <- pkey_e:get_by_user(get(id), otprekey)]};
         true -> #{}
     end,
 

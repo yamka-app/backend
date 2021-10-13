@@ -15,18 +15,18 @@
 -include_lib("cqerl/include/cqerl.hrl").
 
 -export([init/1, handle_call/3, handle_cast/2]).
--export([start_link/0, stop/0,
+-export([start_link/1, stop/0,
          add/2, remove/2, remove/1, notify/2, purge/0]).
 
--record(state, {}).
+-record(state, {cassandra}).
 
 %%% gen_server callbacks
 
-init(_) ->
-    {ok, #state{}}.
+init(Cassandra) ->
+    {ok, #state{cassandra=Cassandra}}.
 
 handle_call({add, Id, MainProcess}, _From, State) ->
-    {ok, _} = cqerl:run_query(get(cassandra), #cql_query{
+    {ok, _} = cqerl:run_query(State#state.cassandra, #cql_query{
         statement = "INSERT INTO owners (node, pid, id) values (?, ?, ?)",
         values = [
             {node, node()},
@@ -38,7 +38,7 @@ handle_call({add, Id, MainProcess}, _From, State) ->
     {reply, ok, State};
 
 handle_call({remove, Id, MainProcess}, _From, State) ->
-    {ok, _} = cqerl:run_query(get(cassandra), #cql_query{
+    {ok, _} = cqerl:run_query(State#state.cassandra, #cql_query{
         statement = "DELETE FROM owners WHERE node=? AND pid=? AND id=?",
         values = [
             {node, node()},
@@ -50,7 +50,7 @@ handle_call({remove, Id, MainProcess}, _From, State) ->
     {reply, ok, State};
 
 handle_call({remove, MainProcess}, _From, State) ->
-    {ok, _} = cqerl:run_query(get(cassandra), #cql_query{
+    {ok, _} = cqerl:run_query(State#state.cassandra, #cql_query{
         statement = "DELETE FROM owners WHERE node=? AND pid=?",
         values = [
             {node, node()},
@@ -61,7 +61,7 @@ handle_call({remove, MainProcess}, _From, State) ->
     {reply, ok, State};
 
 handle_call({notify, Id, Entity}, _From, State) ->
-    {ok, Result} = cqerl:run_query(get(cassandra), #cql_query{
+    {ok, Result} = cqerl:run_query(State#state.cassandra, #cql_query{
         statement = "SELECT node FROM owners_by_id WHERE id=?",
         values = [
             {id, Id}
@@ -73,7 +73,7 @@ handle_call({notify, Id, Entity}, _From, State) ->
     {reply, ok, State};
 
 handle_call(purge, _From, State) ->
-    {ok, _} = cqerl:run_query(get(cassandra), #cql_query{
+    {ok, _} = cqerl:run_query(State#state.cassandra, #cql_query{
         statement = "DELETE FROM owners WHERE node=?",
         values = [{node, node()}]
     }),
@@ -81,7 +81,7 @@ handle_call(purge, _From, State) ->
     {reply, ok, State}.
 
 handle_cast({notify, Id, Entity}, State) ->
-    {ok, Result} = cqerl:run_query(get(cassandra), #cql_query{
+    {ok, Result} = cqerl:run_query(State#state.cassandra, #cql_query{
         statement = "SELECT pid FROM owners_by_id WHERE id=? AND node=?",
         values = [
             {id, Id},
@@ -96,8 +96,8 @@ handle_cast({notify, Id, Entity}, State) ->
 %%% API
 
 %% starts the server
--spec start_link() -> gen_server:start_link().
-start_link() -> gen_server:start_link({local, owner_server}, ?MODULE, [], []).
+-spec start_link(any()) -> gen_server:start_link().
+start_link(Cassandra) -> gen_server:start_link({local, owner_server}, ?MODULE, Cassandra, []).
 
 %% stops the server
 -spec stop() -> gen_server:stop().

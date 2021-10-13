@@ -17,7 +17,7 @@ start(Main, Socket, SetupData) ->
 loop(Main, Socket, SetupData={Proto, Comp}) ->
     receive
         {packet, Main, Packet} ->
-            Data = encode_packet_data(Packet, SetupData),
+            Data = encode_packet_data(Packet, Proto),
             write_packet_data(Socket, Data, Comp)
     end,
     loop(Main, Socket, SetupData).

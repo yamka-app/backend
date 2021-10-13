@@ -15,18 +15,18 @@
 -include_lib("cqerl/include/cqerl.hrl").
 
 -export([init/1, handle_call/3, handle_cast/2]).
--export([start_link/0, stop/0,
+-export([start_link/1, stop/0,
          add/2, remove/2, remove/1, notify/2, purge/0]).
 
--record(state, {}).
+-record(state, {cassandra}).
 
 %%% gen_server callbacks
 
-init(_) ->
-    {ok, #state{}}.
+init(Cassandra) ->
+    {ok, #state{cassandra=Cassandra}}.
 
 handle_call({add, {Type, Id}, MainProcess}, _From, State) ->
-    {ok, _} = cqerl:run_query(get(cassandra), #cql_query{
+    {ok, _} = cqerl:run_query(State#state.cassandra, #cql_query{
         statement = "INSERT INTO awareness (node, pid, type, id) values (?, ?, ?, ?)",
         values = [
             {node, node()},
@@ -39,7 +39,7 @@ handle_call({add, {Type, Id}, MainProcess}, _From, State) ->
     {reply, ok, State};
 
 handle_call({remove, {Type, Id}, MainProcess}, _From, State) ->
-    {ok, _} = cqerl:run_query(get(cassandra), #cql_query{
+    {ok, _} = cqerl:run_query(State#state.cassandra, #cql_query{
         statement = "DELETE FROM awareness WHERE node=? AND pid=? AND type=? AND id=?",
         values = [
             {node, node()},
@@ -52,7 +52,7 @@ handle_call({remove, {Type, Id}, MainProcess}, _From, State) ->
     {reply, ok, State};
 
 handle_call({remove, MainProcess}, _From, State) ->
-    {ok, _} = cqerl:run_query(get(cassandra), #cql_query{
+    {ok, _} = cqerl:run_query(State#state.cassandra, #cql_query{
         statement = "DELETE FROM awareness WHERE node=? AND pid=?",
         values = [
             {node, node()},
@@ -63,7 +63,7 @@ handle_call({remove, MainProcess}, _From, State) ->
     {reply, ok, State};
 
 handle_call({notify, {TypeAtom, Id}, #entity{}=Entity}, _From, State) ->
-    {ok, Result} = cqerl:run_query(get(cassandra), #cql_query{
+    {ok, Result} = cqerl:run_query(State#state.cassandra, #cql_query{
         statement = "SELECT node FROM awareness_by_type_and_id WHERE type=? AND id=?",
         values = [
             {type, maps:get(TypeAtom, ?REVERSE_ENTITY_MAP)},
@@ -76,7 +76,7 @@ handle_call({notify, {TypeAtom, Id}, #entity{}=Entity}, _From, State) ->
     {reply, ok, State};
 
 handle_call(purge, _From, State) ->
-    {ok, _} = cqerl:run_query(get(cassandra), #cql_query{
+    {ok, _} = cqerl:run_query(State#state.cassandra, #cql_query{
         statement = "DELETE FROM awareness WHERE node=?",
         values = [{node, node()}]
     }),
@@ -84,7 +84,7 @@ handle_call(purge, _From, State) ->
     {reply, ok, State}.
 
 handle_cast({notify, {TypeAtom, Id}, #entity{}=Entity}, State) ->
-    {ok, Result} = cqerl:run_query(get(cassandra), #cql_query{
+    {ok, Result} = cqerl:run_query(State#state.cassandra, #cql_query{
         statement = "SELECT pid FROM awareness_by_type_and_id WHERE type=? AND id=? AND node=?",
         values = [
             {type, maps:get(TypeAtom, ?REVERSE_ENTITY_MAP)},
@@ -100,8 +100,8 @@ handle_cast({notify, {TypeAtom, Id}, #entity{}=Entity}, State) ->
 %%% API
 
 %% starts the server
--spec start_link() -> gen_server:start_link().
-start_link() -> gen_server:start_link({local, awareness_server}, ?MODULE, [], []).
+-spec start_link(any()) -> gen_server:start_link().
+start_link(Cassandra) -> gen_server:start_link({local, awareness_server}, ?MODULE, Cassandra, []).
 
 %% stops the server
 -spec stop() -> gen_server:stop().

@@ -23,6 +23,10 @@ powerup(Port) ->
     % start protocol listeners
     tasty_sup:start_link(),
     sweet_listener:start(Cassandra, Port),
+    {ok, _} = sweet_awareness:start_link(Cassandra),
+    {ok, _} = sweet_owners:start_link(Cassandra),
+    sweet_awareness:purge(),
+    sweet_owners:purge(),
 
     % start stat logger
     register(stat_logger, spawn(stats, writer_start, [Cassandra])),
@@ -42,9 +46,6 @@ start(_StartType, _StartArgs) ->
 
     {ok, _} = logging:start(),
     {ok, _} = email:start(),
-    {ok, _} = sweet_awareness:start_link(),
-    {ok, _} = sweet_owners:start_link(),
-    sweet_awareness:purge(),
 
     admin:powerup(),
 
