@@ -51,7 +51,7 @@ The `admin` module provides some functions you can call from the shell:
   - `stats:stats/0` prints some stats
 
 ## Configuration
-`src/yamka_config.erl`, function `yamka_config:get/1`:
+`src/yamkabackend.app.src`, key `env`:
   - `sweet_port`: Sweet (main protocol) port (TCP). Remember to open this port in the firewall if using one
   - `sweet_client_timeout`: clients get disconnected if they do not send packets for that many milliseconds
   - `sweet_comp_threshold`: server-to-client compression threshold (bytes)
