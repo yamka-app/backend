@@ -14,7 +14,7 @@
 -export([broadcast/2]).
 -export([ms_since/1]).
 -export([list_diff/2, list_set/3]).
--export([filter_text/1, starts_with/2]).
+-export([filter_text/1, starts_with/2, prefixes/1]).
 
 %% broadcasts some value to a list of processes
 broadcast(_, []) -> ok;
@@ -134,3 +134,7 @@ filter_text(Text) -> string:trim(string:slice(Text, 0, 4096), both, "\r\n\t ").
 starts_with(Str, Sub) -> string:prefix(Str, Sub) =/= nomatch.
 
 unique(List) -> sets:to_list(sets:from_list(List)).
+
+prefixes(Str) ->
+    Len = length(Str),
+    [string:sub_string(Str, 1, I) || I <- lists:seq(1, Len)].

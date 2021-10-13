@@ -433,7 +433,6 @@ handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=non
 handle_get_request(#entity_get_rq{type=user, id=Id, pagination=none, context=
         #entity_context{type=group, id=_Group}, key=none}) ->
     % TODO
-    sweet_awareness:add({user, Id}, get(main)),
     #entity{type=user, fields=#{id => Id, color => 0}};
 
 

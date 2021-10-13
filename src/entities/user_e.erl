@@ -291,8 +291,7 @@ find(Name, Max) ->
 cache_name(User, Name) when is_list(Name) ->
     cache_name(User, unicode:characters_to_binary(Name));
 cache_name(User, Name) ->
-    % TODO: convert to cassandra.
-    
-    % erlastic_search:index_doc_with_id(<<"usernames">>, <<"group_local">>,
-    %     integer_to_binary(User), [{<<"name">>, Name}]).
-    [].
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "INSERT INTO user_search()",
+        values = [{users, Peers}]
+    }).
