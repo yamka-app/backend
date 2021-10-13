@@ -8,7 +8,6 @@
 -description("Packet encoding and decoding").
 
 -include("packet.hrl").
--define(COMPRESSION_THRESHOLD, 128). % used when sending only
 
 -export([reader/3, writer/5, clear_for_printing/1]).
 
@@ -110,7 +109,7 @@ writer(Socket, Packet, Proto, SupportsCompression, Pid) ->
     Data = encode(Packet, Proto),
 
     %% compress it if necessary
-    Compressed = (byte_size(Data) >= ?COMPRESSION_THRESHOLD) and SupportsCompression,
+    Compressed = (byte_size(Data) >= yamka_config:get(sweet_comp_threshold)) and SupportsCompression,
     CData = if
         Compressed -> zlib:gzip(Data);
         true -> Data

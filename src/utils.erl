@@ -10,11 +10,11 @@
 -export([swap_map/1, map_keys/1, intersect_lists/1,
          hash_token/1, hash_password/2,
          gen_snowflake/0, gen_invite/0, gen_avatar/0,
-         temp_file_name/0]).
--export([broadcast/2, safe_call/2, safe_call/3]).
+         temp_file_name/0, unique/1]).
+-export([broadcast/2]).
 -export([ms_since/1]).
 -export([list_diff/2, list_set/3]).
--export([filter_text/1, starts_with/2]).
+-export([filter_text/1, starts_with/2, split_username/1, split_mask_username/1]).
 
 %% broadcasts some value to a list of processes
 broadcast(_, []) -> ok;
@@ -115,19 +115,6 @@ gen_avatar() ->
 put_pd([]) -> ok;
 put_pd([{K,V}|T]) -> put(K, V), put_pd(T).
 
-safe_call(Fun, Args) -> safe_call(Fun, Args, []).
-safe_call(Fun, Args, PD) ->
-    Self = self(),
-    Wrapper = fun() ->
-            put_pd(PD),
-            Self ! {ok, self(), apply(Fun, Args)}
-        end,
-    {Pid, _} = spawn_monitor(Wrapper),
-    receive
-        {ok, Pid, Val} -> {ok, Val};
-        {'DOWN', _, process, Pid, Reason} -> {error, Reason}
-    end.
-
 %% time difference between now and past in ms
 ms_since(Time) -> erlang:convert_time_unit(erlang:monotonic_time() - Time, native, milli_seconds).
 
@@ -145,3 +132,15 @@ list_set(List, Where, What) ->
 filter_text(Text) -> string:trim(string:slice(Text, 0, 4096), both, "\r\n\t ").
 
 starts_with(Str, Sub) -> string:prefix(Str, Sub) =/= nomatch.
+
+unique(List) -> sets:to_list(sets:from_list(List)).
+
+split_username(Name) when length(Name) < 3 -> {"", ""};
+split_username(_Name=[A,B,C|Rest]) -> {[A,B,C], Rest}.
+
+split_mask_username(Name) ->
+    {FirstThree, Rest} = split_username(Name),
+    SlashEscaped = string:replace(Rest, "\\", "\\\\", all),
+    PercentEscaped = string:replace(SlashEscaped, "%", "\\%", all),
+    Escaped = string:replace(PercentEscaped, "_", "\\_", all),
+    {FirstThree, Escaped}.

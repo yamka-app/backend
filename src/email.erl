@@ -8,22 +8,21 @@
 -license("MPL-2.0").
 -description("The email gen_server").
 
--define(RELAY, "mail.yamka.app").
 -define(EMAIL_REGEX, "(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|\"(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21\\x23-\\x5b\\x5d-\\x7f]|\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])*\")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21-\\x5a\\x53-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])+)\\])").
 
 -export([is_valid/1]).
 -export([send_confirmation/2]).
--export([start/0, stop/1, start_link/1]).
+-export([start/0, stop/0, start_link/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -record(state, {password :: binary(), confirmation_template :: binary()}).
 send_confirmation(To, Code) -> gen_server:cast(?MODULE, {send_confirmation, To, Code}).
 
-stop(Name)       -> gen_server:call(Name, stop).
+stop()           -> gen_server:call(?MODULE, stop).
 start()          -> start_link(?MODULE).
 start_link(Name) -> gen_server:start_link({local, Name}, ?MODULE, [], []).
 init(_Args) ->
     logging:log("Email gen_server running (node ~p)", [node()]),
-    {ok, Confirm}  = file:read_file("/run/email_templates/email_confirmation.html"),
+    {ok, Confirm}  = file:read_file("/etc/yamka/email_templates/email_confirmation.html"),
     {ok, Password} = file:read_file("/run/secrets/smtp_pass"),
     {ok, #state{password=Password, confirmation_template=Confirm}}.
 
@@ -42,12 +41,13 @@ terminate(_Reason, _State) -> ok.
 code_change(_OldVsn, State, _Extra) -> {ok, State}.
 
 send_html({Text, Subj}, To, Pass) ->
-    gen_smtp_client:send({"noreply@" ++ ?RELAY, [To],
+    Relay = yamka_config:get(email_relay),
+    gen_smtp_client:send({"noreply@" ++ Relay, [To],
         "Subject: " ++ Subj ++ "\r\n"
         "Content-Type: text/html;\r\n"
         "\tcharset=UTF-8\r\n\r\n"
         ++ unicode:characters_to_binary(Text)},
-        [{relay, ?RELAY},
+        [{relay, yamka_config:get(email_relay)},
          {username, "noreply"},
          {password, Pass},
          {tls, always}]).

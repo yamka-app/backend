@@ -5,9 +5,8 @@
 -module(file_storage).
 -author("Yamka").
 -license("MPL-2.0").
--description("File storage manager. Assumes ?STORAGE_PATH points to a distributed NFS like Gluster").
+-description("File storage manager").
 
--define(STORAGE_PATH, "/data/brick1/gv0/file_storage/").
 -include_lib("cqerl/include/cqerl.hrl").
 % http://erlang.org/doc/man/file.html#type-file_info
 -record(file_info, {size, type, access, atime, mtime, ctime, mode, links, major_device, minor_device, inode, uid, gid}).
@@ -16,7 +15,7 @@
 -export([max_size/0, max_size_text/0]).
 
 %% determines the file name by its ID
-path_in_storage(Id) -> string:concat(?STORAGE_PATH, integer_to_list(Id)).
+path_in_storage(Id) -> string:concat(yamka_config:get(file_storage_path), integer_to_list(Id)).
 
 extract_size(Path) ->
     case file:read_file(Path) of

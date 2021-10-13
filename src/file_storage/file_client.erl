@@ -7,9 +7,8 @@
 -license("MPL-2.0").
 -description("File process. Sends and receives files. Depends on a \"normal client\" process").
 
--define(CHUNK_SIZE, 1024 * 4). % bytes
--include("packets/packet.hrl").
--include("entities/entity.hrl").
+-include("../packets/packet.hrl").
+-include("../entities/entity.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
 -export([client_init/2]).
@@ -30,16 +29,17 @@ recv_chunk(Handle, Length) ->
     end.
 
 send_chunk(Handle, Position, Reply) ->
-    {ok, Data} = file:read(Handle, ?CHUNK_SIZE),
-    send_packet(file_data_chunk_packet:make(Position, Data, Reply)),
+    ChunkSize = yamka_config:get(sweet_file_chunk_size),
+    {ok, Data} = file:read(Handle, ChunkSize),
+    sweet_main:send_packet(get(main), file_data_chunk_packet:make(Position, Data, Reply)),
     case byte_size(Data) of
-        ?CHUNK_SIZE -> send_chunk(Handle, Position + byte_size(Data), Reply);
-        _ -> send_packet(status_packet:make(stream_end, "File transfer finished", Reply))
+        ChunkSize -> send_chunk(Handle, Position + byte_size(Data), Reply);
+        _ -> sweet_main:send_packet(get(main), status_packet:make(stream_end, "File transfer finished", Reply))
     end.
 
 %% sends a file
-client_init({Socket, Protocol}, {send_file, Path, Reply}) ->
-    put(socket, Socket), put(protocol, Protocol),
+client_init(Main, {send_file, Path, Reply}) ->
+    put(main, Main),
 
     {ok, Handle} = file:open(Path, [read, binary]),
     send_chunk(Handle, 0, Reply),
@@ -50,35 +50,13 @@ client_init({Socket, Protocol}, {send_file, Path, Reply}) ->
 client_init({Socket, Protocol, Host, Cassandra}, {recv_file, Length, Name, EmojiName, Reply}) ->
     put(socket, Socket), put(protocol, Protocol), put(cassandra, Cassandra),
 
-    send_packet(status_packet:make(start_uploading, "Start uploading", Reply)),
+    sweet_main:send_packet(get(main), status_packet:make(start_uploading, "Start uploading", Reply)),
 
     Path = utils:temp_file_name(),
     {ok, Handle} = file:open(Path, [write, binary]),
     recv_chunk(Handle, Length),
     Id = file_storage:register_file(Path, Name, EmojiName),
-    send_packet(entities_packet:make([#entity{type=file, fields=file_e:get(Id)}], Reply)),
+    sweet_main:send_packet(get(main), entities_packet:make([#entity{type=file, fields=file_e:get(Id)}], Reply)),
 
     Host ! upload_fin,
     exit(normal).
-
-%% sends a packet
-send_packet(P) ->
-    SeqP = P#packet{seq=case P of
-        #packet{type=file_data_chunk, fields=#{position := Pos}} -> Pos;
-        _ -> 0
-    end},
-    logging:dbg("<--F ~p", [packet_iface:clear_for_printing(P)]),
-    spawn_monitor(packet_iface, writer, [
-        get(socket), SeqP,
-        get(protocol), false, self()
-    ]),
-    case SeqP of
-        #packet{type=file_data_chunk, seq=Seq} ->
-            receive
-                {sent, Seq} -> ok
-            end;
-        _ ->
-            receive
-                {sent, _} -> ok
-            end
-    end.

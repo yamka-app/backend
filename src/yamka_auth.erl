@@ -7,13 +7,11 @@
 -license("MPL-2.0").
 -description("Handles access tokens").
 
--define(TOKEN_TTL, 3600*24*365).
-
 -include("packets/packet.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
 -export([create_token/2, get_token/1, revoke_agent/1]).
--export([has_permission/1, assert_permission/2]).
+-export([has_permission/1, assert_permission/1]).
 -export([totp_secret/0, totp_verify/2]).
 -export([pass_verify/2]).
 
@@ -37,7 +35,7 @@ create_token(Permissions, AgentId) ->
     % write it to the database
     {ok, _} = cqerl:run_query(get(cassandra), #cql_query{
         statement = "INSERT INTO tokens (agent, hash, permissions) VALUES (?,?,?) "
-            "USING TTL " ++ integer_to_list(?TOKEN_TTL),
+            "USING TTL " ++ integer_to_list(yamka_config:get(token_ttl)),
         values    = [
             {agent, AgentId},
             {hash, TokenHash},
@@ -72,9 +70,9 @@ revoke_agent(A) ->
 has_permission(Perm) -> lists:member(Perm, get(perms)).
 
 %% "asserts" a permission
-assert_permission(Perm, {ScopeRef, Seq}) ->
-    {_, true} = {{ScopeRef,
-        status_packet:make(permission_denied, "Missing " ++ atom_to_list(Perm) ++ " token permission", Seq)},
+assert_permission(Perm) ->
+    {_, true} = {{if_failed,
+        status_packet:make(permission_denied, "Missing " ++ atom_to_list(Perm) ++ " token permission")},
         has_permission(Perm)}.
 
 %% creates a TOTP secret

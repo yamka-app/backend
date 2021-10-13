@@ -5,9 +5,8 @@
 -module(stats).
 -author("Yamka").
 -license("MPL-2.0").
--description("The main file").
+-description("Stats collection").
 
--define(INTERVAL, 30 * 1000).
 -include_lib("cqerl/include/cqerl.hrl").
 
 -export([stats/0, writer_start/1]).
@@ -16,7 +15,7 @@ stats() ->
     #{
         processes => erlang:system_info(process_count),
         atoms     => erlang:system_info(atom_count),
-        clients   => listeners:client_count(),
+        clients   => sweet_listener:client_count(),
         io        => erlang:statistics(io)
     }.
 
@@ -36,7 +35,7 @@ writer_start(Cassandra) ->
 writer() ->
     receive
         _ -> ok
-    after ? INTERVAL ->
+    after yamka_config:get(stat_interval) ->
         write_current()
     end,
     writer().

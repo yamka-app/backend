@@ -15,8 +15,6 @@
 -export([add_mention/3, forget_mentions/2, get_mentions/2]).
 -export([get_typing/1, set_typing/2, reset_typing/2]).
 
--define(TYPING_RESET_THRESHOLD, 15000).
-
 %% gets a channel by ID
 get(Id) ->
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
@@ -143,7 +141,8 @@ delete(Id) ->
 get_typing_filter([]) -> [];
 get_typing_filter([{_, {User, Time}}|T]) ->
     MsSince = utils:ms_since(Time),
-    if MsSince >= ?TYPING_RESET_THRESHOLD -> get_typing_filter(T);
+    Thres = yamka_config:get(typing_reset_threshold),
+    if MsSince >= Thres -> get_typing_filter(T);
        true -> [User|get_typing_filter(T)]
     end.
 get_typing(Id) -> get_typing_filter(ets:lookup(typing, Id)).

@@ -10,13 +10,13 @@
 -include("entity.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
--export([get/1, search/1, update/2, email_in_use/1, create/4, create/3, online/1]).
+-export([get/1, get/2, search/1, update/2, email_in_use/1, create/4, create/3, online/1]).
 -export([broadcast_status/1, broadcast_status/2]).
 -export([send_friend_rq/2, decline_friend_rq/2, accept_friend_rq/2, remove_friend/2, block/2, unblock/2]).
 -export([get_friends/1, get_pending_in/1, get_pending_out/1, get_blocked/1, get_groups/1]).
 -export([add_dm_channel/2, remove_dm_channel/1]).
 -export([start_email_confirmation/2, finish_email_confirmation/2]).
--export([find/2, cache_name/2]).
+-export([find/2, cache_name/2, delete_cached_name/1]).
 -export([get_note/2, set_note/3]).
 
 %% returns true if the user is currently connected
@@ -24,7 +24,7 @@ online(Id) -> length(ets:lookup(icpc_processes, Id)) > 0.
 
 %% broadcasts the user's status after they have logged in
 broadcast_status(Id) ->
-    #{status:=Status} = user_e:get(Id),
+    #{status:=Status} = user_e:get(Id, false),
     broadcast_status(Id, Status).
 broadcast_status(Id, Status) ->
     client:icpc_broadcast_to_aware(#entity{type=user, fields=#{id=>Id, status=>Status}}, [status]).
@@ -71,14 +71,15 @@ create(Name, EMail, Password, BotOwner) ->
 create(Name, EMail, Password) -> create(Name, EMail, Password, 0).
 
 %% gets a user by ID
-get(Id) ->
+get(Id) -> get(Id, true).
+get(Id, _QueryRelations=false) ->
     {ok, Rows} = cqerl:run_query(erlang:get(cassandra), #cql_query{
         statement = "SELECT * FROM users WHERE id=?",
         values    = [{id, Id}]
     }),
-    1 = cqerl:size(Rows),
-    Row = maps:from_list(cqerl:head(Rows)),
-    % insert default values
+    maps:from_list(cqerl:head(Rows));
+get(Id, _QueryRelations=true) ->
+    Row = get(Id, false),
     Vals = maps:merge(#{
         friends     => get_friends(Id),
         blocked     => get_blocked(Id),
@@ -119,9 +120,10 @@ search(NameTag) ->
         statement = "SELECT id FROM user_ids_by_name WHERE name=? AND tag=? ALLOW FILTERING",
         values    = [{name, Name}, {tag, Tag}]
     }),
-    1 = cqerl:size(Rows),
-    [{id, Id}] = cqerl:head(Rows),
-    Id.
+    case cqerl:head(Rows) of
+        [{id, Id}] -> {ok, Id};
+        [] -> {error, nouser}
+    end.
 
 %% updates a user record
 update(Id, Fields) ->
@@ -133,11 +135,24 @@ update(Id, Fields) ->
         statement = Statement,
         values    = [{id, Id}|Vals]
     }),
+    % update name publicity
+    PublicityUpdated = maps:is_key(public, Fields),
+    if
+        PublicityUpdated ->
+            #{name := ExistingName} = user_e:get(Id, false),
+            Public = maps:get(public, Fields),
+            if
+                Public -> cache_name(Id, ExistingName);
+                true -> ok
+            end;
+        true ->
+            delete_cached_name(Id)
+    end,
     % cache the name if it got updated
     NameUpdated = maps:is_key(name, Fields),
     if NameUpdated ->
         Name = maps:get(name, Fields),
-        #{groups := Groups, public := IsPublic} = user_e:get(Id),
+        #{groups := Groups, public := IsPublic} = user_e:get(Id, false),
         [group_e:cache_user_name(Group, Id, Name) || Group <- Groups],
         if IsPublic ->
             cache_name(Id, Name);
@@ -268,27 +283,34 @@ remove_dm_channel([_,_]=Peers) ->
         values = [{users, Peers}]
     }).
 
-find(Name, Max) when is_list(Name) ->
-    find(unicode:characters_to_binary(Name), Max);
 find(Name, Max) when Max > 5 ->
     find(Name, 5);
 find(Name, Max) ->
-    {ok, Response} = erlastic_search:search(<<"usernames">>, <<"global">>,
-      [{<<"query">>,
-        [{<<"bool">>, [
-          {<<"should">>, [
-           [{<<"query_string">>, [{<<"query">>, <<Name/binary, "*">>}]}]]},
-          {<<"minimum_should_match">>, 2}]}]},
-       {<<"size">>, Max}]),
+    {FirstThree, Rest} = utils:split_mask_username(Name),
+    Pattern = Rest ++ "%",
+    {ok, Result} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "SELECT id FROM user_name_search WHERE first_three=? AND rest LIKE ? LIMIT ?",
+        values = [
+            {first_three, FirstThree},
+            {rest, Pattern},
+            {'[limit]', Max}
+        ]
+    }),
+    [Id || [{id, Id}] <- cqerl:all_rows(Result)].
     
-    Hits = proplists:get_value(<<"hits">>, proplists:get_value(<<"hits">>, Response)),
-    [binary_to_integer(proplists:get_value(<<"_id">>, Hit)) || Hit <- Hits].
-    
-cache_name(User, Name) when is_list(Name) ->
-    cache_name(User, unicode:characters_to_binary(Name));
 cache_name(User, Name) ->
-    % Elassandra uses "upsert" operations for indexations,
-    % so we don't need to explicitly update/delete anything,
-    % just provide a new document with the same ID
-    erlastic_search:index_doc_with_id(<<"usernames">>, <<"group_local">>,
-        integer_to_binary(User), [{<<"name">>, Name}]).
+    {FirstThree, Rest} = utils:split_username(Name),
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "UPDATE user_names SET first_three=?, rest=? WHERE id=?",
+        values = [
+            {id, User},
+            {first_three, FirstThree},
+            {rest, Rest}
+        ]
+    }).
+
+delete_cached_name(Id) ->
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "DELETE FROM user_names WHERE id=?",
+        values = [{id, Id}]
+    }).

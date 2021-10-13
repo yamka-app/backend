@@ -17,8 +17,10 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -record(state, {}).
 
-%% TODO: buy a second server and make this function not static
-server_name() -> "hel1.yamka.app".
+server_name() ->
+    Domain = proplists:get_value(domain, inet:get_rc()),
+    {ok, Hostname} = inet:gethostname(),
+    Hostname ++ "." ++ Domain.
 
 create_session(K, U, C)  -> gen_server:call(?MODULE, {create_session, K, U, C}).
 get_users_and_states(C)  -> gen_server:call(?MODULE, {get_users_and_states, C}).
