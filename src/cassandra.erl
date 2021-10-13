@@ -19,7 +19,7 @@ select(Table, Columns, Where) ->
     {ok, Result} = cqerl:run_query(get(cassandra), #cql_query{
         statement = "SELECT " ++ lists:join(", ", Columns)
                 ++ " FROM " ++ Table
-                ++ " WHERE " ++ lists:join(" AND ", [Key ++ "=?" || Key <- WhereKeys]),
+                ++ " WHERE " ++ lists:join(" AND ", [atom_to_list(Key) ++ "=?" || Key <- WhereKeys]),
         values    = maps:to_list(Where)
     }),
 

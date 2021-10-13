@@ -20,14 +20,14 @@
 -export([get_note/2, set_note/3]).
 
 %% returns true if the user is currently connected
-online(Id) -> length(ets:lookup(icpc_processes, Id)) > 0.
+online(Id) -> sweet_owners:is_online(Id).
 
 %% broadcasts the user's status after they have logged in
 broadcast_status(Id) ->
     #{status:=Status} = user_e:get(Id, false),
     broadcast_status(Id, Status).
 broadcast_status(Id, Status) ->
-    client:icpc_broadcast_to_aware(#entity{type=user, fields=#{id=>Id, status=>Status}}, [status]).
+    sweet_awareness:notify({user, Id}, #entity{type=user, fields=#{id=>Id, status=>Status}}).
 
 %% checks if the specified E-Mail address is in use
 email_in_use(EMail) ->

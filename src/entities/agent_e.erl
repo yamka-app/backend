@@ -44,6 +44,5 @@ delete(Id) ->
     }).
 
 online(Id) ->
-    #{owner := User} = agent_e:get(Id),
-    AllClients = ets:lookup(icpc_processes, User),
-    length(lists:filter(fun({_, A, _}) -> A =:= Id end, AllClients)) > 0.
+   % TODO
+   false.

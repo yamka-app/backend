@@ -31,7 +31,7 @@ handle_call({add, {Type, Id}, MainProcess}, _From, State) ->
         values = [
             {node, node()},
             {pid, pid_to_list(MainProcess)},
-            {type, Type},
+            {type, maps:get(Type, ?REVERSE_ENTITY_MAP)},
             {id, Id}
         ]
     }),
@@ -44,7 +44,7 @@ handle_call({remove, {Type, Id}, MainProcess}, _From, State) ->
         values = [
             {node, node()},
             {pid, pid_to_list(MainProcess)},
-            {type, Type},
+            {type, maps:get(Type, ?REVERSE_ENTITY_MAP)},
             {id, Id}
         ]
     }),
@@ -62,11 +62,11 @@ handle_call({remove, MainProcess}, _From, State) ->
     logging:dbg("~p is now not aware of anything", [MainProcess]),
     {reply, ok, State};
 
-handle_call({notify, {TypeAtom, Id}, #entity{}=Entity}, _From, State) ->
+handle_call({notify, {Type, Id}, #entity{}=Entity}, _From, State) ->
     {ok, Result} = cqerl:run_query(State#state.cassandra, #cql_query{
         statement = "SELECT node FROM awareness_by_type_and_id WHERE type=? AND id=?",
         values = [
-            {type, maps:get(TypeAtom, ?REVERSE_ENTITY_MAP)},
+            {type, maps:get(Type, ?REVERSE_ENTITY_MAP)},
             {id, Id}
         ]
     }),
@@ -83,11 +83,11 @@ handle_call(purge, _From, State) ->
     logging:dbg("awareness purged", []),
     {reply, ok, State}.
 
-handle_cast({notify, {TypeAtom, Id}, #entity{}=Entity}, State) ->
+handle_cast({notify, {Type, Id}, #entity{}=Entity}, State) ->
     {ok, Result} = cqerl:run_query(State#state.cassandra, #cql_query{
         statement = "SELECT pid FROM awareness_by_type_and_id WHERE type=? AND id=? AND node=?",
         values = [
-            {type, maps:get(TypeAtom, ?REVERSE_ENTITY_MAP)},
+            {type, maps:get(Type, ?REVERSE_ENTITY_MAP)},
             {id, Id},
             {node, node()}
         ]

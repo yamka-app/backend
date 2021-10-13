@@ -16,7 +16,8 @@
 
 -export([init/1, handle_call/3, handle_cast/2]).
 -export([start_link/1, stop/0,
-         add/2, remove/2, remove/1, notify/2, purge/0]).
+         add/2, remove/2, remove/1, notify/2, purge/0,
+         is_online/1]).
 
 -record(state, {cassandra}).
 
@@ -63,9 +64,7 @@ handle_call({remove, MainProcess}, _From, State) ->
 handle_call({notify, Id, Entity}, _From, State) ->
     {ok, Result} = cqerl:run_query(State#state.cassandra, #cql_query{
         statement = "SELECT node FROM owners_by_id WHERE id=?",
-        values = [
-            {id, Id}
-        ]
+        values = [{id, Id}]
     }),
     Nodes = utils:unique([list_to_existing_atom(Node) || [{node, Node}] <- cqerl:all_rows(Result)]),
     [gen_server:cast({owner_server, Node}, {notify, Id, Entity}) || Node <- Nodes],
@@ -78,7 +77,15 @@ handle_call(purge, _From, State) ->
         values = [{node, node()}]
     }),
     logging:dbg("ownership purged", []),
-    {reply, ok, State}.
+    {reply, ok, State};
+
+handle_call({is_online, Id}, _From, State) ->
+    {ok, Result} = cqerl:run_query(State#state.cassandra, #cql_query{
+        statement = "SELECT count(pid) FROM owners_by_id WHERE id=?",
+        values = [{id, Id}]
+    }),
+    [{'system.count(pid)', Cnt}] = cqerl:head(Result),
+    {reply, Cnt >= 1, State}.
 
 handle_cast({notify, Id, Entity}, State) ->
     {ok, Result} = cqerl:run_query(State#state.cassandra, #cql_query{
@@ -122,3 +129,7 @@ notify(Id, Entity) -> gen_server:call(owner_server, {notify, Id, Entity}).
 %% Forgets all processes bound to this node
 -spec purge() -> ok.
 purge() -> gen_server:call(owner_server, purge).
+
+%% Determines if a user is online
+-spec is_online(integer()) -> boolean().
+is_online(Id) -> gen_server:call(owner_server, {is_online, Id}).

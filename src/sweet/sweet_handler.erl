@@ -11,15 +11,15 @@
 -include("../entities/entity.hrl").
 -include_lib("cqerl/include/cqerl.hrl").
 
--export([start/5]).
+-export([start/4]).
 
 %% asserts a connection state
 assert_state(Wanted) ->
-    {_, {ok, Wanted, _}} = {{get(scope), status_packet:make_invalid_state(Wanted)}, sweet_main:get_state(get(main))}.
+    {_, {ok, Wanted, _}} = {{if_failed, status_packet:make_invalid_state(Wanted)}, sweet_main:get_state(get(main))}.
 
 
 %% registers protocol information
-handle_packet(#packet{type = identification,
+handle_packet(#packet{type=identification,
                       fields = #{supports_comp := SupportsComp,
                                  protocol := Protocol}}) ->
     assert_state(awaiting_identification),
@@ -36,7 +36,7 @@ handle_packet(#packet{type = identification,
 
 
 %% acquires an access token
-handle_packet(#packet{type = login,
+handle_packet(#packet{type=login,
                       fields = #{email := Email,
                                  password := SentPass,
                                  perms := Permissions,
@@ -73,7 +73,7 @@ handle_packet(#packet{type = login,
 
 
 %% completes authentication when using 2FA
-handle_packet(#packet{type = mfa_secret,
+handle_packet(#packet{type=mfa_secret,
                       fields = #{secret := Token}}) ->
     assert_state(awaiting_mfa),
 
@@ -97,7 +97,7 @@ handle_packet(#packet{type = mfa_secret,
 
 
 %% creates an account
-handle_packet(#packet{type = signup,
+handle_packet(#packet{type=signup,
                       fields = #{email := EMail,
                                  password := SentPass,
                                  name := Name,
@@ -430,10 +430,7 @@ handle_packet(#packet{type=ping,
 handle_packet(_) ->
     status_packet:make(unknown_packet, "Unknown packet type").
 
-start(Main, _, _, Cassandra, Packet) ->
-    % thanks to José M at https://stackoverflow.com/a/65711977/8074626
-    % for this cool match error handling technique
-
+start(Main, Id, Cassandra, Packet) ->
     % put some things into the process dictionary
     % hey, pure functional programming can be quite cool... sometimes...
     % but I like Erlang for having an option to have something like this
@@ -441,8 +438,10 @@ start(Main, _, _, Cassandra, Packet) ->
     put(cassandra, Cassandra),
     put(main, Main),
     put(seq, Packet#packet.seq),
+    put(id, Id),
 
-    % handle the packet and catch errors in doing so
+    % thanks to José M at https://stackoverflow.com/a/65711977/8074626
+    % for this cool match error handling technique
     Result = try
         handle_packet(Packet)
     of
@@ -453,13 +452,16 @@ start(Main, _, _, Cassandra, Packet) ->
 
     case Result of
         stop ->
-            sweet_main:stop(self());
+            sweet_main:stop(Main);
         
         Packets when is_list(Packets) ->
-            [sweet_main:send_packet(Main, P#packet{reply=get(seq)}) || P <- Packets];
+            [if is_record(P, packet) ->
+                    sweet_main:send_packet(Main, P#packet{reply=get(seq)});
+                true -> ok
+             end || P <- Packets];
 
-        #packet{}=Packet ->
-            sweet_main:send_packet(Main, Packet#packet{reply=get(seq)});
+        #packet{}=RepPacket ->
+            sweet_main:send_packet(Main, RepPacket#packet{reply=get(seq)});
 
         _ -> ok
     end.

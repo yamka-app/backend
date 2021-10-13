@@ -2,6 +2,8 @@
 %%% License, v. 2.0. If a copy of the MPL was not distributed with this
 %%% file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+%%% TODO: make this a gen_server
+
 -module(sweet_main).
 -author("Yamka").
 -license("MPL-2.0").
@@ -29,7 +31,8 @@
          ratelimit/2, ratelimit/3, get_state/1,
          route_to_aware/2, route_to_aware/3,
          route_to_owners/2, route_to_owners/3,
-         get_file_recv_pid/1, set_file_recv_pid/2]).
+         get_file_recv_pid/1, set_file_recv_pid/2,
+         get_user_info/1]).
 
 spawn_helper(encoder, Socket, Setup={_,_}) -> spawn_monitor(sweet_encoder, start, [self(), Socket, Setup]);
 spawn_helper(decoder, Socket, Proto) -> spawn_monitor(sweet_decoder, start, [self(), Socket, Proto]).
@@ -75,6 +78,7 @@ loop(State) ->
         socket = Socket,
         cassandra = Cassandra,
         conn_state = ConnState,
+        user_info = UserInfo,
         mfa_state = MfaState,
         proto_ver = ProtoVer,
         comp = SupportsCompression,
@@ -109,7 +113,11 @@ loop(State) ->
         % handle packets decoded by the decoder
         {packet, DecPid, Packet} ->
             logging:dbg("--> ~p", [Packet]),
-            spawn_monitor(sweet_handler, start, [self(), ConnState, ProtoVer, Cassandra, Packet]),
+            Id = case UserInfo of
+                {Val, _, _} -> Val;
+                _ -> undefined
+            end,
+            spawn(sweet_handler, start, [self(), Id, Cassandra, Packet]),
             loop(State);
 
         % switch the state (and possibly the protocol version) of the protocol processes when the handler asks for it
@@ -123,8 +131,9 @@ loop(State) ->
             });
         {switch_state, _From, awaiting_mfa, NewMfa} ->
             loop(State#state{conn_state = awaiting_mfa, mfa_state = NewMfa});
-        {switch_state, _From, normal, UserInfo} ->
-            loop(State#state{conn_state = normal, user_info = UserInfo});
+        {switch_state, _From, normal, {Id,_,_}=NewUserInfo} ->
+            sweet_owners:add(Id, self()),
+            loop(State#state{conn_state = normal, user_info = NewUserInfo});
         {switch_state, _From, NewState} ->
             loop(State#state{conn_state = NewState});
 
@@ -166,6 +175,11 @@ loop(State) ->
         % sets the file receiver PID
         {set_recv, _From, Pid} ->
             loop(State#state{file_recv_pid=Pid});
+
+        % gets user info
+        {get_user_info, From} ->
+            From ! {result, self(), UserInfo},
+            loop(State);
 
         % shutdown when asked
         {stop, _From} ->
@@ -215,8 +229,8 @@ ratelimit(Pid, Name) ->
 ratelimit(Pid, Name, Times) ->
     Pid ! {ratelimit, self(), Name, Times},
     receive
-        {result, Pid, Result} -> {ok, Result}
-    after 100 ->
+        {result, Pid, Result} -> Result
+    after 1000 ->
         {error, timeout}
     end.
 
@@ -225,7 +239,7 @@ get_state(Pid) ->
     Pid ! {get_state, self()},
     receive
         {result, Pid, Conn, Mfa} -> {ok, Conn, Mfa}
-    after 100 ->
+    after 1000 ->
         {error, timeout}
     end.
 
@@ -234,7 +248,16 @@ get_file_recv_pid(Pid) ->
     Pid ! {get_recv, self()},
     receive
         {result, Pid, RPid} -> {ok, RPid}
-    after 100 ->
+    after 1000 ->
+        {error, timeout}
+    end.
+
+%% gets the file receiver PID
+get_user_info(Pid) ->
+    Pid ! {get_user_info, self()},
+    receive
+        {result, Pid, UI} -> UI
+    after 1000 ->
         {error, timeout}
     end.
 

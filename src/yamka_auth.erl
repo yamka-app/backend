@@ -67,7 +67,9 @@ revoke_agent(A) ->
     }).
 
 %% checks whether the client has a permission flag set
-has_permission(Perm) -> lists:member(Perm, get(perms)).
+has_permission(Perm) ->
+    {_, _, Perms} = sweet_main:get_user_info(get(main)),
+    lists:member(Perm, Perms).
 
 %% "asserts" a permission
 assert_permission(Perm) ->
