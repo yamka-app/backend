@@ -100,45 +100,37 @@ resolve_invite(Code) ->
         [{group, Id}] -> {ok, Id}
     end.
 
-find_users(Id, Name, Max) when is_list(Name) ->
-    find_users(Id, unicode:characters_to_binary(Name), Max);
 find_users(Id, Name, Max) when Max > 5 ->
     find_users(Id, Name, 5);
 find_users(Id, Name, Max) ->
-    % TODO: convert to cassandra
+    {FirstThree, Rest} = utils:split_mask_username(Name),
+    Pattern = Rest ++ "%",
+    {ok, Result} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "SELECT id FROM group_user_name_search WHERE group=? AND first_three=? AND rest LIKE ? LIMIT ?",
+        values = [
+            {group, Id},
+            {first_three, FirstThree},
+            {rest, Pattern},
+            {'[limit]', Max}
+        ]
+    }),
+    [User || [{id, User}] <- cqerl:all_rows(Result)].
 
-    % IdStr = integer_to_binary(Id),
-    % %
-    % {ok, Response} = erlastic_search:search(<<"usernames">>, <<"group_local">>,
-    %   [{<<"query">>,
-    %     [{<<"bool">>, [
-    %       {<<"should">>, [
-    %        [{<<"term">>, [{<<"group">>, IdStr}]}],
-    %        [{<<"query_string">>, [{<<"query">>, <<Name/binary, "*">>}]}]]},
-    %       {<<"minimum_should_match">>, 2}]}]},
-    %    {<<"size">>, Max}]),
-    %
-    % Hits = proplists:get_value(<<"hits">>, proplists:get_value(<<"hits">>, Response)),
-    % [binary_to_integer(proplists:get_value(<<"_id">>, Hit)) || Hit <- Hits].
-    [].
-
-cache_user_name(Id, User, Name) when is_list(Name) ->
-    cache_user_name(Id, User, unicode:characters_to_binary(Name));
 cache_user_name(Id, User, Name) ->
-    % TODO: convert to cassandra
-
-    % erlastic_search:index_doc_with_id(<<"usernames">>, <<"group_local">>,
-    %   integer_to_binary(User),
-    %   [{<<"name">>, Name},
-    %    {<<"group">>, integer_to_binary(Id)}]).
-    ok.
+    {FirstThree, Rest} = utils:split_username(Name),
+    {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
+        statement = "UPDATE group_user_names SET first_three=?, rest=? WHERE group=? AND id=?",
+        values = [
+            {group, Id},
+            {id, User},
+            {first_three, FirstThree},
+            {rest, Rest}
+        ]
+    }).
 
 find_emoji(Group, Name, Max) when Max > 10 ->
     find_emoji(Group, Name, 10);
 find_emoji(Group, Name, Max) ->
-    % listen, I tried using Elasticsearch for this
-    % but it just refused to work
-    % we shouldn't have much emoji anyways
     All = all_emoji(Group),
     Filtered = lists:filter(fun(#{emoji_name := E}) -> utils:starts_with(E, Name) end, All),
     Ids = lists:map(fun(#{id := Id}) -> Id end, Filtered),
