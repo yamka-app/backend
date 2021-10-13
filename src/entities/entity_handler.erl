@@ -247,7 +247,7 @@ handle_entity(#entity{type=message, fields=#{id:=Id, sender:=0}}) ->
 %% creates a group
 handle_entity(#entity{type=group, fields=#{id:=0, name:=Name}}) ->
     yamka_auth:assert_permission(create_groups),
-    #{name := Username} = user_e:get(get(id)),
+    #{name := Username} = user_e:get(get(id), false),
     {Id, Everyone} = group_e:create(Name, get(id)),
     role_e:add(Everyone, get(id)),
     group_e:cache_user_name(Id, get(id), Username),

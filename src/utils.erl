@@ -14,7 +14,7 @@
 -export([broadcast/2]).
 -export([ms_since/1]).
 -export([list_diff/2, list_set/3]).
--export([filter_text/1, starts_with/2, prefixes/1]).
+-export([filter_text/1, starts_with/2, split_username/1, split_mask_username/1]).
 
 %% broadcasts some value to a list of processes
 broadcast(_, []) -> ok;
@@ -135,6 +135,12 @@ starts_with(Str, Sub) -> string:prefix(Str, Sub) =/= nomatch.
 
 unique(List) -> sets:to_list(sets:from_list(List)).
 
-prefixes(Str) ->
-    Len = length(Str),
-    [string:sub_string(Str, 1, I) || I <- lists:seq(1, Len)].
+split_username(Name) when length(Name) < 3 -> {"", ""};
+split_username(_Name=[A,B,C|Rest]) -> {[A,B,C], Rest}.
+
+split_mask_username(Name) ->
+    {FirstThree, Rest} = split_username(Name),
+    SlashEscaped = string:replace(Rest, "\\", "\\\\", all),
+    PercentEscaped = string:replace(SlashEscaped, "%", "\\%", all),
+    Escaped = string:replace(PercentEscaped, "_", "\\_", all),
+    {FirstThree, Escaped}.

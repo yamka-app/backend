@@ -186,7 +186,7 @@ handle_packet(#packet{type = contacts_manage,
     yamka_auth:assert_permission(edit_relationships),
 
     % check if that user has, in fact, sent a friend request
-    #{pending_in := Requests} = user_e:get(get(id)),
+    #{pending_in := Requests} = user_e:get(get(id), false),
     {_, true} = {{if_failed, status_packet:make(contact_action_not_applicable, "This user has not issued a friend request")},
             lists:member(Id, Requests)},
             
@@ -343,7 +343,7 @@ handle_packet(#packet{type=invite_resolve,
     case Add of
         false -> ok;
         true ->
-            #{name := SelfName} = user_e:get(get(id)),
+            #{name := SelfName} = user_e:get(get(id), false),
             #{everyone_role := Everyone} = group_e:get(Id),
             role_e:add(Everyone, get(id)),
             group_e:cache_user_name(Id, get(id), SelfName),

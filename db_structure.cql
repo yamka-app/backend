@@ -252,11 +252,10 @@ CREATE TABLE yamkadb.blocked (
 
 CREATE TABLE yamkadb.user_names (
     id bigint,
-    public boolean,
     first_three text,
     rest text,
-    PRIMARY KEY (id, public, first_three)
-) WITH CLUSTERING ORDER BY (public ASC, first_three ASC)
+    PRIMARY KEY (id, first_three)
+) WITH CLUSTERING ORDER BY (first_three ASC)
     AND bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'ALL'}
     AND comment = ''
@@ -273,11 +272,11 @@ CREATE TABLE yamkadb.user_names (
     AND speculative_retry = '99.0PERCENTILE';
 
 CREATE MATERIALIZED VIEW yamkadb.user_name_search AS
-    SELECT first_three, rest, id, public
+    SELECT first_three, rest, id
     FROM yamkadb.user_names
-    WHERE id IS NOT null AND public = true AND first_three IS NOT null AND rest IS NOT null
-    PRIMARY KEY (first_three, rest, id, public)
-    WITH CLUSTERING ORDER BY (rest ASC, id ASC, public ASC)
+    WHERE id IS NOT null AND first_three IS NOT null AND rest IS NOT null
+    PRIMARY KEY (first_three, rest, id)
+    WITH CLUSTERING ORDER BY (rest ASC, id ASC)
     AND bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'ALL'}
     AND comment = ''
@@ -361,19 +360,15 @@ CREATE TABLE yamkadb.users (
     id bigint PRIMARY KEY,
     ava_file bigint,
     badges set<int>,
-    blocked set<bigint>,
     bot_owner bigint,
     email text,
     email_confirmed boolean,
     fav_color bigint,
-    friends set<bigint>,
-    groups set<bigint>,
     mfa_secret blob,
     name text,
     password blob,
-    pending_in set<bigint>,
-    pending_out set<bigint>,
     profile_color int,
+    public boolean,
     salt blob,
     status int,
     status_text text,
