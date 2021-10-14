@@ -1,4 +1,4 @@
-FROM erlang:22
+FROM erlang:24
 RUN mkdir /yamkabackend
 WORKDIR /yamkabackend
 COPY ./ ./

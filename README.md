@@ -3,8 +3,8 @@
 <img src="promo/logo_color_on_transparency.png" alt="yamka logo" width="256">
 
 ![Top language](https://img.shields.io/github/languages/top/yamka-app/backend)
+![OTP 24](https://img.shields.io/badge/OTP%20version-24-red)
 ![License](https://img.shields.io/github/license/yamka-app/backend)
-![Platforms](https://img.shields.io/badge/platform-linux%20%7C%20windows%20%7C%20macos%20%7C%20freebsd-blueviolet)
 ![Last commit](https://img.shields.io/github/last-commit/yamka-app/backend)
 ![Status](https://img.shields.io/uptimerobot/status/m788461709-79464d516b1ef3af81a20454)
 ![Uptime (7 days)](https://img.shields.io/uptimerobot/ratio/7/m788461709-79464d516b1ef3af81a20454)
