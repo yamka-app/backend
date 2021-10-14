@@ -42,14 +42,6 @@ Required Docker secrets:
 
 Tweak the paths to these secrets in `docker-compose.yml`.
 
-## Control
-The `admin` module provides some functions you can call from the shell:
-  - `admin:powerup/0` starts this instance, begins accepting Sweet connections and doing other stuff
-  - `admin:powerup/1` starts the instance but listens to the port provided as the argument to this function instead of the default one (1746).
-  - `admin:powerdown/0` stops this instance, stops accepting Sweet connections, etc.
-  - `admin:seed_nodes/1` with a `list(atom())` as its argument connects to other nodes in the cluster
-  - `stats:stats/0` prints some stats
-
 ## Configuration
 `src/yamkabackend.app.src`, key `env`:
   - `sweet_port`: Sweet (main protocol) port (TCP). Remember to open this port in the firewall if using one
