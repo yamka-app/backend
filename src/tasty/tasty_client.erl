@@ -48,7 +48,7 @@ dec_handler(_, <<1>>) -> drop;
 dec_handler(_, <<2>>) -> ok;
 
 dec_handler(_, _) ->
-    logging:warn("Invalid packet head (possble decryption failure?)", []),
+    lager:warning("Invalid packet head (possble decryption failure?)", []),
     drop.
 
 %% checks voice data packet limits
@@ -82,7 +82,7 @@ controller_loop(Session={SId, Key, _, _, _}, Src={_,_}, Timeouts={SpeakTimeout, 
                 %     Encrypted = enc_chunk(Data, Key),
                 %     tasty_listener ! {send, Src, Encrypted};
                 drop ->
-                    logging:log("Dropping ~p", [SId]),
+                    lager:info("Dropping ~p", [SId]),
                     tasty:unregister_user(SId),
                     exit(normal);
                 _ -> ok
@@ -91,7 +91,7 @@ controller_loop(Session={SId, Key, _, _, _}, Src={_,_}, Timeouts={SpeakTimeout, 
         {broadcast, P} ->
             tasty_listener ! {send, Src, enc_chunk(P, Key)};
         timeout ->
-            logging:log("Dropping ~p (timed out)", [SId]),
+            lager:info("Dropping ~p (timed out)", [SId]),
             tasty:unregister_user(SId),
             exit(normal)
     end,

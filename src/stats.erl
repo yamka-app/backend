@@ -9,7 +9,7 @@
 
 -include_lib("cqerl/include/cqerl.hrl").
 
--export([stats/0, writer_start/1]).
+-export([start_link/1, stats/0, writer_start/1]).
 
 stats() ->
     #{
@@ -20,7 +20,7 @@ stats() ->
     }.
 
 write_current() ->
-    logging:log("writing current stats", []),
+    lager:info("writing current stats", []),
 
     #{clients := Clients} = stats(),
     {ok, _} = cqerl:run_query(get(cassandra), #cql_query{
@@ -28,7 +28,10 @@ write_current() ->
         values    = [{node, node()}, {clients, Clients}]
     }).
 
+start_link(Cassandra) -> {ok, spawn_link(?MODULE, writer_start, [Cassandra])}.
+
 writer_start(Cassandra) ->
+    lager:info("Stat logger started", []),
     put(cassandra, Cassandra),
     writer().
 

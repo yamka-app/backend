@@ -89,30 +89,30 @@ loop(State) ->
     receive
         % restart the decoder if it fails
         {'DOWN', DecRef, process, DecPid, Reason} ->
-            logging:err("Decoder down (~p)", [Reason]),
+            lager:error("Decoder down (~p)", [Reason]),
             case ratelimit:hit(decoder_respawn) of
                 1 ->
                     self() ! {transmit, self(), status_packet:make(packet_parsing_error, "Packet parsing error")},
                     loop(State#state{decoder = spawn_helper(decoder, Socket, ProtoVer)});
                 0 ->
-                    logging:err("Decoder respawn rate limit reached", []),
+                    lager:error("Decoder respawn rate limit reached", []),
                     exit(respawn_limit_reached)
             end;
 
         % restart the encoder if it fails
         {'DOWN', EncRef, process, EncPid, Reason} ->
-            logging:err("Encoder down (~p)", [Reason]),
+            lager:error("Encoder down (~p)", [Reason]),
             case ratelimit:hit(decoder_respawn) of
                 1 ->
                     loop(State#state{encoder = spawn_helper(encoder, Socket, {ProtoVer, SupportsCompression})});
                 0 ->
-                    logging:err("Encoder respawn rate limit reached", []),
+                    lager:error("Encoder respawn rate limit reached", []),
                     exit(respawn_limit_reached)
             end;
 
         % handle packets decoded by the decoder
         {packet, DecPid, Packet} ->
-            logging:dbg("--> ~p", [Packet]),
+            lager:debug("--> ~p", [Packet]),
             Id = case UserInfo of
                 {Val, _, _} -> Val;
                 _ -> undefined
@@ -140,7 +140,7 @@ loop(State) ->
         % send packets when asked by a packet handler or another main process
         {transmit, _From, Packet} ->
             Seqd = Packet#packet{seq=Seq + 1}, % write seq
-            logging:dbg("<-- ~p", [Seqd]),
+            lager:debug("<-- ~p", [Seqd]),
             EncPid ! {packet, self(), Seqd},
             loop(State#state{seq=Seq + 1});
 
@@ -187,7 +187,7 @@ loop(State) ->
             ok;
 
         Unknown ->
-            logging:warn("Unknown sweet_main request: ~p", [Unknown]),
+            lager:warning("Unknown sweet_main request: ~p", [Unknown]),
             loop(State)
     end.
 

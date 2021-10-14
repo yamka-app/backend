@@ -35,7 +35,7 @@ handle_call({add, {Type, Id}, MainProcess}, _From, State) ->
             {id, Id}
         ]
     }),
-    logging:dbg("~p is now aware of ~p", [MainProcess, {Type, Id}]),
+    lager:debug("~p is now aware of ~p", [MainProcess, {Type, Id}]),
     {reply, ok, State};
 
 handle_call({remove, {Type, Id}, MainProcess}, _From, State) ->
@@ -48,7 +48,7 @@ handle_call({remove, {Type, Id}, MainProcess}, _From, State) ->
             {id, Id}
         ]
     }),
-    logging:dbg("~p is no longer aware of ~p", [MainProcess, {Type, Id}]),
+    lager:debug("~p is no longer aware of ~p", [MainProcess, {Type, Id}]),
     {reply, ok, State};
 
 handle_call({remove, MainProcess}, _From, State) ->
@@ -59,7 +59,7 @@ handle_call({remove, MainProcess}, _From, State) ->
             {pid, pid_to_list(MainProcess)}
         ]
     }),
-    logging:dbg("~p is now not aware of anything", [MainProcess]),
+    lager:debug("~p is now not aware of anything", [MainProcess]),
     {reply, ok, State};
 
 handle_call({notify, {Type, Id}, #entity{}=Entity}, _From, State) ->
@@ -72,7 +72,7 @@ handle_call({notify, {Type, Id}, #entity{}=Entity}, _From, State) ->
     }),
     Nodes = utils:unique([list_to_existing_atom(Node) || [{node, Node}] <- cqerl:all_rows(Result)]),
     [gen_server:cast({awareness_server, Node}, {notify, Entity}) || Node <- Nodes],
-    logging:dbg("broadcasted ~p to ~p nodes", [Entity, length(Nodes)]),
+    lager:debug("broadcasted ~p to ~p nodes", [Entity, length(Nodes)]),
     {reply, ok, State};
 
 handle_call(purge, _From, State) ->
@@ -80,7 +80,7 @@ handle_call(purge, _From, State) ->
         statement = "DELETE FROM awareness WHERE node=?",
         values = [{node, node()}]
     }),
-    logging:dbg("awareness purged", []),
+    lager:debug("awareness purged", []),
     {reply, ok, State}.
 
 handle_cast({notify, {Type, Id}, #entity{}=Entity}, State) ->

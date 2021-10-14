@@ -33,9 +33,9 @@ parse_image(Path) ->
         {ok, Preview} ->
             case extract_size(Path) of
                 {ok, {W, H}} -> {lists:flatten(io_lib:format("~px~p", [W, H])), Preview};
-                {error, SizeErr} -> logging:log("size detection error: ~p", [SizeErr]), {"", Preview}
+                {error, SizeErr} -> lager:info("size detection error: ~p", [SizeErr]), {"", Preview}
             end;
-        {error, HashErr} -> logging:log("blurhash error: ~p", [HashErr]), {"", ""}
+        {error, HashErr} -> lager:info("blurhash error: ~p", [HashErr]), {"", ""}
     end.
 
 %% moves a file into the storage path and registers it in the DB

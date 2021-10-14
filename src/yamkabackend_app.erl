@@ -8,53 +8,18 @@
 -license("MPL-2.0").
 -description("The main file").
 
--export([powerup/1, powerdown/0]).
--export([start/2, stop/1, app_worker/0]).
+-export([start/2, stop/1]).
 
-powerup(Port) ->
+start(_StartType, _StartArgs) ->
     % connect to the Cassandra cluster
+    Addr = yamka_config:get(cassandra),
     {ok, Password} = file:read_file("/run/secrets/cassandra_password"),
-    {ok, Cassandra} = cqerl:get_client(yamka_config:get(cassandra), [
+    {ok, Cassandra} = cqerl:get_client(Addr, [
         {auth, {cqerl_auth_plain_handler, [{"yamkadb", Password}]}},
         {keyspace, "yamkadb"}
     ]),
-    logging:log("Connected to the Cassandra node at ~p", [yamka_config:get(cassandra)]),
 
-    % start protocol listeners
-    tasty_sup:start_link(),
-    sweet_listener:start(Cassandra, Port),
-    {ok, _} = sweet_awareness:start_link(Cassandra),
-    {ok, _} = sweet_owners:start_link(Cassandra),
-    sweet_awareness:purge(),
-    sweet_owners:purge(),
-
-    % start stat logger
-    register(stat_logger, spawn(stats, writer_start, [Cassandra])),
-    ok.
-
-powerdown() ->
-    stat_logger ! {'EXIT', self(), normal},
-    unregister(stat_logger),
-    sweet_listener:stop(),
-    ok.
-
-app_worker() ->
-    app_worker().
-
-start(_StartType, _StartArgs) ->
-    sync:go(),
-
-    {ok, _} = logging:start(),
-    {ok, _} = email:start(),
-
-    admin:powerup(),
-
-    {ok, spawn(?MODULE, app_worker, [])}.
+    yamkabackend_sup:start_link([Cassandra]).
 
 stop(_State) ->
-    powerdown(),
-    logging:stop(),
-    email:stop(),
-    sweet_awareness:stop(),
-    sweet_owners:stop(),
     ok.

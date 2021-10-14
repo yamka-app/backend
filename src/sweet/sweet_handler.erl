@@ -360,7 +360,7 @@ handle_packet(#packet{type=voice_join,
     {_, {ok, 1}} = {{if_failed, status_packet:make(rate_limiting, "Rate limiting")}, sweet_main:ratelimit(get(main), voice)},
     Session = tasty:create_session(Key, get(id), Chan),
     Server = tasty:server_name(),
-    logging:log("Redirecting voice client to ~p", [Server]),
+    lager:info("Redirecting voice client to ~p", [Server]),
     voice_join_packet:make(Session, Server);
 
 

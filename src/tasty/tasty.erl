@@ -38,7 +38,7 @@ init(_Args) ->
     ets:new(sessions,      [set, private, named_table]),
     ets:new(srcs,          [set, private, named_table]),
     ets:new(channel_users, [bag, private, named_table]),
-    logging:log("Tasty gen_server running (node ~p)", [node()]),
+    lager:info("Tasty gen_server running (node ~p)", [node()]),
     {ok, #state{}}.
 
 broadcast_connected(Channel) ->

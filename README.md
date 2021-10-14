@@ -12,7 +12,7 @@
 
 ## Structure
 This project consists of three main parts, all of which are open-source, distributed and horizontally scalable:
-  - Custom code in the Erlang programming language
+  - Custom code in the Erlang programming language (Erlang/OTP version 24)
   - Database storage and search managed by Scylla, a faster drop-in alternative to Cassandra
   - User-uploaded file storage managed by GlusterFS
 

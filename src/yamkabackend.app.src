@@ -6,7 +6,7 @@
  [{description, "Erlang Yamka backend"},
   {vsn, "0.0.1"},
   {mod, {yamkabackend_app, []}},
-  {applications, [kernel, stdlib, cqerl, pot, png]},
+  {applications, [kernel, stdlib, cqerl, pot, png, lager]},
 
   {env, [
     {sweet_port, 1746},

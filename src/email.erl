@@ -12,17 +12,15 @@
 
 -export([is_valid/1]).
 -export([send_confirmation/2]).
--export([start/0, stop/0, start_link/1]).
+-export([start_link/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -record(state, {password :: binary(), confirmation_template :: binary()}).
 send_confirmation(To, Code) -> gen_server:cast(?MODULE, {send_confirmation, To, Code}).
 
-stop()           -> gen_server:call(?MODULE, stop).
-start()          -> start_link(?MODULE).
-start_link(Name) -> gen_server:start_link({local, Name}, ?MODULE, [], []).
+start_link() -> gen_server:start_link({local, email}, ?MODULE, [], []).
 init(_Args) ->
-    logging:log("Email gen_server running (node ~p)", [node()]),
-    {ok, Confirm}  = file:read_file("/etc/yamka/email_templates/email_confirmation.html"),
+    lager:info("Email gen_server running (node ~p)", [node()]),
+    {ok, Confirm} = file:read_file("/etc/yamka/email_templates/email_confirmation.html"),
     {ok, Password} = file:read_file("/run/secrets/smtp_pass"),
     {ok, #state{password=Password, confirmation_template=Confirm}}.
 

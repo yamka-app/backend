@@ -3,64 +3,48 @@
 %%% file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 -module(sweet_listener).
+-behaviour(gen_server).
 -author("Yamka").
 -license("MPL-2.0").
 -description("Accepts TLS clients").
 
--export([client_count/0, stop/0, start/2]).
--export([setup/3, acceptor_loop/1]).
+-export([start_link/1, client_count/0]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, acceptor_loop/1]).
 
-start(Cassandra, Port) ->
-    TlsConfig = {
-        "/run/secrets/tls_fullchain",
-        "/run/secrets/tls_fullchain",
-        "/run/secrets/tls_privkey"
-    },
-    register(sweet_listener, spawn(?MODULE, setup, [Cassandra, Port, TlsConfig])).
+-record(state, {cassandra, listen_socket}).
 
-stop() ->
-    sweet_listener ! {stop, self()},
-    unregister(sweet_listener).
+acceptor_loop(ListenSocket) ->
+    {ok, Socket} = ssl:transport_accept(ListenSocket),
+    sweet_listener ! {new_client, Socket},
+    acceptor_loop(ListenSocket).
 
-setup(Cassandra, Port, {CertPath, CaCertPath, KeyPath}) ->
-    % listen for new clients
-    {ok, ListenSocket} = ssl:listen(Port, [
-        {certfile,   CertPath},
-        {cacertfile, CaCertPath},
-        {keyfile,    KeyPath},
+start_link(Cassandra) -> gen_server:start_link({local, sweet_listener}, ?MODULE, Cassandra, []).
+
+init(Cassandra) ->
+    {ok, ListenSocket} = ssl:listen(yamka_config:get(sweet_port), [
+        {certfile,   "/run/secrets/tls_fullchain"},
+        {cacertfile, "/run/secrets/tls_fullchain"},
+        {keyfile,    "/run/secrets/tls_privkey"},
         {verify,     verify_none},
         {reuseaddr,  true},
         {versions,   ['tlsv1.2', 'tlsv1.3']},
         {active,     false}
     ]),
     spawn_link(?MODULE, acceptor_loop, [ListenSocket]),
-    logging:log("Sweet listener running (port ~p)", [Port]),
-    loop(Cassandra).
+    {ok, #state{cassandra=Cassandra, listen_socket=ListenSocket}}.
 
-acceptor_loop(ListenSocket) ->
-    {ok, Socket} = ssl:transport_accept(ListenSocket),
-    sweet_listener ! {new_client, self(), Socket},
-    acceptor_loop(ListenSocket).
+handle_call(_, _, State) -> {reply, unknown_request, State}.
+handle_cast(_, State) -> {noreply, State}.
 
-loop(Cassandra) ->
-    receive
-        % start a main process when a client arrives
-        {new_client, _From, Socket} ->
-            logging:dbg("Client connected", []),
-            spawn_monitor(sweet_main, start, [Socket, Cassandra]),
-            loop(Cassandra);
+handle_info({new_client, Socket}, State) ->
+    lager:debug("client connected", []),
+    sweet_dyn_sup:add_client(Socket),
+    {noreply, State};
 
-        % clean the state up when a main process dies
-        {'DOWN', _, process, Pid, _} ->
-            logging:log("Main client process died", []),
-            sweet_awareness:remove(Pid),
-            sweet_owners:remove(Pid),
-            loop(Cassandra);
-
-        % shutdown when asked
-        {stop, _From} ->
-            logging:log("Sweet listener shutting down", []),
-            ok
-    end.
+handle_info({'DOWN', _, process, Pid, _}, State) ->
+    lager:debug("main client process died", []),
+    sweet_awareness:remove(Pid),
+    sweet_owners:remove(Pid),
+    {noreply, State}.
 
 client_count() -> 0.

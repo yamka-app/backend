@@ -16,7 +16,7 @@ start() -> {ok, spawn_link(?MODULE, init, [])}.
 init() ->
     Port = yamka_config:get(tasty_port),
     {ok, Socket} = gen_udp:open(Port, [inet, inet6, binary, {tos, 184}]),
-    logging:log("Tasty listener running (node ~p, port ~p)", [node(), Port]),
+    lager:info("Tasty listener running (node ~p, port ~p)", [node(), Port]),
     register(tasty_listener, self()),
 
     run(#state{socket=Socket}).

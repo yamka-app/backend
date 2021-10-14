@@ -35,7 +35,7 @@ handle_call({add, Id, MainProcess}, _From, State) ->
             {id, Id}
         ]
     }),
-    logging:dbg("~p is now an owner of ~p", [MainProcess, Id]),
+    lager:debug("~p is now an owner of ~p", [MainProcess, Id]),
     {reply, ok, State};
 
 handle_call({remove, Id, MainProcess}, _From, State) ->
@@ -47,7 +47,7 @@ handle_call({remove, Id, MainProcess}, _From, State) ->
             {id, Id}
         ]
     }),
-    logging:dbg("~p is no longer an owner of ~p", [MainProcess, Id]),
+    lager:debug("~p is no longer an owner of ~p", [MainProcess, Id]),
     {reply, ok, State};
 
 handle_call({remove, MainProcess}, _From, State) ->
@@ -58,7 +58,7 @@ handle_call({remove, MainProcess}, _From, State) ->
             {pid, pid_to_list(MainProcess)}
         ]
     }),
-    logging:dbg("~p is no longer an owner of anything", [MainProcess]),
+    lager:debug("~p is no longer an owner of anything", [MainProcess]),
     {reply, ok, State};
 
 handle_call({notify, Id, Entity}, _From, State) ->
@@ -68,7 +68,7 @@ handle_call({notify, Id, Entity}, _From, State) ->
     }),
     Nodes = utils:unique([list_to_existing_atom(Node) || [{node, Node}] <- cqerl:all_rows(Result)]),
     [gen_server:cast({owner_server, Node}, {notify, Id, Entity}) || Node <- Nodes],
-    logging:dbg("broadcasted updates to owners across ~p nodes", [length(Nodes)]),
+    lager:debug("broadcasted updates to owners across ~p nodes", [length(Nodes)]),
     {reply, ok, State};
 
 handle_call(purge, _From, State) ->
@@ -76,7 +76,7 @@ handle_call(purge, _From, State) ->
         statement = "DELETE FROM owners WHERE node=?",
         values = [{node, node()}]
     }),
-    logging:dbg("ownership purged", []),
+    lager:debug("ownership purged", []),
     {reply, ok, State};
 
 handle_call({is_online, Id}, _From, State) ->

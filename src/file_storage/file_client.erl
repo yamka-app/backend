@@ -18,7 +18,7 @@ recv_chunk(Handle, Length) ->
         <<DataChunk/binary>> ->
             Trimmed = binary:part(DataChunk, 0, min(Length, byte_size(DataChunk))),
             ChunkLen = byte_size(Trimmed),
-            logging:dbg("client file transfer: ~p/~p", [ChunkLen, Length]),
+            lager:debug("client file transfer: ~p/~p", [ChunkLen, Length]),
             file:write(Handle, Trimmed),
             if
                 ChunkLen >= Length -> ok;
