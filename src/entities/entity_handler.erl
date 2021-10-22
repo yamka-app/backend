@@ -47,7 +47,8 @@ handle_entity(#entity{type=user, fields=#{id:=0} = F}) ->
             [agent_e:delete(A)          || A <- RemovedAgents],
             [yamka_auth:revoke_agent(A) || A <- RemovedAgents],
             % send updates
-            sweet_main:route_to_owners(get(main), get(id), [id, agents]);
+            sweet_main:route_to_owners(get(main), #entity{type=user, fields=
+                #{id => get(id), agents => agent_e:get_by_user(get(id))}});
         true -> ok
     end,
     none;
