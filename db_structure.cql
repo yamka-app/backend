@@ -1,6 +1,3 @@
-
-Warning: cqlshrc config files were found at both the old location (/root/.cqlshrc) and                 the new location (/root/.cassandra/cqlshrc), the old config file will not be migrated to the new                 location, and the new location will be used for now.  You should manually                 consolidate the config files at the new location and remove the old file.
-
 CREATE KEYSPACE yamkadb WITH replication = {'class': 'SimpleStrategy', 'replication_factor': '3'}  AND durable_writes = true;
 
 CREATE TYPE yamkadb.message_section (
@@ -211,19 +208,19 @@ CREATE TABLE yamkadb.friend_requests (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99.0PERCENTILE';
 
-CREATE MATERIALIZED VIEW yamkadb.friend_requests_by_sender AS
-    SELECT user, subject
+CREATE MATERIALIZED VIEW yamkadb.friend_requests_by_subject AS
+    SELECT subject, user
     FROM yamkadb.friend_requests
     WHERE subject IS NOT null AND user IS NOT null
-    PRIMARY KEY (user, subject)
-    WITH CLUSTERING ORDER BY (subject ASC)
+    PRIMARY KEY (subject, user)
+    WITH CLUSTERING ORDER BY (user ASC)
     AND bloom_filter_fp_chance = 0.01
-    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'ALL'}
     AND comment = ''
-    AND compaction = {'class': 'SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
+    AND compaction = {'class': 'SizeTieredCompactionStrategy'}
     AND compression = {'sstable_compression': 'org.apache.cassandra.io.compress.LZ4Compressor'}
     AND crc_check_chance = 1.0
-    AND dclocal_read_repair_chance = 0.1
+    AND dclocal_read_repair_chance = 0.0
     AND default_time_to_live = 0
     AND gc_grace_seconds = 864000
     AND max_index_interval = 2048
@@ -232,11 +229,11 @@ CREATE MATERIALIZED VIEW yamkadb.friend_requests_by_sender AS
     AND read_repair_chance = 0.0
     AND speculative_retry = '99.0PERCENTILE';
 
-CREATE MATERIALIZED VIEW yamkadb.friend_requests_by_subject AS
+CREATE MATERIALIZED VIEW yamkadb.friend_requests_by_sender AS
     SELECT user, subject
     FROM yamkadb.friend_requests
     WHERE subject IS NOT null AND user IS NOT null
-    PRIMARY KEY (subject, user)
+    PRIMARY KEY (user, subject)
     WITH CLUSTERING ORDER BY (subject ASC)
     AND bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
@@ -326,49 +323,6 @@ CREATE TABLE yamkadb.blob_store (
     AND compression = {'sstable_compression': 'org.apache.cassandra.io.compress.LZ4Compressor'}
     AND crc_check_chance = 1.0
     AND dclocal_read_repair_chance = 0.1
-    AND default_time_to_live = 0
-    AND gc_grace_seconds = 864000
-    AND max_index_interval = 2048
-    AND memtable_flush_period_in_ms = 0
-    AND min_index_interval = 128
-    AND read_repair_chance = 0.0
-    AND speculative_retry = '99.0PERCENTILE';
-
-CREATE TABLE yamkadb.awareness (
-    node text,
-    pid text,
-    type int,
-    id bigint,
-    PRIMARY KEY (node, pid, type, id)
-) WITH CLUSTERING ORDER BY (pid ASC, type ASC, id ASC)
-    AND bloom_filter_fp_chance = 0.01
-    AND caching = {'keys': 'ALL', 'rows_per_partition': 'ALL'}
-    AND comment = ''
-    AND compaction = {'class': 'SizeTieredCompactionStrategy'}
-    AND compression = {'sstable_compression': 'org.apache.cassandra.io.compress.LZ4Compressor'}
-    AND crc_check_chance = 1.0
-    AND dclocal_read_repair_chance = 0.0
-    AND default_time_to_live = 0
-    AND gc_grace_seconds = 864000
-    AND max_index_interval = 2048
-    AND memtable_flush_period_in_ms = 0
-    AND min_index_interval = 128
-    AND read_repair_chance = 0.0
-    AND speculative_retry = '99.0PERCENTILE';
-
-CREATE MATERIALIZED VIEW yamkadb.awareness_by_type_and_id AS
-    SELECT type, id, node, pid
-    FROM yamkadb.awareness
-    WHERE node IS NOT null AND type IS NOT null AND id IS NOT null AND pid IS NOT null
-    PRIMARY KEY ((type, id), node, pid)
-    WITH CLUSTERING ORDER BY (node ASC, pid ASC)
-    AND bloom_filter_fp_chance = 0.01
-    AND caching = {'keys': 'ALL', 'rows_per_partition': 'ALL'}
-    AND comment = ''
-    AND compaction = {'class': 'SizeTieredCompactionStrategy'}
-    AND compression = {'sstable_compression': 'org.apache.cassandra.io.compress.LZ4Compressor'}
-    AND crc_check_chance = 1.0
-    AND dclocal_read_repair_chance = 0.0
     AND default_time_to_live = 0
     AND gc_grace_seconds = 864000
     AND max_index_interval = 2048
@@ -677,48 +631,6 @@ CREATE MATERIALIZED VIEW yamkadb.channels_by_group AS
     AND compression = {'sstable_compression': 'org.apache.cassandra.io.compress.LZ4Compressor'}
     AND crc_check_chance = 1.0
     AND dclocal_read_repair_chance = 0.1
-    AND default_time_to_live = 0
-    AND gc_grace_seconds = 864000
-    AND max_index_interval = 2048
-    AND memtable_flush_period_in_ms = 0
-    AND min_index_interval = 128
-    AND read_repair_chance = 0.0
-    AND speculative_retry = '99.0PERCENTILE';
-
-CREATE TABLE yamkadb.owners (
-    node text,
-    pid text,
-    id bigint,
-    PRIMARY KEY (node, pid, id)
-) WITH CLUSTERING ORDER BY (pid ASC, id ASC)
-    AND bloom_filter_fp_chance = 0.01
-    AND caching = {'keys': 'ALL', 'rows_per_partition': 'ALL'}
-    AND comment = ''
-    AND compaction = {'class': 'SizeTieredCompactionStrategy'}
-    AND compression = {'sstable_compression': 'org.apache.cassandra.io.compress.LZ4Compressor'}
-    AND crc_check_chance = 1.0
-    AND dclocal_read_repair_chance = 0.0
-    AND default_time_to_live = 0
-    AND gc_grace_seconds = 864000
-    AND max_index_interval = 2048
-    AND memtable_flush_period_in_ms = 0
-    AND min_index_interval = 128
-    AND read_repair_chance = 0.0
-    AND speculative_retry = '99.0PERCENTILE';
-
-CREATE MATERIALIZED VIEW yamkadb.owners_by_id AS
-    SELECT id, node, pid
-    FROM yamkadb.owners
-    WHERE node IS NOT null AND id IS NOT null AND pid IS NOT null
-    PRIMARY KEY (id, node, pid)
-    WITH CLUSTERING ORDER BY (node ASC, pid ASC)
-    AND bloom_filter_fp_chance = 0.01
-    AND caching = {'keys': 'ALL', 'rows_per_partition': 'ALL'}
-    AND comment = ''
-    AND compaction = {'class': 'SizeTieredCompactionStrategy'}
-    AND compression = {'sstable_compression': 'org.apache.cassandra.io.compress.LZ4Compressor'}
-    AND crc_check_chance = 1.0
-    AND dclocal_read_repair_chance = 0.0
     AND default_time_to_live = 0
     AND gc_grace_seconds = 864000
     AND max_index_interval = 2048
@@ -1074,4 +986,3 @@ CREATE TABLE yamkadb.dm_channels (
     AND min_index_interval = 128
     AND read_repair_chance = 0.0
     AND speculative_retry = '99.0PERCENTILE';
-

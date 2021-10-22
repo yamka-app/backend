@@ -25,10 +25,10 @@ init([Cassandra]) ->
           start => {stats, start_link, [Cassandra]}},
 
         #{id => awareness_server,
-          start => {sweet_awareness, start_link, [Cassandra]}},
+          start => {sweet_awareness, start_link, []}},
           
         #{id => ownership_server,
-          start => {sweet_owners, start_link, [Cassandra]}},
+          start => {sweet_owners, start_link, []}},
           
         #{id => sweet_dyn_sup, type => supervisor, shutdown => infinity,
           start => {sweet_dyn_sup, start_link, [[Cassandra]]}},

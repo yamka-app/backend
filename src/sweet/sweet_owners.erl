@@ -15,96 +15,53 @@
 -include_lib("cqerl/include/cqerl.hrl").
 
 -export([init/1, handle_call/3, handle_cast/2]).
--export([start_link/1, stop/0,
-         add/2, remove/2, remove/1, notify/2, purge/0,
-         is_online/1]).
+-export([start_link/0, stop/0,
+         add/2, remove/2, remove/1, notify/2, is_online/1]).
 
--record(state, {cassandra}).
+-record(state, {}).
 
 %%% gen_server callbacks
 
-init(Cassandra) ->
-    {ok, #state{cassandra=Cassandra}}.
+init(_) ->
+    ets:new(ownership, [bag, named_table]),
+    {ok, #state{}}.
 
 handle_call({add, Id, MainProcess}, _From, State) ->
-    {ok, _} = cqerl:run_query(State#state.cassandra, #cql_query{
-        statement = "INSERT INTO owners (node, pid, id) values (?, ?, ?)",
-        values = [
-            {node, node()},
-            {pid, pid_to_list(MainProcess)},
-            {id, Id}
-        ]
-    }),
+    ets:insert(ownership, {Id, MainProcess}),
     lager:debug("~p is now an owner of ~p", [MainProcess, Id]),
     {reply, ok, State};
 
 handle_call({remove, Id, MainProcess}, _From, State) ->
-    {ok, _} = cqerl:run_query(State#state.cassandra, #cql_query{
-        statement = "DELETE FROM owners WHERE node=? AND pid=? AND id=?",
-        values = [
-            {node, node()},
-            {pid, pid_to_list(MainProcess)},
-            {id, Id}
-        ]
-    }),
+    ets:delete_object(ownership, {Id, MainProcess}),
     lager:debug("~p is no longer an owner of ~p", [MainProcess, Id]),
     {reply, ok, State};
 
 handle_call({remove, MainProcess}, _From, State) ->
-    {ok, _} = cqerl:run_query(State#state.cassandra, #cql_query{
-        statement = "DELETE FROM owners WHERE node=? AND pid=?",
-        values = [
-            {node, node()},
-            {pid, pid_to_list(MainProcess)}
-        ]
-    }),
+    ets:match_delete(ownership, {'_', MainProcess}),
     lager:debug("~p is no longer an owner of anything", [MainProcess]),
     {reply, ok, State};
 
 handle_call({notify, Id, Entity}, _From, State) ->
-    {ok, Result} = cqerl:run_query(State#state.cassandra, #cql_query{
-        statement = "SELECT node FROM owners_by_id WHERE id=?",
-        values = [{id, Id}]
-    }),
-    Nodes = utils:unique([binary_to_existing_atom(Node) || [{node, Node}] <- cqerl:all_rows(Result)]),
+    Nodes = [node()|nodes()],
     [gen_server:cast({owner_server, Node}, {notify, Id, Entity}) || Node <- Nodes],
     lager:debug("broadcasted updates to owners across ~p nodes", [length(Nodes)]),
     {reply, ok, State};
 
-handle_call(purge, _From, State) ->
-    {ok, _} = cqerl:run_query(State#state.cassandra, #cql_query{
-        statement = "DELETE FROM owners WHERE node=?",
-        values = [{node, node()}]
-    }),
-    lager:debug("ownership purged", []),
-    {reply, ok, State};
-
 handle_call({is_online, Id}, _From, State) ->
-    {ok, Result} = cqerl:run_query(State#state.cassandra, #cql_query{
-        statement = "SELECT count(pid) FROM owners_by_id WHERE id=?",
-        values = [{id, Id}]
-    }),
-    [{'system.count(pid)', Cnt}] = cqerl:head(Result),
-    {reply, Cnt >= 1, State}.
+    Online = ets:lookup(ownership, Id),
+    {reply, length(Online) >= 1, State}.
 
 handle_cast({notify, Id, Entity}, State) ->
-    {ok, Result} = cqerl:run_query(State#state.cassandra, #cql_query{
-        statement = "SELECT pid FROM owners_by_id WHERE id=? AND node=?",
-        values = [
-            {id, Id},
-            {node, node()}
-        ]
-    }),
-    Pids = [list_to_pid(binary_to_list(Pid)) || [{pid, Pid}] <- cqerl:all_rows(Result)],
+    Objects = ets:lookup(ownership, Id),
     Packet = entities_packet:make([Entity]),
-    [sweet_main:transmit(Pid, Packet) || Pid <- Pids],
+    [sweet_main:transmit(Pid, Packet) || {_, Pid} <- Objects],
     {noreply, State}.
 
 %%% API
 
 %% starts the server
--spec start_link(any()) -> gen_server:start_link().
-start_link(Cassandra) -> gen_server:start_link({local, owner_server}, ?MODULE, Cassandra, []).
+-spec start_link() -> gen_server:start_link().
+start_link() -> gen_server:start_link({local, owner_server}, ?MODULE, [], []).
 
 %% stops the server
 -spec stop() -> gen_server:stop().
@@ -125,10 +82,6 @@ remove(MainProcess) -> gen_server:call(owner_server, {remove, MainProcess}).
 %% Notifies all owners about a user update
 -spec notify(integer(), #entity{}) -> ok.
 notify(Id, Entity) -> gen_server:call(owner_server, {notify, Id, Entity}).
-
-%% Forgets all processes bound to this node
--spec purge() -> ok.
-purge() -> gen_server:call(owner_server, purge).
 
 %% Determines if a user is online
 -spec is_online(integer()) -> boolean().
