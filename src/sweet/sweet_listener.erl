@@ -38,7 +38,13 @@ handle_cast(_, State) -> {noreply, State}.
 
 handle_info({new_client, Socket}, State) ->
     lager:debug("client connected", []),
-    sweet_dyn_sup:add_client(Socket),
+    % perform the handshake in a separate process
+    Handshake = fun() ->
+        {ok, TLS} = ssl:handshake(Socket),
+        lager:debug("client handshake complete", []),
+        sweet_dyn_sup:add_client(TLS)
+    end,
+    spawn(Handshake),
     {noreply, State};
 
 handle_info({'DOWN', _, process, Pid, _}, State) ->
