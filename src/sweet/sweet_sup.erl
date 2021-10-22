@@ -12,10 +12,10 @@
 
 start_link(C, S) -> supervisor:start_link(?MODULE, [C, S]).
 
-init([Cassandra, Socket]) ->
+init([Cassandra, Conn={_, _}]) ->
     % we need this "fake_start_link" trickery to link the main process with its
     % companions logically
-    {ok, Main} = sweet_main:start_link(Socket, Cassandra),
+    {ok, Main} = sweet_main:start_link(Conn, Cassandra),
 
     Flags = #{strategy => one_for_one, auto_shutdown => any_significant},
     Children = [
@@ -23,9 +23,9 @@ init([Cassandra, Socket]) ->
           start => {sweet_main, fake_start_link, [Main]}},
 
         #{id => decoder, significant => true, restart => temporary,
-          start => {sweet_decoder, start_link, [Socket, Main]}},
+          start => {sweet_decoder, start_link, [Main, Conn]}},
 
         #{id => encoder, significant => true, restart => temporary,
-          start => {sweet_encoder, start_link, [Socket, Main]}}
+          start => {sweet_encoder, start_link, [Main, Conn]}}
     ],
     {ok, {Flags, Children}}.

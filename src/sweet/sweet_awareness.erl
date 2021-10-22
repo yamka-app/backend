@@ -70,7 +70,7 @@ handle_call({notify, {Type, Id}, #entity{}=Entity}, _From, State) ->
             {id, Id}
         ]
     }),
-    Nodes = utils:unique([list_to_existing_atom(Node) || [{node, Node}] <- cqerl:all_rows(Result)]),
+    Nodes = utils:unique([binary_to_existing_atom(Node) || [{node, Node}] <- cqerl:all_rows(Result)]),
     [gen_server:cast({awareness_server, Node}, {notify, Entity}) || Node <- Nodes],
     lager:debug("broadcasted ~p to ~p nodes", [Entity, length(Nodes)]),
     {reply, ok, State};
@@ -92,9 +92,9 @@ handle_cast({notify, {Type, Id}, #entity{}=Entity}, State) ->
             {node, node()}
         ]
     }),
-    Pids = [list_to_pid(Pid) || [{pid, Pid}] <- cqerl:all_rows(Result)],
+    Pids = [list_to_pid(binary_to_list(Pid)) || [{pid, Pid}] <- cqerl:all_rows(Result)],
     Packet = entities_packet:make([Entity]),
-    [Pid ! {transmit, self(), Packet} || Pid <- Pids],
+    [sweet_main:transmit(Pid, Packet) || Pid <- Pids],
     {noreply, State}.
 
 %%% API

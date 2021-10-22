@@ -15,7 +15,7 @@
 
 %% asserts a connection state
 assert_state(Wanted) ->
-    {_, {ok, Wanted, _}} = {{if_failed, status_packet:make_invalid_state(Wanted)}, sweet_main:get_state(get(main))}.
+    {_, {Wanted, _}} = {{if_failed, status_packet:make_invalid_state(Wanted)}, sweet_main:get_state(get(main))}.
 
 
 %% registers protocol information

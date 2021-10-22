@@ -28,9 +28,12 @@ init(Cassandra) ->
         {verify,     verify_none},
         {reuseaddr,  true},
         {versions,   ['tlsv1.2', 'tlsv1.3']},
-        {active,     false}
+        {active,     false},
+        {mode,       binary},
+        {alpn_preferred_protocols, [<<"aboba">>]} % Asynchronous Binary Object-Based API, the name of the base technology behind Sweet
     ]),
     spawn_link(?MODULE, acceptor_loop, [ListenSocket]),
+    lager:info("Sweet listener running (node ~p, port ~p)", [node(), yamka_config:get(sweet_port)]),
     {ok, #state{cassandra=Cassandra, listen_socket=ListenSocket}}.
 
 handle_call(_, _, State) -> {reply, unknown_request, State}.
@@ -42,7 +45,8 @@ handle_info({new_client, Socket}, State) ->
     Handshake = fun() ->
         {ok, TLS} = ssl:handshake(Socket),
         lager:debug("client handshake complete", []),
-        sweet_dyn_sup:add_client(TLS)
+        {ok, <<ProtoVer:16>>} = ssl:recv(Socket, 2), % read protocol version
+        sweet_dyn_sup:add_client({TLS, ProtoVer})
     end,
     spawn(Handshake),
     {noreply, State};

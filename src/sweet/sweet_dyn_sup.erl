@@ -24,4 +24,4 @@ init([Cassandra]) ->
     }],
     {ok, {Flags, Children}}.
 
-add_client(Socket) -> supervisor:start_child(sweet_dyn_sup, [Socket]).
+add_client(Conn) -> supervisor:start_child(sweet_dyn_sup, [Conn]).

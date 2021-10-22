@@ -9,30 +9,27 @@
 
 -include("../packets/packet.hrl").
 
--export([start/3]).
+-export([start_link/2, loop/2]).
 
-start(Main, Socket, Proto) ->
-    loop(Main, Socket, Proto).
+start_link(Main, Conn) -> {ok, spawn_link(?MODULE, loop, [Main, Conn])}.
 
-loop(Main, Socket, Proto) ->
+loop(Main, Conn={Socket, Proto}) ->
     % read packet
     <<Data/bitstring>> = read_packet_data(Socket),
     Packet = decode_packet_data(Data, Proto),
 
     % send it to the main process
-    Main ! {packet, self(), Packet},
+    sweet_main:packet(Main, Packet),
 
     % repeat
-    loop(Main, Socket, Proto).
+    loop(Main, Conn).
 
 read_packet_data(Socket) ->
     % read the compression header
-    {ok, CHdrList} = ssl:recv(Socket, 4),
-    <<Compressed:8, CompressedLen:24>> = list_to_binary(CHdrList),
+    {ok, <<Compressed:8, CompressedLen:24>>} = ssl:recv(Socket, 4),
 
     % read the (possibly compressed) data header and payload
-    {ok, CDataList} = ssl:recv(Socket, CompressedLen),
-    CData = list_to_binary(CDataList),
+    {ok, CData} = ssl:recv(Socket, CompressedLen),
     if
         Compressed > 0 -> zlib:gunzip(CData);
         true -> CData

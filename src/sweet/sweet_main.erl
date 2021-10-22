@@ -15,7 +15,6 @@
 
 -record(state, {
     encoder :: pid() | nopid,
-    decoder :: pid() | nopid,
     socket :: ssl:socket(),
     cassandra,
     conn_state :: atom(),
@@ -27,16 +26,17 @@
     file_recv_pid :: pid() | nopid
 }).
 
--export([start_link/2, fake_start_link/1, init/1, handle_call/3, handle_cast/2]).
+-export([start_link/2, fake_start_link/1, init/1, handle_call/3, handle_cast/2, handle_info/2]).
 -export([switch_state/2, switch_state/3, send_packet/2, stop/1,
          ratelimit/2, ratelimit/3, get_state/1,
          route_to_aware/2, route_to_aware/3,
          route_to_owners/2, route_to_owners/3,
          get_file_recv_pid/1, set_file_recv_pid/2,
-         get_user_info/1]).
+         get_user_info/1,
+         transmit/2, packet/2]).
 
 fake_start_link(Pid) -> {ok, Pid}.
-start_link(S, C) -> gen_server:start_link(?MODULE, [S, C]).
+start_link(S, C) -> gen_server:start_link(?MODULE, [S, C], []).
 %% starts a main process
 init([Socket, Cassandra]) ->
     % create rate limiters
@@ -51,7 +51,7 @@ init([Socket, Cassandra]) ->
     {ok, #state{
         socket = Socket,
         cassandra = Cassandra,
-        conn_state = awaiting_identification,
+        conn_state = awaiting_login,
         user_info = {},
         mfa_state = {},
         proto_ver = 0,
@@ -75,15 +75,6 @@ handle_call({packet, Packet=#packet{}}, _From, State=#state{user_info=UserInfo, 
     {reply, ok, State};
 
 % switch the state (and possibly the protocol version) of the protocol processes when the handler asks for it
-handle_call({switch_state, awaiting_login, Info={NewVersion, NewCompression}}, _From, State=#state{encoder=Enc, decoder=Dec}) ->
-    % notify the protocol processes
-    Enc ! {identified, Info},
-    Dec ! {identified, Info},
-    {reply, ok, State#state{
-        conn_state = awaiting_login,
-        proto_ver = NewVersion,
-        comp = NewCompression
-    }};
 handle_call({switch_state, awaiting_mfa, NewMfa}, _From, State=#state{}) ->
     {reply, ok, State#state{conn_state = awaiting_mfa, mfa_state = NewMfa}};
 handle_call({switch_state, normal, {Id,_,_}=NewUserInfo}, _From, State=#state{}) ->
@@ -137,12 +128,16 @@ handle_call(stop, _From, State=#state{socket=Socket}) ->
 
 handle_cast(_, State=#state{}) -> {noreply, State}.
 
+handle_info({encoder_pid, Enc}, State=#state{}) ->
+    {noreply, State#state{encoder=Enc}};
+handle_info(_, State) -> {noreply, State}.
+
 %%%
 %%% API
 %%% 
 
 %% switches the connection state
-switch_state(Pid, awaiting_login, Setup={_,_}) -> gen_server:call(Pid, {switch_state, awaiting_login, Setup});
+
 switch_state(Pid, awaiting_mfa, Mfa) -> gen_server:call(Pid, {switch_state, awaiting_mfa, Mfa});
 switch_state(Pid, normal, UserInfo) -> gen_server:call(Pid, {switch_state, normal, UserInfo}).
 switch_state(Pid, Target) -> gen_server:call(Pid, {switch_state, Target}).
@@ -185,6 +180,12 @@ get_user_info(Pid) -> gen_server:call(Pid, get_user_info).
 
 %% sets the file receiver PID
 set_file_recv_pid(Pid, Recv) -> gen_server:call(Pid, {set_recv, Recv}).
+
+%% transmits a packet
+transmit(Pid, Packet) -> gen_server:call(Pid, {transmit, Packet}).
+
+%% processes a packet
+packet(Pid, Packet) -> gen_server:call(Pid, {packet, Packet}).
 
 %% disconnects the client
 stop(Pid) -> gen_server:call(Pid, stop).

@@ -11,7 +11,7 @@
   {env, [
     {sweet_port, 1746},
     {sweet_client_timeout, 30000},
-    {sweet_comp_threshold, 128},
+    {sweet_comp_threshold, 256},
     {sweet_protocol_between, {12, 14}},
     {sweet_file_chunk_size, 4096},
 

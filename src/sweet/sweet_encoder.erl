@@ -9,18 +9,18 @@
 
 -include("../packets/packet.hrl").
 
--export([start/3]).
+-export([start_link/2, init/2]).
 
-start(Main, Socket, SetupData) ->
-    loop(Main, Socket, SetupData).
+start_link(Main, Conn={_, _}) -> {ok, spawn_link(?MODULE, init, [Main, Conn])}.
 
-loop(Main, Socket, SetupData={Proto, Comp}) ->
+init(Main, Conn={_, _}) -> Main ! {encoder_pid, self()}, loop(Main, Conn).
+loop(Main, Conn={Socket, Proto}) ->
     receive
-        {packet, Main, Packet} ->
+        {packet, Packet} ->
             Data = encode_packet_data(Packet, Proto),
-            write_packet_data(Socket, Data, Comp)
+            write_packet_data(Socket, Data)
     end,
-    loop(Main, Socket, SetupData).
+    loop(Main, Conn).
 
 encode_packet_data(Packet, Proto) ->
     #packet{type=Type, seq=Seq, reply=Reply, fields=Fields} = Packet,
@@ -37,9 +37,9 @@ encode_packet_data(Packet, Proto) ->
       Reply:32,
       Payload/binary>>.
 
-write_packet_data(Socket, Data, Comp) ->
+write_packet_data(Socket, Data) ->
     % compress the data
-    ShouldCompress = Comp andalso (byte_size(Data) >= yamka_config:get(sweet_comp_threshold)),
+    ShouldCompress = byte_size(Data) >= yamka_config:get(sweet_comp_threshold),
     Compressed = if
         ShouldCompress -> zlib:gzip(Data);
         true -> Data

@@ -66,7 +66,7 @@ handle_call({notify, Id, Entity}, _From, State) ->
         statement = "SELECT node FROM owners_by_id WHERE id=?",
         values = [{id, Id}]
     }),
-    Nodes = utils:unique([list_to_existing_atom(Node) || [{node, Node}] <- cqerl:all_rows(Result)]),
+    Nodes = utils:unique([binary_to_existing_atom(Node) || [{node, Node}] <- cqerl:all_rows(Result)]),
     [gen_server:cast({owner_server, Node}, {notify, Id, Entity}) || Node <- Nodes],
     lager:debug("broadcasted updates to owners across ~p nodes", [length(Nodes)]),
     {reply, ok, State};
@@ -95,9 +95,9 @@ handle_cast({notify, Id, Entity}, State) ->
             {node, node()}
         ]
     }),
-    Pids = [list_to_pid(Pid) || [{pid, Pid}] <- cqerl:all_rows(Result)],
+    Pids = [list_to_pid(binary_to_list(Pid)) || [{pid, Pid}] <- cqerl:all_rows(Result)],
     Packet = entities_packet:make([Entity]),
-    [Pid ! {transmit, self(), Packet} || Pid <- Pids],
+    [sweet_main:transmit(Pid, Packet) || Pid <- Pids],
     {noreply, State}.
 
 %%% API
