@@ -22,6 +22,7 @@
     {tasty_speaking_ind_threshold, 250},
 
     {email_relay, "mail.yamka.app"},
+    {email_domain, "yamka.app"},
     {stat_interval, 30000},
     {token_ttl, 31536000}, % 1y
     {cassandra, {"scylla", 9042}},

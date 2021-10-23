@@ -39,16 +39,19 @@ terminate(_Reason, _State) -> ok.
 code_change(_OldVsn, State, _Extra) -> {ok, State}.
 
 send_html({Text, Subj}, To, Pass) ->
-    Relay = yamka_config:get(email_relay),
-    gen_smtp_client:send({"noreply@" ++ Relay, [To],
+    Addr = "noreply@" ++ yamka_config:get(email_domain),
+    gen_smtp_client:send({Addr, [To],
         "Subject: " ++ Subj ++ "\r\n"
+        "From: No Reply <" ++ Addr ++ ">\r\n"
+        "To: <" ++ To ++ ">\r\n"
         "Content-Type: text/html;\r\n"
         "\tcharset=UTF-8\r\n\r\n"
         ++ unicode:characters_to_binary(Text)},
         [{relay, yamka_config:get(email_relay)},
-         {username, "noreply"},
+         {username, Addr},
          {password, Pass},
-         {tls, always}]).
+         {ssl, true},
+         {port, 465}]).
 
 is_valid(Email) ->
     {ok, Re} = re:compile(?EMAIL_REGEX, [caseless]),

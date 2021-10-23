@@ -44,8 +44,8 @@ handle_info({new_client, Socket}, State) ->
     % perform the handshake in a separate process
     Handshake = fun() ->
         {ok, TLS} = ssl:handshake(Socket),
-        lager:debug("client handshake complete", []),
         {ok, <<ProtoVer:16>>} = ssl:recv(Socket, 2), % read protocol version
+        lager:debug("client handshake complete (proto ver ~p)", [ProtoVer]),
         sweet_dyn_sup:add_client({TLS, ProtoVer})
     end,
     spawn(Handshake),

@@ -152,7 +152,7 @@ update(Id, Fields) ->
     NameUpdated = maps:is_key(name, Fields),
     if NameUpdated ->
         Name = maps:get(name, Fields),
-        #{groups := Groups, public := IsPublic} = user_e:get(Id, false),
+        #{groups := Groups, public := IsPublic} = user_e:get(Id),
         [group_e:cache_user_name(Group, Id, Name) || Group <- Groups],
         if IsPublic ->
             cache_name(Id, Name);

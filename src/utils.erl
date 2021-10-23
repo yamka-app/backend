@@ -135,9 +135,11 @@ starts_with(Str, Sub) -> string:prefix(Str, Sub) =/= nomatch.
 
 unique(List) -> sets:to_list(sets:from_list(List)).
 
+split_username(Name) when is_binary(Name) -> split_username(binary_to_list(Name));
 split_username(Name) when length(Name) < 3 -> {"", ""};
 split_username(_Name=[A,B,C|Rest]) -> {[A,B,C], Rest}.
 
+split_mask_username(Name) when is_binary(Name) -> split_mask_username(binary_to_list(Name));
 split_mask_username(Name) ->
     {FirstThree, Rest} = split_username(Name),
     SlashEscaped = string:replace(Rest, "\\", "\\\\", all),
