@@ -6,8 +6,7 @@
 ![OTP 24](https://img.shields.io/badge/OTP%20version-24-red)
 ![License](https://img.shields.io/github/license/yamka-app/backend)
 ![Last commit](https://img.shields.io/github/last-commit/yamka-app/backend)
-![Status](https://img.shields.io/uptimerobot/status/m788461709-79464d516b1ef3af81a20454)
-![Uptime (7 days)](https://img.shields.io/uptimerobot/ratio/7/m788461709-79464d516b1ef3af81a20454)
+[![Status page](https://img.shields.io/badge/status%20page-click-brightgreen)](https://stats.uptimerobot.com/KEwr3uqnEB)
 ![Maintainer](https://img.shields.io/badge/maintainer-portasynthinca3-ff69b4)
 
 ## Structure
