@@ -1,4 +1,4 @@
-# Erlang Yamka backend
+# Yamka backend
 
 <img src="promo/logo_color_on_transparency.png" alt="yamka logo" width="256">
 
@@ -11,7 +11,7 @@
 
 ## Structure
 This project consists of three main parts, all of which are open-source, distributed and horizontally scalable:
-  - Custom code in the Erlang programming language (Erlang/OTP version 24)
+  - Custom code in the Erlang programming language (OTP version 24 is required)
   - Database storage and search managed by Scylla, a faster drop-in alternative to Cassandra
   - User-uploaded file storage managed by GlusterFS
 

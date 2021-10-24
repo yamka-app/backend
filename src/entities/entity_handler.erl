@@ -61,14 +61,14 @@ handle_entity(#entity{type=user, fields=#{id:=Id, note:=Note}}) ->
 
 %% puts a file
 handle_entity(#entity{type=file, fields=Fields=#{name:=Name, length:=Length}}) ->
-    {_, {ok, nopid}} = {{if_failed, status_packet:make(one_upload_only,
+    {_, nopid} = {{if_failed, status_packet:make(one_upload_only,
             "Only one concurrent upload is allowed")}, sweet_main:get_file_recv_pid(get(main))},
     MaxSize = file_storage:max_size(),
     EmojiName = maps:get(emoji_name, Fields, ""),
     if
         Length =< MaxSize -> 
             sweet_main:set_file_recv_pid(get(main), file_storage:recv_file(get(seq),
-                {get(socket), get(protocol), self(), get(cassandra)},
+                {get(main), get(cassandra)},
                 {Length, Name, EmojiName})),
             none;
         true ->

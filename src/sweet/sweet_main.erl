@@ -67,7 +67,7 @@ init([Socket, Cassandra]) ->
 
 % handle packets received by the decoder
 handle_call({packet, Packet=#packet{}}, _From, State=#state{user_info=UserInfo, cassandra=Cas}) ->
-    lager:debug("--> ~p", [Packet]),
+    lager:debug("--> ~p", [packet_iface:clear_for_printing(Packet)]),
     Id = case UserInfo of
         {Val, _, _} -> Val;
         _ -> undefined
@@ -85,7 +85,7 @@ handle_call({switch_state, normal, {Id,_,_}=NewUserInfo}, _From, State=#state{})
 % send packets when asked by a packet handler or another main process
 handle_call({transmit, Packet}, _From, State=#state{seq=Seq, encoder=Enc}) ->
     Seqd = Packet#packet{seq=Seq + 1}, % write seq
-    lager:debug("<-- ~p", [Seqd]),
+    lager:debug("<-- ~p", [packet_iface:clear_for_printing(Seqd)]),
     Enc ! {packet, Seqd},
     {reply, ok, State#state{seq=Seq + 1}};
 

@@ -46,7 +46,16 @@ handle_info({new_client, Socket}, State) ->
         {ok, TLS} = ssl:handshake(Socket),
         {ok, <<ProtoVer:16>>} = ssl:recv(Socket, 2), % read protocol version
         lager:debug("client handshake complete (proto ver ~p)", [ProtoVer]),
-        sweet_dyn_sup:add_client({TLS, ProtoVer})
+
+        {Min, Max} = yamka_config:get(sweet_protocol_between),
+        if
+            (ProtoVer > Max) or (ProtoVer < Min) ->
+                lager:debug("unsupported protocol ver ~p (~p <= ver <= ~p)", [ProtoVer, Min, Max]),
+                ssl:close(TLS),
+                lager:debug("client dropped");
+            true ->
+                sweet_dyn_sup:add_client({TLS, ProtoVer})
+        end
     end,
     spawn(Handshake),
     {noreply, State};

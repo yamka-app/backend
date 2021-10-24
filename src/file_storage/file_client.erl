@@ -18,7 +18,7 @@ recv_chunk(Handle, Length) ->
         <<DataChunk/binary>> ->
             Trimmed = binary:part(DataChunk, 0, min(Length, byte_size(DataChunk))),
             ChunkLen = byte_size(Trimmed),
-            lager:debug("client file transfer: ~p/~p", [ChunkLen, Length]),
+            lager:debug("client file upload: ~p/~p", [ChunkLen, Length]),
             file:write(Handle, Trimmed),
             if
                 ChunkLen >= Length -> ok;
@@ -47,8 +47,8 @@ client_init(Main, {send_file, Path, Reply}) ->
     exit(normal);
 
 %% receives a file
-client_init({Socket, Protocol, Host, Cassandra}, {recv_file, Length, Name, EmojiName, Reply}) ->
-    put(socket, Socket), put(protocol, Protocol), put(cassandra, Cassandra),
+client_init({Main, Cassandra}, {recv_file, Length, Name, EmojiName, Reply}) ->
+    put(main, Main), put(cassandra, Cassandra),
 
     sweet_main:send_packet(get(main), status_packet:make(start_uploading, "Start uploading", Reply)),
 
@@ -57,6 +57,6 @@ client_init({Socket, Protocol, Host, Cassandra}, {recv_file, Length, Name, Emoji
     recv_chunk(Handle, Length),
     Id = file_storage:register_file(Path, Name, EmojiName),
     sweet_main:send_packet(get(main), entities_packet:make([#entity{type=file, fields=file_e:get(Id)}], Reply)),
+    sweet_main:set_file_recv_pid(get(main), nopid),
 
-    Host ! upload_fin,
     exit(normal).

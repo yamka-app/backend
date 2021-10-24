@@ -18,23 +18,6 @@ assert_state(Wanted) ->
     {_, {Wanted, _}} = {{if_failed, status_packet:make_invalid_state(Wanted)}, sweet_main:get_state(get(main))}.
 
 
-%% registers protocol information
-handle_packet(#packet{type=identification,
-                      fields = #{supports_comp := SupportsComp,
-                                 protocol := Protocol}}) ->
-    assert_state(awaiting_identification),
-    {Min, Max} = yamka_config:get(sweet_protocol_between),
-
-    if
-        (Protocol > Max) or (Protocol < Min) ->
-            status_packet:make(unsupported_proto, "Unsupported protocol version");
-        true ->
-            % successful
-            sweet_main:switch_state(get(main), awaiting_login, {Protocol, SupportsComp}),
-            none
-    end;
-
-
 %% acquires an access token
 handle_packet(#packet{type=login,
                       fields = #{email := Email,
@@ -174,7 +157,7 @@ handle_packet(#packet{type = file_download_request,
 handle_packet(#packet{type = file_data_chunk,
                       fields = #{data := Data}}) ->
     assert_state(normal),
-    {ok, RecvPid} = sweet_main:get_file_recv_pid(get(main)),
+    RecvPid = sweet_main:get_file_recv_pid(get(main)),
     RecvPid ! Data,
     none;
 
