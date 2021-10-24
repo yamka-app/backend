@@ -90,11 +90,9 @@ handle_entity(#entity{type=file, fields=#{id:=Id, emoji_name:=Name}}) ->
 
 %% (re-)sets the typing status
 handle_entity(#entity{type=channel, fields=#{id:=Id, typing:=[0]}}) ->
-    channel_e:set_typing(Id, get(id)),
     sweet_main:route_to_aware(get(main), {channel, Id}, [id, typing]),
     none;
 handle_entity(#entity{type=channel, fields=#{id:=Id, typing:=[]}}) ->
-    channel_e:reset_typing(Id, get(id)),
     sweet_main:route_to_aware(get(main), {channel, Id}, [id, typing]),
     none;
 
@@ -168,10 +166,11 @@ handle_entity(#entity{type=message,       fields=#{id:=0, channel:=Channel, late
     Mentions = message_state_e:parse_mentions(Filtered),
     % create entities
     {MsgId, _} = message_e:create(Channel, get(id)),
+    message_state_e:create(MsgId, Filtered),
     % register mentions
     [channel_e:add_mention(Channel, User, MsgId) || User <- Mentions],
     % broadcast the message
-    sweet_main:route_entity(get(main), {aware, {channel, Channel}}, entity:get_record(message, MsgId)),
+    sweet_main:route_entity(get(main), {aware, {channel, Channel}}, message_e:get_full_record(MsgId)),
     none;
 
 
@@ -188,7 +187,7 @@ handle_entity(#entity{type=message,       fields=#{channel:=Channel, latest:=
     {MsgId, _} = message_e:create(Channel, get(id)),
     message_state_e:create(MsgId, Encrypted),
     % broadcast the message
-    sweet_main:route_entity(get(main), {aware, {channel, Channel}}, entity:get_record(message, MsgId)),
+    sweet_main:route_entity(get(main), {aware, {channel, Channel}}, message_e:get_full_record(MsgId)),
     none;
 
 
@@ -204,7 +203,7 @@ handle_entity(#entity{type=message,       fields=#{id:=Id, latest:=
         SelfSent},
 
     message_state_e:create(Id, message_state_e:filter_sections(Sections)),
-    sweet_main:route_entity(get(main), {aware, {channel, Channel}}, entity:get_record(message, Id)),
+    sweet_main:route_entity(get(main), {aware, {channel, Channel}}, message_e:get_full_record(Id)),
     none;
 
 
@@ -220,7 +219,7 @@ handle_entity(#entity{type=message,       fields=#{id:=Id, latest:=
         SelfSent},
 
     message_state_e:create(Id, Encrypted),
-    sweet_main:route_entity(get(main), {aware, {channel, Channel}}, entity:get_record(message, Id)),
+    sweet_main:route_entity(get(main), {aware, {channel, Channel}}, message_e:get_full_record(Id)),
     none;
 
 
@@ -485,8 +484,7 @@ handle_get_request(#entity_get_rq{type=channel, id=Id, pagination=none, context=
     sweet_awareness:add({channel, Id}, get(main)),
     #entity{type=channel, fields=maps:merge(
         maps:merge(Filtered, AddMap),
-        #{typing   => channel_e:get_typing(Id),
-          mentions => Mentions})};
+        #{typing => [], mentions => Mentions})};
 
 
 %% gets channel messages

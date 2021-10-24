@@ -118,8 +118,12 @@ find_users(Id, Name, Max) ->
 
 cache_user_name(Id, User, Name) ->
     {FirstThree, Rest} = utils:split_username(Name),
+    % can't use an UPDATE here :(
     {ok, _} = cqerl:run_query(erlang:get(cassandra), #cql_query{
-        statement = "UPDATE group_user_names SET first_three=?, rest=? WHERE group=? AND id=?",
+        statement = "BEGIN BATCH "
+            "DELETE FROM group_user_names WHERE group=? AND id=?;"
+            "INSERT INTO group_user_names(group, id, first_three, rest) VALUES(?,?,?,?);"
+            "APPLY BATCH",
         values = [
             {group, Id},
             {id, User},

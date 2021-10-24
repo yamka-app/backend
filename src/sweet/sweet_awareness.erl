@@ -44,7 +44,7 @@ handle_call({remove, MainProcess}, _From, State) ->
 handle_call({notify, Key={_Type, _Id}, #entity{}=Entity}, _From, State) ->
     Nodes = [node()|nodes()],
     [gen_server:cast({awareness_server, Node}, {notify, Key, Entity}) || Node <- Nodes],
-    lager:debug("broadcasted ~p to ~p nodes", [Entity, Nodes]),
+    lager:debug("broadcasted ~p to ~p nodes", [Entity, length(Nodes)]),
     {reply, ok, State}.
 
 handle_cast({notify, Key={_Type, _Id}, #entity{}=Entity}, State) ->

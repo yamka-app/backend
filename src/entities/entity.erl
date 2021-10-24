@@ -14,7 +14,7 @@
 
 get_record(Type, Id) ->
     Module = list_to_existing_atom(atom_to_list(Type) ++ "_e"),
-    #entity{type=Type, fields=(Module):get(Id)}.
+    #entity{type=Type, fields=Module:get(Id)}.
 
 structure(Proto, EntityType) ->
     #{Proto := #{EntityType := Structure}} = ?ENTITY_STRUCTURE,

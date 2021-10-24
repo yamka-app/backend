@@ -13,7 +13,6 @@
 -export([get_dm/1, get_messages/4]).
 -export([set_unread/3, get_unread/2]).
 -export([add_mention/3, forget_mentions/2, get_mentions/2]).
--export([get_typing/1, set_typing/2, reset_typing/2]).
 
 %% gets a channel by ID
 get(Id) ->
@@ -136,18 +135,3 @@ delete(Id) ->
         statement = Statement,
         values    = [{id, Id}]
     }).
-
-%% gets the users that are typing
-get_typing_filter([]) -> [];
-get_typing_filter([{_, {User, Time}}|T]) ->
-    MsSince = utils:ms_since(Time),
-    Thres = yamka_config:get(typing_reset_threshold),
-    if MsSince >= Thres -> get_typing_filter(T);
-       true -> [User|get_typing_filter(T)]
-    end.
-get_typing(Id) -> get_typing_filter(ets:lookup(typing, Id)).
-
-%% adds a user to the typing list
-set_typing(Id, User) -> ets:insert(typing, {Id, {User, erlang:monotonic_time()}}).
-%% removes a user from the typing list
-reset_typing(Id, User) -> ets:match_delete(typing, {Id, {User, '_'}}).

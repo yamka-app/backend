@@ -8,9 +8,11 @@
 -description("The message entity").
 
 -include_lib("cqerl/include/cqerl.hrl").
+-include("entity.hrl").
 
 -export([get/1, create/2, delete/1]).
 -export([get_states/1, get_latest_state/1]).
+-export([get_full_record/1]).
 
 %% gets a message by ID
 get(Id) ->
@@ -20,6 +22,13 @@ get(Id) ->
     }),
     1 = cqerl:size(Rows),
     maps:from_list(cqerl:head(Rows)).
+
+get_full_record(Id) ->
+    States = get_states(Id),
+    #entity{type=message, fields=maps:merge(message_e:get(Id), #{
+        states => States,
+        latest => entity:get_record(message_state, lists:last(States))
+    })}.
 
 %% creates a message
 create(Channel, Sender) ->

@@ -53,7 +53,7 @@ register_file(Path, Name, EmojiName) ->
     file:delete(Path),
     % store it in the DB
     {ok, _} = cqerl:run_query(get(cassandra), #cql_query{
-        statement = "INSERT INTO blob_store (id, name, preview, pixel_size, length) VALUES (?, ?, ?, ?, ?)",
+        statement = "INSERT INTO blob_store (id, name, preview, pixel_size, length, emoji_name) VALUES (?,?,?,?,?)",
         values    = [
             {id,         Id},
             {name,       Name},

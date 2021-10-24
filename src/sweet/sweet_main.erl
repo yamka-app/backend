@@ -29,6 +29,7 @@
 -export([start_link/2, fake_start_link/1, init/1, handle_call/3, handle_cast/2, handle_info/2]).
 -export([switch_state/2, switch_state/3, send_packet/2, stop/1,
          ratelimit/2, ratelimit/3, get_state/1,
+         route_entity/3, route_entity/4,
          route_to_aware/2, route_to_aware/3,
          route_to_owners/2, route_to_owners/3,
          get_file_recv_pid/1, set_file_recv_pid/2,
