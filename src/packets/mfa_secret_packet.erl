@@ -7,9 +7,9 @@
 -license("MPL-2.0").
 
 -include("packet.hrl").
--export([encode/2, decode/2, make/2]).
+-export([encode/2, decode/2, make/1]).
 
 encode(F, Proto) when Proto >= 5 -> datatypes:enc_str(maps:get(secret, F)).
 decode(P, Proto) when Proto >= 5 -> #{secret => datatypes:dec_str(P)}.
 
-make(T, R) -> #packet{type = mfa_secret, reply = R, fields = #{secret => T}}.
+make(T) -> #packet{type = mfa_secret, fields = #{secret => T}}.

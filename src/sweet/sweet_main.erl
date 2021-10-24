@@ -34,7 +34,7 @@
          route_to_owners/2, route_to_owners/3,
          get_file_recv_pid/1, set_file_recv_pid/2,
          get_user_info/1,
-         transmit/2, packet/2]).
+         packet/2]).
 
 fake_start_link(Pid) -> {ok, Pid}.
 start_link(S, C) -> gen_server:start_link(?MODULE, [S, C], []).
@@ -76,18 +76,13 @@ handle_call({packet, Packet=#packet{}}, _From, State=#state{user_info=UserInfo, 
     {reply, ok, State};
 
 % switch the state (and possibly the protocol version) of the protocol processes when the handler asks for it
+handle_call({switch_state, awaiting_login}, _From, State=#state{}) ->
+    {reply, ok, State#state{conn_state = awaiting_login}};
 handle_call({switch_state, awaiting_mfa, NewMfa}, _From, State=#state{}) ->
     {reply, ok, State#state{conn_state = awaiting_mfa, mfa_state = NewMfa}};
 handle_call({switch_state, normal, {Id,_,_}=NewUserInfo}, _From, State=#state{}) ->
     sweet_owners:add(Id, self()),
     {reply, ok, State#state{conn_state = normal, user_info = NewUserInfo}};
-
-% send packets when asked by a packet handler or another main process
-handle_call({transmit, Packet}, _From, State=#state{seq=Seq, encoder=Enc}) ->
-    Seqd = Packet#packet{seq=Seq + 1}, % write seq
-    lager:debug("<-- ~p", [packet_iface:clear_for_printing(Seqd)]),
-    Enc ! {packet, Seqd},
-    {reply, ok, State#state{seq=Seq + 1}};
 
 % route an entity to another main process when asked by a handler process of ours
 handle_call({route, {aware, {_Type, _Id}=Spec}, Entity}, _From, State=#state{}) ->
@@ -127,7 +122,16 @@ handle_call(stop, _From, State=#state{socket=Socket}) ->
     ssl:close(Socket),
     {stop, asked_to, ok, State}.
 
+
+% send packets when asked by a packet handler or another main process
+handle_cast({transmit, Packet}, State=#state{seq=Seq, encoder=Enc}) ->
+    Seqd = Packet#packet{seq=Seq + 1}, % write seq
+    lager:debug("<-- ~p", [packet_iface:clear_for_printing(Seqd)]),
+    Enc ! {packet, Seqd},
+    {noreply, State#state{seq=Seq + 1}};
+
 handle_cast(_, State=#state{}) -> {noreply, State}.
+
 
 handle_info({encoder_pid, Enc}, State=#state{}) ->
     {noreply, State#state{encoder=Enc}};
@@ -144,7 +148,7 @@ switch_state(Pid, normal, UserInfo) -> gen_server:call(Pid, {switch_state, norma
 switch_state(Pid, Target) -> gen_server:call(Pid, {switch_state, Target}).
 
 %% sends a packet to the connected user
-send_packet(Pid, P) -> gen_server:call(Pid, {transmit, P}).
+send_packet(Pid, P) -> gen_server:cast(Pid, {transmit, P}).
 
 %% routes an entity using the destination spec
 route_entity(Pid, DestSpec, E=#entity{fields=F}, Allowed) ->
@@ -185,9 +189,6 @@ get_user_info(Pid) -> gen_server:call(Pid, get_user_info).
 
 %% sets the file receiver PID
 set_file_recv_pid(Pid, Recv) -> gen_server:call(Pid, {set_recv, Recv}).
-
-%% transmits a packet
-transmit(Pid, Packet) -> gen_server:call(Pid, {transmit, Packet}).
 
 %% processes a packet
 packet(Pid, Packet) -> gen_server:call(Pid, {packet, Packet}).

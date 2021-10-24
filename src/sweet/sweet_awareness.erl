@@ -42,15 +42,15 @@ handle_call({remove, MainProcess}, _From, State) ->
     {reply, ok, State};
 
 handle_call({notify, Key={_Type, _Id}, #entity{}=Entity}, _From, State) ->
-    Nodes = [node()|nodes()],
-    [gen_server:cast({awareness_server, Node}, {notify, Key, Entity}) || Node <- Nodes],
+    Nodes = [node() | nodes()],
+    gen_server:abcast(Nodes, awareness_server, {notify, Key, Entity}),
     lager:debug("broadcasted ~p to ~p nodes", [Entity, length(Nodes)]),
     {reply, ok, State}.
 
 handle_cast({notify, Key={_Type, _Id}, #entity{}=Entity}, State) ->
     Objects = ets:lookup(awareness, Key),
     Packet = entities_packet:make([Entity]),
-    [sweet_main:transmit(Pid, Packet) || {_, Pid} <- Objects],
+    [sweet_main:send_packet(Pid, Packet) || {_, Pid} <- Objects],
     {noreply, State}.
 
 %%% API

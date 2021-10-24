@@ -65,11 +65,9 @@ handle_packet(#packet{type=mfa_secret,
             sweet_main:ratelimit(get(main), login)},
 
     % verify sent token
-    {_, true} = {{get(scope), status_packet:make(login_error, "Invalid 2FA token")},
-            yamka_auth:totp_verify(get(mfa_secret), Token)},
-
-    % get prevviously stored metadata
-    {ok, _, {_, Agent, Perms, _}} = sweet_main:get_state(get(main)),
+    {_, {Id, Agent, Perms, Secret}} = sweet_main:get_state(get(main)),
+    {_, true} = {{if_failed, status_packet:make(login_error, "Invalid 2FA token")},
+            yamka_auth:totp_verify(Secret, Token)},
 
     % update state
     sweet_main:switch_state(get(main), awaiting_mfa, {}), % erase MFA state

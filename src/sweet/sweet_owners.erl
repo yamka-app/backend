@@ -42,8 +42,8 @@ handle_call({remove, MainProcess}, _From, State) ->
     {reply, ok, State};
 
 handle_call({notify, Id, Entity}, _From, State) ->
-    Nodes = [node()|nodes()],
-    [gen_server:cast({owner_server, Node}, {notify, Id, Entity}) || Node <- Nodes],
+    Nodes = [node() | nodes()],
+    gen_server:abcast(Nodes, owner_server, {notify, Id, Entity}),
     lager:debug("broadcasted updates to owners across ~p nodes", [length(Nodes)]),
     {reply, ok, State};
 
@@ -54,7 +54,7 @@ handle_call({is_online, Id}, _From, State) ->
 handle_cast({notify, Id, Entity}, State) ->
     Objects = ets:lookup(ownership, Id),
     Packet = entities_packet:make([Entity]),
-    [sweet_main:transmit(Pid, Packet) || {_, Pid} <- Objects],
+    [sweet_main:send_packet(Pid, Packet) || {_, Pid} <- Objects],
     {noreply, State}.
 
 %%% API
